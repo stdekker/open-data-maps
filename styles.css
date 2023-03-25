@@ -1,0 +1,31 @@
+body {
+  font-family: sans-serif;
+}
+#map {
+  height: 100vh;
+  width: calc(100% - 250px);
+  float: left;
+}
+#sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 250px;
+  background-color: #f0f0f0;
+  padding: 10px;
+  float: left;
+}
+#sidebar ul {
+  list-style: none;
+  padding: 1rem;
+  margin: 0;
+}
+#sidebar li {
+  margin-bottom: 10px;
+  display: block;
+}
+#sidebar li a {
+  padding: .2rem;
+  display: block;
+}
