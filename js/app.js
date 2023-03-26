@@ -1,6 +1,3 @@
-var input = document.getElementById('autocomplete-input');
-var options = document.querySelectorAll('#cities option');
-
 // Start in amsterdam
 var map = L.map('map').setView([52.3676, 4.9041], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
