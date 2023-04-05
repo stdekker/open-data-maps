@@ -1,10 +1,31 @@
 // Start in Amsterdam
-var map = L.map('map').setView([52.3676, 4.9041], 13);
+var map = L.map('map').setView([52.3676, 4.9041], 18);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
   maxZoom: 12,
 }).addTo(map);
+
+// Load the GeoJSON file
+fetch('data/gemeenten.json')
+  .then((response) => response.json())
+  .then((data) => {
+    // Create a Leaflet layer from the GeoJSON data
+    const municipalityLayer = L.geoJSON(data, {
+      // Set the style of the municipality borders
+      style: {
+        color: 'red',
+        weight: .5,
+        fillOpacity: 0,
+      },
+    });
+
+    // Add the layer to the map
+    municipalityLayer.addTo(map);
+  })
+  .catch((error) => {
+    console.error('Error fetching municipality data:', error);
+  });
 
 // Attach event listener to parent element using event delegation
 let selector = document.getElementById('city');
