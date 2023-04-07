@@ -24,9 +24,9 @@ function dataMapActions(data) {
       const color = getColor(feature.properties.aantalInwoners);
       return {
         fillColor: color,
-        fillOpacity: 0.5,
-        color: 'black',
-        weight: 0.2,
+        fillOpacity: 0.75,
+        color: chroma(color).darken().hex(),
+        weight: .5,
       };
     },
     // Filter out polygons with water: ja
@@ -52,7 +52,8 @@ function dataMapActions(data) {
           layer.selected = !layer.selected;
           if (layer.selected) {
             layer.setStyle({
-              fillColor: 'white',
+              fillColor: 'yellow',
+              color: chroma('yellow').darken().hex(),
             });
           } else {
             municipalityLayer.resetStyle(layer);
