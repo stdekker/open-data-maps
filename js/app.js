@@ -3,7 +3,7 @@ var map = L.map('map').setView([52.3676, 4.9041], 18);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-  maxZoom: 12,
+  maxZoom: 9,
 }).addTo(map);
 
 // Load the GeoJSON file
@@ -14,28 +14,32 @@ fetch('data/gemeenten.json')
     const municipalityLayer = L.geoJSON(data, {
       // Set the style of the municipality borders
       style: {
-        color: 'red',
-        weight: .5,
+        color: '#555555',
+        weight: 0.5,
         fillOpacity: 0,
       },
+      // Filter out polygons with water: ja
+      filter: function (feature, layer) {
+        return feature.properties.water !== 'JA';
+      },
       // Add event listeners for mouseover and mouseout
-      onEachFeature: function(feature, layer) {
+      onEachFeature: function (feature, layer) {
         layer.on({
-          mouseover: function(e) {
+          mouseover: function (e) {
             layer.setStyle({
               fillColor: 'blue',
               fillOpacity: 0.5,
-              color: 'black'
+              color: 'black',
             });
           },
-          mouseout: function(e) {
+          mouseout: function (e) {
             municipalityLayer.resetStyle(layer);
           },
-          click: function(e) {
+          click: function (e) {
             console.log(feature.properties.gemeentenaam);
-          }
+          },
         });
-      }
+      },
     });
 
     // Add the layer to the map
@@ -67,6 +71,7 @@ fetch('data/cities.json')
       option.text = cityName;
       selector.appendChild(option);
     }
+
     selector.value = 'Amsterdam';
 
     // Select a Municipality via the dropdown
