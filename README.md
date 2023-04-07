@@ -1,4 +1,4 @@
-# Open Election Maps
+# Open Data Maps
 
 Source gemeenten GeoJSon
 https://nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/70c52fd8-6b2e-42aa-873a-742711903243

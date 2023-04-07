@@ -18,6 +18,24 @@ fetch('data/gemeenten.json')
         weight: .5,
         fillOpacity: 0,
       },
+      // Add event listeners for mouseover and mouseout
+      onEachFeature: function(feature, layer) {
+        layer.on({
+          mouseover: function(e) {
+            layer.setStyle({
+              fillColor: 'blue',
+              fillOpacity: 0.5,
+              color: 'black'
+            });
+          },
+          mouseout: function(e) {
+            municipalityLayer.resetStyle(layer);
+          },
+          click: function(e) {
+            console.log(feature.properties.gemeentenaam);
+          }
+        });
+      }
     });
 
     // Add the layer to the map
