@@ -35,3 +35,7 @@ h1 {
   padding: 0.2rem;
   display: block;
 }
+footer p {
+  font-size: .7rem;
+  color: #aaa;
+}
