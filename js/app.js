@@ -1,53 +1,84 @@
-// Start in Amsterdam
-var map = L.map('map').setView([52.3676, 4.9041], 18);
+// Initialize the map
+var map = L.map('map').setView([52.3676, 4.9041], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-  maxZoom: 9,
+  maxZoom: 14,
 }).addTo(map);
 
 // Load the GeoJSON file
-fetch('data/gemeenten.json')
+fetch('data/geo/gemeenten.json')
   .then((response) => response.json())
   .then((data) => {
-    // Create a Leaflet layer from the GeoJSON data
-    const municipalityLayer = L.geoJSON(data, {
-      // Set the style of the municipality borders
-      style: {
-        color: '#555555',
-        weight: 0.5,
-        fillOpacity: 0,
-      },
-      // Filter out polygons with water: ja
-      filter: function (feature, layer) {
-        return feature.properties.water !== 'JA';
-      },
-      // Add event listeners for mouseover and mouseout
-      onEachFeature: function (feature, layer) {
-        layer.on({
-          mouseover: function (e) {
-            layer.setStyle({
-              fillColor: 'blue',
-              fillOpacity: 0.5,
-              color: 'black',
-            });
-          },
-          mouseout: function (e) {
-            municipalityLayer.resetStyle(layer);
-          },
-          click: function (e) {
-            console.log(feature.properties.gemeentenaam);
-          },
-        });
-      },
-    });
-
-    // Add the layer to the map
-    municipalityLayer.addTo(map);
+    dataMapActions(data);
   })
   .catch((error) => {
     console.error('Error fetching municipality data:', error);
   });
+
+// actions on the Map
+function dataMapActions(data) {
+  // Create a Leaflet layer from the GeoJSON data
+  const municipalityLayer = L.geoJSON(data, {
+    style: function (feature) {
+      const color = getColor(feature.properties.aantalInwoners);
+      return {
+        fillColor: color,
+        fillOpacity: 0.5,
+        color: 'black',
+        weight: 0.2,
+      };
+    },
+    // Filter out polygons with water: ja
+    filter: function (feature, layer) {
+      return feature.properties.water !== 'JA';
+    },
+    // Add event listeners for mouseover and mouseout
+    onEachFeature: function (feature, layer) {
+      layer.on({
+        mouseover: function (e) {
+          if (!layer.selected) {
+            layer.setStyle({
+              fillColor: 'blue',
+            });
+          }
+        },
+        mouseout: function (e) {
+          if (!layer.selected) {
+            municipalityLayer.resetStyle(layer);
+          }
+        },
+        click: function (e) {
+          layer.selected = !layer.selected;
+          if (layer.selected) {
+            layer.setStyle({
+              fillColor: 'white',
+            });
+          } else {
+            municipalityLayer.resetStyle(layer);
+          }
+          // Calculate total aantalInwoners for selected municipalities
+          var selectedFeatures = municipalityLayer
+            .getLayers()
+            .filter(function (l) {
+              return l.selected;
+            });
+          var totalAantalInwoners = selectedFeatures.reduce(function (
+            acc,
+            cur
+          ) {
+            return acc + cur.feature.properties.aantalInwoners;
+          },
+          0);
+          console.log('Inwoners:', totalAantalInwoners);
+        },
+      });
+    },
+  });
+
+  // Add the layer to the map
+  municipalityLayer.addTo(map);
+}
 
 // Attach event listener to parent element using event delegation
 let selector = document.getElementById('city');
@@ -109,3 +140,9 @@ var geojsonLayer = L.geoJSON(null, {
     };
   },
 });
+
+// Support functions
+function getColor(number, min = 0, max = 150000) {
+  const colorScale = chroma.scale(['yellow', 'red']).domain([min, max]);
+  return colorScale(number);
+}
