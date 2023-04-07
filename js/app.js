@@ -7,7 +7,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 // Load the GeoJSON file
-fetch('data/geo/gemeenten.json')
+fetch('data/geo/gemeenten_2022_v1.json')
   .then((response) => response.json())
   .then((data) => {
     dataMapActions(data);
@@ -57,20 +57,7 @@ function dataMapActions(data) {
           } else {
             municipalityLayer.resetStyle(layer);
           }
-          // Calculate total aantalInwoners for selected municipalities
-          var selectedFeatures = municipalityLayer
-            .getLayers()
-            .filter(function (l) {
-              return l.selected;
-            });
-          var totalAantalInwoners = selectedFeatures.reduce(function (
-            acc,
-            cur
-          ) {
-            return acc + cur.feature.properties.aantalInwoners;
-          },
-          0);
-          console.log('Inwoners:', totalAantalInwoners);
+          calculateTotalData(municipalityLayer);
         },
       });
     },
@@ -78,6 +65,21 @@ function dataMapActions(data) {
 
   // Add the layer to the map
   municipalityLayer.addTo(map);
+  calculateTotalData(municipalityLayer);
+
+  // Add the "Clear Selection" button to the HTML <div>
+  const clearButton = document.getElementById('dataClear');
+
+  clearButton.addEventListener('click', function () {
+    // Deselect all selected layers
+    municipalityLayer.getLayers().forEach(function (layer) {
+      if (layer.selected) {
+        layer.selected = false;
+        municipalityLayer.resetStyle(layer);
+        calculateTotalData(municipalityLayer);
+      }
+    });
+  });
 }
 
 // Attach event listener to parent element using event delegation
@@ -114,27 +116,27 @@ fetch('data/cities.json')
         if (option.value === value) {
           var cityData = cityLocations[value];
           // Change view to Lat Long
-          map.setView([cityData.lat, cityData.lng], 13);
-          // Fetch gemeentegrenzen GeoJSON-bestand
-          fetch('data/amsterdam.json')
-            .then((response) => response.json())
-            .then((data) => {
-              // Wis de bestaande gemeentegrenzen op de kaart
-              geojsonLayer.clearLayers();
-              // Voeg de nieuwe gemeentegrenzen toe aan de kaart
-              geojsonLayer.addData(data).addTo(map);
-            });
+          map.setView([cityData.lat, cityData.lng], 9);
+          if (value === 'Amsterdam') {
+            // Fetch gemeentegrenzen GeoJSON-bestand
+            fetch('data/amsterdam.json')
+              .then((response) => response.json())
+              .then((data) => {
+                // Wis de bestaande gemeentegrenzen op de kaart
+                wijkLayer.clearLayers();
+                // Voeg de nieuwe gemeentegrenzen toe aan de kaart
+                wijkLayer.addData(data).addTo(map);
+              });
+          }
           break;
         }
       }
     });
   });
 
-var geojsonLayer = L.geoJSON(null, {
+var wijkLayer = L.geoJSON(null, {
   style: function (feature) {
     return {
-      fillColor: 'gray',
-      fillOpacity: 0.2,
       weight: 1,
       color: 'black',
     };
@@ -142,7 +144,34 @@ var geojsonLayer = L.geoJSON(null, {
 });
 
 // Support functions
-function getColor(number, min = 0, max = 150000) {
-  const colorScale = chroma.scale(['yellow', 'red']).domain([min, max]);
+function getColor(number, min = 0, max = 250000) {
+  const colorScale = chroma
+    .scale([
+      '#ffffe0',
+      '#ffe6b3',
+      '#ffce93',
+      '#ffb57e',
+      '#ff9d70',
+      '#fb8567',
+      '#f16c5f',
+      '#e45457',
+      '#d43b4c',
+      '#c0233c',
+      '#a80c25',
+      '#8b0000',
+    ])
+    .domain([min, max]);
   return colorScale(number);
+}
+
+function calculateTotalData(layer) {
+  // Calculate total aantalInwoners for selected municipalities
+  var selectedFeatures = layer.getLayers().filter(function (l) {
+    return l.selected;
+  });
+  var totalAantalInwoners = selectedFeatures.reduce(function (acc, cur) {
+    return acc + cur.feature.properties.aantalInwoners;
+  }, 0);
+  document.getElementById('dataView').innerHTML =
+    'Inwoners: ' + totalAantalInwoners.toLocaleString('nl-NL');
 }
