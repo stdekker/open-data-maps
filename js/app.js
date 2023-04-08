@@ -1,5 +1,7 @@
 // Initialize the map
 var map = L.map('map').setView([52.3676, 4.9041], 8);
+var municipalityLayer;
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -10,23 +12,25 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 fetch('data/geo/gemeenten_2022_v1.json')
   .then((response) => response.json())
   .then((data) => {
+    // Draw the map part of the interface
     dataMapActions(data);
+    sidebarActions(data);
   })
   .catch((error) => {
     console.error('Error fetching municipality data:', error);
   });
 
-// actions on the Map
+// Actions to perform on the Map when data is loaded
 function dataMapActions(data) {
   // Create a Leaflet layer from the GeoJSON data
-  const municipalityLayer = L.geoJSON(data, {
+  municipalityLayer = L.geoJSON(data, {
     style: function (feature) {
-      const color = getColor(feature.properties.aantalInwoners);
+      var color = getColor(feature.properties.aantalInwoners);
       return {
         fillColor: color,
         fillOpacity: 0.75,
         color: chroma(color).darken().hex(),
-        weight: .5,
+        weight: 0.5,
       };
     },
     // Filter out polygons with water: ja
@@ -67,25 +71,22 @@ function dataMapActions(data) {
   // Add the layer to the map
   municipalityLayer.addTo(map);
   calculateTotalData(municipalityLayer);
-
-  // Add the "Clear Selection" button to the HTML <div>
-  const clearButton = document.getElementById('dataClear');
-
-  clearButton.addEventListener('click', function () {
-    // Deselect all selected layers
-    municipalityLayer.getLayers().forEach(function (layer) {
-      if (layer.selected) {
-        layer.selected = false;
-        municipalityLayer.resetStyle(layer);
-        calculateTotalData(municipalityLayer);
-      }
-    });
-  });
 }
 
+// Add a listener to "Clear Selection" button
+const clearButton = document.getElementById('dataClear');
+clearButton.addEventListener('click', function () {
+  // Deselect all selected layers
+  municipalityLayer.getLayers().forEach(function (layer) {
+    if (layer.selected) {
+      layer.selected = false;
+      municipalityLayer.resetStyle(layer);
+      calculateTotalData(municipalityLayer);
+    }
+  });
+});
+
 // Attach event listener to parent element using event delegation
-let selector = document.getElementById('city');
-let cityLocations = {};
 
 fetch('data/cities.json')
   .then((response) => response.json())
@@ -98,41 +99,7 @@ fetch('data/cities.json')
       };
     });
 
-    // Add the city Names to the select input
-    for (cityName in cityLocations) {
-      const option = document.createElement('option');
-      option.value = cityName;
-      option.text = cityName;
-      selector.appendChild(option);
-    }
-
     selector.value = 'Amsterdam';
-
-    // Select a Municipality via the dropdown
-    selector.addEventListener('change', function () {
-      var value = this.value;
-      var options = document.querySelectorAll('#city option');
-      for (var i = 0; i < options.length; i++) {
-        var option = options[i];
-        if (option.value === value) {
-          var cityData = cityLocations[value];
-          // Change view to Lat Long
-          map.setView([cityData.lat, cityData.lng], 9);
-          if (value === 'Amsterdam') {
-            // Fetch gemeentegrenzen GeoJSON-bestand
-            fetch('data/amsterdam.json')
-              .then((response) => response.json())
-              .then((data) => {
-                // Wis de bestaande gemeentegrenzen op de kaart
-                wijkLayer.clearLayers();
-                // Voeg de nieuwe gemeentegrenzen toe aan de kaart
-                wijkLayer.addData(data).addTo(map);
-              });
-          }
-          break;
-        }
-      }
-    });
   });
 
 var wijkLayer = L.geoJSON(null, {
@@ -143,6 +110,47 @@ var wijkLayer = L.geoJSON(null, {
     };
   },
 });
+
+function sidebarActions(data) {
+  let selector = document.getElementById('city');
+  let cityLocations = {};
+
+  // Extract the values of the options into an array of strings
+  let optionValues = data.features
+    .filter(feature => feature.properties.water !== 'JA')
+    .map(feature => feature.properties.gemeentenaam)
+    .sort();
+
+  // Create the options elements based on the sorted array
+  optionValues.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.text = value;
+    selector.appendChild(option);
+  });
+
+  // Select a Municipality via the dropdown
+  selector.addEventListener('change', function () {
+    var value = this.value;
+    console.log(value);
+    // Iterate through each municipality layer
+    municipalityLayer.eachLayer(function (layer) {
+      if (layer.feature.properties.gemeentenaam === value) {
+        // If the layer matches the selected city and water is not "JA", select it and update its style
+        layer.selected = true;
+        layer.setStyle({
+          color: chroma('red').darken().hex(),
+        });
+        // Zoom in on the selected layer
+        map.fitBounds(layer.getBounds());
+      } else {
+        layer.selected = false;
+        municipalityLayer.resetStyle(layer);
+      }
+    });
+    calculateTotalData(municipalityLayer);
+  });
+}
 
 // Support functions
 function getColor(number, min = 0, max = 250000) {
