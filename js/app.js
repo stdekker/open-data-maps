@@ -1,6 +1,10 @@
 // Initialize the map
 var map = L.map('map').setView([52.3676, 4.9041], 8);
 var municipalityLayer;
+var selectFill = {
+  fillColor: 'yellow',
+  color: chroma('yellow').darken().hex(),
+}
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
@@ -55,10 +59,7 @@ function dataMapActions(data) {
         click: function (e) {
           layer.selected = !layer.selected;
           if (layer.selected) {
-            layer.setStyle({
-              fillColor: 'yellow',
-              color: chroma('yellow').darken().hex(),
-            });
+            layer.setStyle(selectFill);
           } else {
             municipalityLayer.resetStyle(layer);
           }
@@ -117,12 +118,12 @@ function sidebarActions(data) {
 
   // Extract the values of the options into an array of strings
   let optionValues = data.features
-    .filter(feature => feature.properties.water !== 'JA')
-    .map(feature => feature.properties.gemeentenaam)
+    .filter((feature) => feature.properties.water !== 'JA')
+    .map((feature) => feature.properties.gemeentenaam)
     .sort();
 
   // Create the options elements based on the sorted array
-  optionValues.forEach(value => {
+  optionValues.forEach((value) => {
     const option = document.createElement('option');
     option.value = value;
     option.text = value;
@@ -138,9 +139,7 @@ function sidebarActions(data) {
       if (layer.feature.properties.gemeentenaam === value) {
         // If the layer matches the selected city and water is not "JA", select it and update its style
         layer.selected = true;
-        layer.setStyle({
-          color: chroma('red').darken().hex(),
-        });
+        layer.setStyle(selectFill);
         // Zoom in on the selected layer
         map.fitBounds(layer.getBounds());
       } else {
