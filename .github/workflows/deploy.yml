@@ -18,4 +18,4 @@ jobs:
           SFTP_HOST: example.com
         run: |
           chmod +x deploy.sh
-          ./deploy.sh
+          ./.github/deploy.sh
