@@ -4,7 +4,7 @@ var municipalityLayer;
 var selectFill = {
   fillColor: 'yellow',
   color: chroma('yellow').darken().hex(),
-}
+};
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
@@ -88,21 +88,6 @@ clearButton.addEventListener('click', function () {
 });
 
 // Attach event listener to parent element using event delegation
-
-fetch('data/cities.json')
-  .then((response) => response.json())
-  .then((data) => {
-    // Create a new object mapping city names to lat/lng values
-    data.forEach((city) => {
-      cityLocations[city.city] = {
-        lat: city.lat,
-        lng: city.lng,
-      };
-    });
-
-    selector.value = 'Amsterdam';
-  });
-
 var wijkLayer = L.geoJSON(null, {
   style: function (feature) {
     return {
