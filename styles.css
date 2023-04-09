@@ -3,7 +3,7 @@ body {
 }
 h1 {
   font-size: 1.6rem;
-  color: #333;
+  color: rgb(78, 61, 61);
 }
 select {
   max-width: 100%;
