@@ -52,11 +52,11 @@ footer p {
     position: fixed;
     bottom: 0;
     top: auto;
-    height: 30vh;
+    height: 30dvh;
     width: 100vw;
   }
   #map {
     width: 100vw;
-    height: 70vh;
+    height: 70dvh;
   }
 }
