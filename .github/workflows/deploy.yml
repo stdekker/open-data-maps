@@ -17,5 +17,5 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PATH: ${{ secrets.SFTP_PATH }}
         run: |
-          chmod +x /.github/deploy.sh
+          chmod +x .github/deploy.sh
           ./.github/deploy.sh
