@@ -15,7 +15,7 @@ jobs:
         env:
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          SFTP_HOST: ${{ secrets.SFTP_PATH }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PATH: ${{ secrets.SFTP_PATH }}
         run: |
           chmod +x /.github/deploy.sh
