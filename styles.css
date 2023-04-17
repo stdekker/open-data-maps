@@ -27,12 +27,23 @@ select {
 }
 #sidebar ul {
   list-style: none;
-  padding: 1rem;
-  margin: 0;
+  padding: 0;
+  margin: 1rem 0 0 0;
 }
 #sidebar li {
+  margin: 0;
   margin-bottom: 10px;
   display: block;
+  padding: .5rem;
+}
+#sidebar li:hover {
+  background: #fff;
+  cursor: pointer;
+}
+#sidebar li.selected {
+  background: red;
+  color: white;
+  font-weight: bold;
 }
 #sidebar li a {
   padding: 0.2rem;

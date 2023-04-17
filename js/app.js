@@ -1,3 +1,6 @@
+// Initialize the app state
+var selectLayers = true;
+
 // Initialize the map
 var map = L.map('map').setView([52.3676, 4.9041], 8);
 var municipalityLayer;
@@ -6,6 +9,7 @@ var selectFill = {
   color: chroma('yellow').darken().hex(),
 };
 
+// Draw the first map
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -45,18 +49,21 @@ function dataMapActions(data) {
     onEachFeature: function (feature, layer) {
       layer.on({
         mouseover: function (e) {
-          if (!layer.selected) {
+          if (!layer.selected && selectLayers) {
             layer.setStyle({
               fillColor: 'blue',
             });
           }
         },
         mouseout: function (e) {
-          if (!layer.selected) {
+          if (!layer.selected && selectLayers) {
             municipalityLayer.resetStyle(layer);
           }
         },
         click: function (e) {
+          if(!selectLayers){
+            return; 
+          }
           layer.selected = !layer.selected;
           if (layer.selected) {
             layer.setStyle(selectFill);
@@ -75,7 +82,7 @@ function dataMapActions(data) {
 }
 
 // Add a listener to "Clear Selection" button
-const clearButton = document.getElementById('dataClear');
+const clearButton = document.getElementById('clearSelection');
 clearButton.addEventListener('click', function () {
   // Deselect all selected layers
   municipalityLayer.getLayers().forEach(function (layer) {
@@ -118,7 +125,6 @@ function sidebarActions(data) {
   // Select a Municipality via the dropdown
   selector.addEventListener('change', function () {
     var value = this.value;
-    console.log(value);
     // Iterate through each municipality layer
     municipalityLayer.eachLayer(function (layer) {
       if (layer.feature.properties.gemeentenaam === value) {
@@ -156,6 +162,39 @@ function getColor(number, min = 0, max = 250000) {
     .domain([min, max]);
   return colorScale(number);
 }
+
+// Define a variable to keep track of whether the pointer toggle is enabled
+var addPointers = false;
+document.getElementById('add-pointers').addEventListener('click', function () {
+  // Toggle the addPointers variable
+  addPointers = !addPointers;
+  // Add or remove a 'selected' class from the clicked li element
+  if (addPointers) {
+    this.classList.add('selected');
+    selectLayers = false;
+  } else {
+    this.classList.remove('selected');
+    selectLayers = true;
+  }
+});
+
+// Define a variable to hold the pointer layer
+var pointerLayer = L.layerGroup().addTo(map);
+
+// Add a click listener to the map
+map.on('click', function (event) {
+  // If the pointer toggle is enabled, add a pointer to the clicked location
+  if (addPointers) {
+    var pointer = L.marker(event.latlng);
+    pointer.addTo(pointerLayer);
+  }
+});
+
+// Add a click listener to the clearPointers button
+document.getElementById('clearPointers').addEventListener('click', function () {
+  // Remove all markers from the pointer layer
+  pointerLayer.clearLayers();
+});
 
 function calculateTotalData(layer) {
   // Calculate total aantalInwoners for selected municipalities
