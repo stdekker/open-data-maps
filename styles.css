@@ -7,6 +7,10 @@ h1 {
 }
 select {
   max-width: 100%;
+
+}
+button {
+  margin-bottom: .5rem;
 }
 #map {
   height: 100vh;
@@ -71,3 +75,4 @@ footer p {
     height: 70dvh;
   }
 }
+

@@ -51,7 +51,7 @@ function dataMapActions(data) {
         mouseover: function (e) {
           if (!layer.selected && selectLayers) {
             layer.setStyle({
-              fillColor: 'blue',
+              fillColor: 'white',
             });
           }
         },
