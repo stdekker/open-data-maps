@@ -9,7 +9,7 @@ var selectFill = {
   color: chroma('yellow').darken().hex(),
 };
 
-// Draw the first map
+// Draw the Open Street Map Layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
@@ -61,8 +61,8 @@ function dataMapActions(data) {
           }
         },
         click: function (e) {
-          if(!selectLayers){
-            return; 
+          if (!selectLayers) {
+            return;
           }
           layer.selected = !layer.selected;
           if (layer.selected) {
@@ -92,16 +92,6 @@ clearButton.addEventListener('click', function () {
       calculateTotalData(municipalityLayer);
     }
   });
-});
-
-// Attach event listener to parent element using event delegation
-var wijkLayer = L.geoJSON(null, {
-  style: function (feature) {
-    return {
-      weight: 1,
-      color: 'black',
-    };
-  },
 });
 
 function sidebarActions(data) {
@@ -142,27 +132,6 @@ function sidebarActions(data) {
   });
 }
 
-// Support functions
-function getColor(number, min = 0, max = 250000) {
-  const colorScale = chroma
-    .scale([
-      '#ffffe0',
-      '#ffe6b3',
-      '#ffce93',
-      '#ffb57e',
-      '#ff9d70',
-      '#fb8567',
-      '#f16c5f',
-      '#e45457',
-      '#d43b4c',
-      '#c0233c',
-      '#a80c25',
-      '#8b0000',
-    ])
-    .domain([min, max]);
-  return colorScale(number);
-}
-
 // Define a variable to keep track of whether the pointer toggle is enabled
 var addPointers = false;
 document.getElementById('add-pointers').addEventListener('click', function () {
@@ -195,6 +164,27 @@ document.getElementById('clearPointers').addEventListener('click', function () {
   // Remove all markers from the pointer layer
   pointerLayer.clearLayers();
 });
+
+// Support functions
+function getColor(number, min = 0, max = 250000) {
+  const colorScale = chroma
+    .scale([
+      '#ffffe0',
+      '#ffe6b3',
+      '#ffce93',
+      '#ffb57e',
+      '#ff9d70',
+      '#fb8567',
+      '#f16c5f',
+      '#e45457',
+      '#d43b4c',
+      '#c0233c',
+      '#a80c25',
+      '#8b0000',
+    ])
+    .domain([min, max]);
+  return colorScale(number);
+}
 
 function calculateTotalData(layer) {
   // Calculate total aantalInwoners for selected municipalities
