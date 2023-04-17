@@ -53,9 +53,17 @@ button {
   padding: 0.2rem;
   display: block;
 }
+footer {
+  border-top: 1px solid #ddd;
+  margin-top: .5rem;
+  padding-top: .5rem;
+}
 footer p {
   font-size: 0.7rem;
   color: #aaa;
+}
+footer a {
+  color: inherit;
 }
 #dataView {
   font-weight: bold;
