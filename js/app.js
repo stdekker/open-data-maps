@@ -203,13 +203,24 @@ function getColor(number, min = 0, max = 250000) {
 }
 
 function calculateTotalData(layer) {
-  // Calculate total aantalInwoners for selected municipalities
   var selectedFeatures = layer.getLayers().filter(function (l) {
     return l.selected;
   });
   var totalAantalInwoners = selectedFeatures.reduce(function (acc, cur) {
     return acc + cur.feature.properties.aantalInwoners;
   }, 0);
-  document.getElementById('dataView').innerHTML =
-    'Inwoners: ' + totalAantalInwoners.toLocaleString('nl-NL');
+  
+  var selectedMunicipalities = selectedFeatures.map(function (layer) {
+    return layer.feature.properties.gemeentenaam;
+  });
+  
+  selectedMunicipalities.sort(); // Sort the selected municipalities alphabetically
+  
+  var dataView = document.getElementById('dataView');
+  dataView.innerHTML = 'Inwoners: ' + totalAantalInwoners.toLocaleString('nl-NL');
+  
+  if (selectedMunicipalities.length > 0) {
+    var municipalityList = selectedMunicipalities.join(', ');
+    dataView.innerHTML += '<br>In: ' + municipalityList;
+  }
 }
