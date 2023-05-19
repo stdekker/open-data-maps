@@ -28,10 +28,9 @@ fetch('data/geo/gemeenten_2022_v1.json')
     console.error('Error fetching municipality data:', error);
   });
 
-// Actions to perform on the Map when data is loaded
-function dataMapActions(data) {
-  // Create a Leaflet layer from the GeoJSON data
-  municipalityLayer = L.geoJSON(data, {
+// Function to create and style the GeoJSON layer
+function createMunicipalityLayer(data) {
+  return L.geoJSON(data, {
     style: function (feature) {
       var color = getColor(feature.properties.aantalInwoners);
       return {
@@ -41,42 +40,59 @@ function dataMapActions(data) {
         weight: 0.5,
       };
     },
-    // Filter out polygons with water: ja
     filter: function (feature, layer) {
       return feature.properties.water !== 'JA';
     },
-    // Add event listeners for mouseover and mouseout
     onEachFeature: function (feature, layer) {
-      layer.on({
-        mouseover: function (e) {
-          if (!layer.selected && selectLayers) {
-            layer.setStyle({
-              fillColor: 'white',
-            });
-          }
-        },
-        mouseout: function (e) {
-          if (!layer.selected && selectLayers) {
-            municipalityLayer.resetStyle(layer);
-          }
-        },
-        click: function (e) {
-          if (!selectLayers) {
-            return;
-          }
-          layer.selected = !layer.selected;
-          if (layer.selected) {
-            layer.setStyle(selectFill);
-          } else {
-            municipalityLayer.resetStyle(layer);
-          }
-          calculateTotalData(municipalityLayer);
-        },
-      });
+      addLayerEventListeners(layer);
     },
   });
+}
 
-  // Add the layer to the map
+// Function to add event listeners to the layer
+function addLayerEventListeners(layer) {
+  layer.on({
+      mouseover: function (e) {
+          if (!layer.selected && selectLayers) {
+              layer.setStyle({ fillColor: 'white', });
+          }
+      },
+      mouseout: function (e) {
+          if (!layer.selected && selectLayers) {
+              municipalityLayer.resetStyle(layer);
+          }
+      },
+      click: function (e) {
+          if (!selectLayers) { return; }
+
+          // If the control key is not pressed, deselect all other layers
+          if (!e.originalEvent.ctrlKey) {
+              municipalityLayer.eachLayer(function(otherLayer) {
+                  if (otherLayer !== layer) {
+                      otherLayer.selected = false;
+                      municipalityLayer.resetStyle(otherLayer);
+                  }
+              });
+          }
+
+          layer.selected = !layer.selected;
+          if (layer.selected) {
+              layer.setStyle(selectFill);
+
+              // Select the same municipality in the dropdown
+              var dropdown = document.getElementById('city');
+              dropdown.value = layer.feature.properties.gemeentenaam;
+          } else {
+              municipalityLayer.resetStyle(layer);
+          }
+          calculateTotalData(municipalityLayer);
+      },
+  });
+}
+
+// Modified dataMapActions function
+function dataMapActions(data) {
+  municipalityLayer = createMunicipalityLayer(data);
   municipalityLayer.addTo(map);
   calculateTotalData(municipalityLayer);
 }
