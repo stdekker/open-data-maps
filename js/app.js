@@ -148,6 +148,38 @@ function sidebarActions(data) {
   });
 }
 
+// Show data modal button click event
+const showDataModalButton = document.getElementById('showDataModal');
+
+showDataModalButton.addEventListener('click', function () {
+  const modal = document.getElementById('dataModal');
+  const modalDataView = document.getElementById('modalDataView');
+
+  var selectedFeatures = municipalityLayer.getLayers().filter(function (l) {
+    return l.selected;
+  });
+
+  // Generate the table for selected municipalities
+  var tableHTML = '';
+
+  // Create table for each selected municipality
+  selectedFeatures.forEach(function (feature) {
+    tableHTML += '<table>';
+    var properties = Object.keys(feature.feature.properties);
+
+    // Create table rows for each property
+    properties.forEach(function (property) {
+      tableHTML += '<tr><th>' + property + '</th><td>' + feature.feature.properties[property] + '</td></tr>';
+    });
+    tableHTML += '</table>';
+  });
+
+  // Update the modalDataView with the tables
+  modalDataView.innerHTML = tableHTML;
+
+  modal.style.display = 'block'; // Show the modal
+});
+
 // Define a variable to keep track of whether the pointer toggle is enabled
 var addPointers = false;
 document.getElementById('add-pointers').addEventListener('click', function () {
@@ -223,4 +255,20 @@ function calculateTotalData(layer) {
     var municipalityList = selectedMunicipalities.join(', ');
     dataView.innerHTML += '<br>In: ' + municipalityList;
   }
+  
 }
+
+// Close the modal when the user clicks on the close button (x)
+const closeModalButton = document.querySelector('.close');
+closeModalButton.addEventListener('click', function () {
+  const modal = document.getElementById('dataModal');
+  modal.style.display = 'none'; // Hide the modal
+});
+
+// Close the modal when the user clicks anywhere outside of it
+window.addEventListener('click', function (event) {
+  const modal = document.getElementById('dataModal');
+  if (event.target == modal) {
+    modal.style.display = 'none'; // Hide the modal
+  }
+});

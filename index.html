@@ -26,11 +26,14 @@
       
       <button id="clearSelection">Clear Selection</button>
       <button id="clearPointers">Clear Pointers</button>
+      <button id="showDataModal">Show Data</button>
+
       <ul class="menu-options">
         <li id="add-pointers">Add Pointers</li>
         <li>Menu item 2</li>
         <li>Menu item 3</li>
       </ul>
+
       <footer>
         <p>
           Open Data Maps <span class="copy-left">©</span> 2023 -
@@ -53,6 +56,13 @@
         </p>
       </footer>
     </div>
+
+    <div id="dataModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="modalDataView"></div>
+    </div>
+  </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chroma-js@2.1.0/chroma.min.js"></script>
