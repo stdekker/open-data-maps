@@ -1,30 +1,41 @@
-// Initialize the app state
-var selectLayers = true;
-
-// Initialize the map
-var map = L.map('map').setView([52.3676, 4.9041], 8);
-var municipalityLayer;
-var selectFill = {
+// Constants
+const MAX_ZOOM = 14;
+const INITIAL_VIEW = [52.3676, 4.9041];
+const ZOOM_LEVEL = 8;
+const GEOJSON_MCP = 'data/geo/gemeenten_2022_v1.json';
+const MAP_TILESET = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const SELECT_FILL = {
   fillColor: 'yellow',
   color: chroma('yellow').darken().hex(),
 };
 
+// Initialize the app state
+let selectLayers = true;
+
+// Initialize the map
+const map = L.map('map').setView(INITIAL_VIEW, ZOOM_LEVEL);
+let municipalityLayer;
+
 // Draw the Open Street Map Layer
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+L.tileLayer(MAP_TILESET, {
   attribution:
     'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
-  maxZoom: 14,
+  maxZoom: MAX_ZOOM,
 }).addTo(map);
 
 // Load the GeoJSON file
-fetch('data/geo/gemeenten_2022_v1.json')
-  .then((response) => response.json())
-  .then((data) => {
-    // Draw the map part of the interface
+fetch(GEOJSON_MCP)
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
     dataMapActions(data);
     sidebarActions(data);
   })
-  .catch((error) => {
+  .catch(error => {
     console.error('Error fetching municipality data:', error);
   });
 
@@ -77,7 +88,7 @@ function addLayerEventListeners(layer) {
 
           layer.selected = !layer.selected;
           if (layer.selected) {
-              layer.setStyle(selectFill);
+              layer.setStyle(SELECT_FILL);
 
               // Select the same municipality in the dropdown
               var dropdown = document.getElementById('city');
@@ -163,15 +174,16 @@ showDataModalButton.addEventListener('click', function () {
   var tableHTML = '';
 
   // Create table for each selected municipality
-  selectedFeatures.forEach(function (feature) {
-    tableHTML += '<table>';
-    var properties = Object.keys(feature.feature.properties);
-
-    // Create table rows for each property
-    properties.forEach(function (property) {
-      tableHTML += '<tr><th>' + property + '</th><td>' + feature.feature.properties[property] + '</td></tr>';
-    });
-    tableHTML += '</table>';
+  selectedFeatures.forEach(feature => {
+    tableHTML += `
+      <table>
+        ${Object.keys(feature.feature.properties)
+          .map(
+            property =>
+              `<tr><th>${property}</th><td>${feature.feature.properties[property]}</td></tr>`
+          )
+          .join('')}
+      </table>`;
   });
 
   // Update the modalDataView with the tables
@@ -255,7 +267,6 @@ function calculateTotalData(layer) {
     var municipalityList = selectedMunicipalities.join(', ');
     dataView.innerHTML += '<br>In: ' + municipalityList;
   }
-  
 }
 
 // Close the modal when the user clicks on the close button (x)
