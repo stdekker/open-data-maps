@@ -25,17 +25,17 @@ L.tileLayer(MAP_TILESET, {
 
 // Load the GeoJSON file
 fetch(GEOJSON_MCP)
-  .then(response => {
+  .then((response) => {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.json();
   })
-  .then(data => {
+  .then((data) => {
     dataMapActions(data);
     sidebarActions(data);
   })
-  .catch(error => {
+  .catch((error) => {
     console.error('Error fetching municipality data:', error);
   });
 
@@ -63,41 +63,43 @@ function createMunicipalityLayer(data) {
 // Function to add event listeners to the layer
 function addLayerEventListeners(layer) {
   layer.on({
-      mouseover: function (e) {
-          if (!layer.selected && selectLayers) {
-              layer.setStyle({ fillColor: 'white', });
-          }
-      },
-      mouseout: function (e) {
-          if (!layer.selected && selectLayers) {
-              municipalityLayer.resetStyle(layer);
-          }
-      },
-      click: function (e) {
-          if (!selectLayers) { return; }
+    mouseover: function (e) {
+      if (!layer.selected && selectLayers) {
+        layer.setStyle({ fillColor: 'white' });
+      }
+    },
+    mouseout: function (e) {
+      if (!layer.selected && selectLayers) {
+        municipalityLayer.resetStyle(layer);
+      }
+    },
+    click: function (e) {
+      if (!selectLayers) {
+        return;
+      }
 
-          // If the control key is not pressed, deselect all other layers
-          if (!e.originalEvent.ctrlKey) {
-              municipalityLayer.eachLayer(function(otherLayer) {
-                  if (otherLayer !== layer) {
-                      otherLayer.selected = false;
-                      municipalityLayer.resetStyle(otherLayer);
-                  }
-              });
+      // If the control key is not pressed, deselect all other layers
+      if (!e.originalEvent.ctrlKey) {
+        municipalityLayer.eachLayer(function (otherLayer) {
+          if (otherLayer !== layer) {
+            otherLayer.selected = false;
+            municipalityLayer.resetStyle(otherLayer);
           }
+        });
+      }
 
-          layer.selected = !layer.selected;
-          if (layer.selected) {
-              layer.setStyle(SELECT_FILL);
+      layer.selected = !layer.selected;
+      if (layer.selected) {
+        layer.setStyle(SELECT_FILL);
 
-              // Select the same municipality in the dropdown
-              var dropdown = document.getElementById('city');
-              dropdown.value = layer.feature.properties.gemeentenaam;
-          } else {
-              municipalityLayer.resetStyle(layer);
-          }
-          calculateTotalData(municipalityLayer);
-      },
+        // Select the same municipality in the dropdown
+        var dropdown = document.getElementById('city');
+        dropdown.value = layer.feature.properties.gemeentenaam;
+      } else {
+        municipalityLayer.resetStyle(layer);
+      }
+      calculateTotalData(municipalityLayer);
+    },
   });
 }
 
@@ -147,7 +149,7 @@ function sidebarActions(data) {
       if (layer.feature.properties.gemeentenaam === value) {
         // If the layer matches the selected city and water is not "JA", select it and update its style
         layer.selected = true;
-        layer.setStyle(selectFill);
+        layer.setStyle(SELECT_FILL);
         // Zoom in on the selected layer
         map.fitBounds(layer.getBounds());
       } else {
@@ -174,12 +176,12 @@ showDataModalButton.addEventListener('click', function () {
   var tableHTML = '';
 
   // Create table for each selected municipality
-  selectedFeatures.forEach(feature => {
+  selectedFeatures.forEach((feature) => {
     tableHTML += `
       <table>
         ${Object.keys(feature.feature.properties)
           .map(
-            property =>
+            (property) =>
               `<tr><th>${property}</th><td>${feature.feature.properties[property]}</td></tr>`
           )
           .join('')}
@@ -253,16 +255,17 @@ function calculateTotalData(layer) {
   var totalAantalInwoners = selectedFeatures.reduce(function (acc, cur) {
     return acc + cur.feature.properties.aantalInwoners;
   }, 0);
-  
+
   var selectedMunicipalities = selectedFeatures.map(function (layer) {
     return layer.feature.properties.gemeentenaam;
   });
-  
+
   selectedMunicipalities.sort(); // Sort the selected municipalities alphabetically
-  
+
   var dataView = document.getElementById('dataView');
-  dataView.innerHTML = 'Inwoners: ' + totalAantalInwoners.toLocaleString('nl-NL');
-  
+  dataView.innerHTML =
+    'Inwoners: ' + totalAantalInwoners.toLocaleString('nl-NL');
+
   if (selectedMunicipalities.length > 0) {
     var municipalityList = selectedMunicipalities.join(', ');
     dataView.innerHTML += '<br>In: ' + municipalityList;
