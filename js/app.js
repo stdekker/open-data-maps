@@ -172,27 +172,35 @@ showDataModalButton.addEventListener('click', function () {
     return l.selected;
   });
 
-  // Generate the table for selected municipalities
-  var tableHTML = '';
+  // Check if there is any data
+  if (selectedFeatures.length === 0) {
+    return; // No data, so just return and don't show the modal
+  }
 
-  // Create table for each selected municipality
-  selectedFeatures.forEach((feature) => {
-    tableHTML += `
-      <table>
-        ${Object.keys(feature.feature.properties)
-          .map(
-            (property) =>
-              `<tr><th>${property}</th><td>${feature.feature.properties[property]}</td></tr>`
-          )
-          .join('')}
-      </table>`;
+  // Assuming all features have the same properties, take the first one to generate header
+  var featureProperties = Object.keys(selectedFeatures[0].feature.properties);
+
+  // Start of the table
+  var tableHTML = '<table>';
+
+  // Create a row for each property
+  featureProperties.forEach((property) => {
+    tableHTML += `<tr><th>${property}</th>`;
+    selectedFeatures.forEach((feature) => {
+      tableHTML += `<td>${feature.feature.properties[property]}</td>`;
+    });
+    tableHTML += '</tr>';
   });
 
-  // Update the modalDataView with the tables
+  // End of the table
+  tableHTML += '</table>';
+
+  // Update the modalDataView with the table
   modalDataView.innerHTML = tableHTML;
 
   modal.style.display = 'block'; // Show the modal
 });
+
 
 // Define a variable to keep track of whether the pointer toggle is enabled
 var addPointers = false;
