@@ -29,10 +29,11 @@ map.on('load', () => {
                 searchInput.value = municipality.naam;
                 autocompleteList.innerHTML = '';
                 
-                loadGeoJson(municipality.code);
-
-                // Store the selected municipality in localStorage first
+                // Store the selected municipality in localStorage
                 localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+
+                // Activate municipal view and load the municipality data
+                activateView('municipal', municipality.code);
 
                 // Clear the search input after a short delay to show feedback
                 setTimeout(() => {
@@ -98,17 +99,6 @@ function loadGeoJson(code) {
     if (!map.loaded()) {
         map.on('load', () => loadGeoJson(code));
         return;
-    }
-
-    // Remove existing layers if they exist
-    if (map.getLayer('municipalities')) {
-        map.removeLayer('municipalities');
-    }
-    if (map.getLayer('municipality-borders')) {
-        map.removeLayer('municipality-borders');
-    }
-    if (map.getSource('municipalities')) {
-        map.removeSource('municipalities');
     }
 
     fetch(`fetch-municipality.php?code=${code}`)
@@ -195,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
             i.classList.remove('active');
         });
         
-        // Add active class and aria-selected to clicked item
+        // Add active class
         this.classList.add('active');
         
         if (this.id === 'national-view') {
@@ -206,7 +196,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function activateView(viewType) {
+// Add this function near the top of the file
+async function ensurePopulationData() {
+    if (Object.keys(municipalityPopulations).length === 0) {
+        try {
+            const response = await fetch('data/gemeenten.json');
+            const data = await response.json();
+            data.features.forEach(feature => {
+                municipalityPopulations[feature.properties.gemeentecode] = feature.properties.aantalInwoners;
+            });
+        } catch (error) {
+            console.error('Error loading population data:', error);
+        }
+    }
+}
+
+// Modify the activateView function
+function activateView(viewType, municipalityCode = null) {
+    // Update menu item states
     const viewItem = document.getElementById(`${viewType}-view`);
     document.querySelectorAll('.menu-items li').forEach(item => {
         item.classList.remove('active');
@@ -216,37 +223,44 @@ function activateView(viewType) {
     viewItem.setAttribute('aria-selected', 'true');
 
     if (viewType === 'national') {
-        loadGemeentenData();
+        loadNationalGeoJson();
     } else if (viewType === 'municipal') {
-        const lastMunicipality = localStorage.getItem('lastMunicipality');
-        if (lastMunicipality) {
-            loadGeoJson(JSON.parse(lastMunicipality).code);
-        }
+        ensurePopulationData().then(() => {
+            if (municipalityCode) {
+                loadGeoJson(municipalityCode);
+            } else {
+                const lastMunicipality = localStorage.getItem('lastMunicipality');
+                if (lastMunicipality) {
+                    loadGeoJson(JSON.parse(lastMunicipality).code);
+                }
+            }
+        });
     }
 }
 
-function loadGemeentenData() {
+// Add this at the top level of the file, after the imports
+let municipalityPopulations = {};
+
+// In the loadNationalGeoJson function, after fetching the data
+function loadNationalGeoJson() {
     // Check if map is loaded
     if (!map.loaded()) {
-        map.on('load', () => loadGemeentenData());
+        map.on('load', () => loadNationalGeoJson());
         return;
     }
 
-    // Remove existing layers if they exist
-    if (map.getLayer('municipalities')) {
-        map.removeLayer('municipalities');
-    }
-    if (map.getLayer('municipality-borders')) {
-        map.removeLayer('municipality-borders');
-    }
-    if (map.getSource('municipalities')) {
-        map.removeSource('municipalities');
-    }
+    // Remove any existing event listeners to prevent duplicates
+    map.off('dblclick', 'municipalities');
 
     fetch('data/gemeenten.json')
         .then(response => response.json())
         .then(data => {
-            // Convert from EPSG:28992 to EPSG:4326 if needed
+            // Store population data
+            data.features.forEach(feature => {
+                municipalityPopulations[feature.properties.gemeentecode] = feature.properties.aantalInwoners;
+            });
+            
+            // Convert coordinates and add layers
             const geoJsonData = {
                 ...data,
                 features: data.features.map((feature, index) => ({
@@ -261,16 +275,30 @@ function loadGemeentenData() {
 
             addMapLayers(geoJsonData);
 
-            // When a municipality is double clicked, switch to municipality view and load clicked municipality
+            // Remove previous double-click handler if it exists
+            map.off('dblclick', 'municipalities');
+
+            // Add the double-click handler
             map.on('dblclick', 'municipalities', (e) => {
-                if (e.features.length > 0) {
+                e.preventDefault(); // Prevent default double-click behavior
+                
+                if (e.features && e.features.length > 0) {
                     const feature = e.features[0];
                     const municipality = {
                         naam: feature.properties.gemeentenaam,
                         code: feature.properties.gemeentecode
                     };
+                    
+                    // Update menu state
+                    const municipalView = document.getElementById('municipal-view');
+                    document.querySelectorAll('.menu-items li').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    municipalView.classList.add('active');
+
+                    // Switch to municipal view
                     localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
-                    activateView('municipal');
+                    activateView('municipal', municipality.code);
                 }
             });
 
@@ -303,12 +331,24 @@ function loadGemeentenData() {
         });
 }
 
-// Add this helper function near the top of the file
+// Modify the addMapLayers function
 function addMapLayers(geoJsonData) {
-    // Add the GeoJSON source
+    // Clean up existing layers and sources first
+    const layersToRemove = ['municipality-borders', 'municipalities'];
+    layersToRemove.forEach(layer => {
+        if (map.getLayer(layer)) {
+            map.removeLayer(layer);
+        }
+    });
+    if (map.getSource('municipalities')) {
+        map.removeSource('municipalities');
+    }
+
+    // Add the GeoJSON source immediately
     map.addSource('municipalities', {
         type: 'geojson',
-        data: geoJsonData
+        data: geoJsonData,
+        generateId: true  // This can help with performance
     });
 
     // Add the fill layer
@@ -317,14 +357,14 @@ function addMapLayers(geoJsonData) {
         'type': 'fill',
         'source': 'municipalities',
         'paint': {
-            'fill-color': '#6699cc', 
+            'fill-color': '#6699cc',
             'fill-opacity': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
                 0.6,  // hover opacity
                 0.2   // default opacity
             ],
-            'fill-outline-color': '#6699cc' 
+            'fill-outline-color': '#6699cc'
         }
     });
 
@@ -362,19 +402,28 @@ function addMapLayers(geoJsonData) {
 
     // Update feature name box content
     function updateFeatureNameBox(feature) {
-        let content = selectedMunicipality ? `<div>${selectedMunicipality}</div>` : '';
-        
+        const storedMunicipality = localStorage.getItem('lastMunicipality') 
+            ? JSON.parse(localStorage.getItem('lastMunicipality'))
+            : null;
+
+        const getPopulationText = (name, code) => {
+            const population = municipalityPopulations[code];
+            const formattedPopulation = population?.toLocaleString('nl-NL') || '';
+            return `${name} ${formattedPopulation ? `(${formattedPopulation} inwoners)` : ''}`;
+        };
+
+        let content = '';
+        if (storedMunicipality) {
+            content = `<div>${getPopulationText(storedMunicipality.naam, storedMunicipality.code)}</div>`;
+        }
+
         if (feature) {
-            const currentGemeentenaam = feature.properties.gemeentenaam || selectedMunicipality;
-            
-            if (currentGemeentenaam && currentGemeentenaam !== selectedMunicipality) {
-                content = `<div>${currentGemeentenaam}</div>`;
+            const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
+            const currentCode = feature.properties.gemeentecode;
+            if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
+                content = `<div>${getPopulationText(currentGemeentenaam, currentCode)}</div>`;
             }
-            
             if (feature.properties?.buurtnaam) {
-                if (currentGemeentenaam !== selectedMunicipality) {
-                    content = `<div>${currentGemeentenaam}</div>`;
-                }
                 content += `<div class="hovered-name">${feature.properties.buurtnaam}</div>`;
             }
         }
