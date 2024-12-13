@@ -14,20 +14,21 @@
         <div class="container">
             <div id="map"></div>
             <div class="sidebar">
-                <header><h1>Maps<sup>II</sup></h1></header>
+                <header><h1>Maps<sup title="Open Data">OD</sup></h1></header>
                 <div class="search-container autocomplete-container">
                     <input type="text" id="searchInput" placeholder="Search gemeente...">
                     <div id="autocompleteList" class="autocomplete-items"></div>
                     <div class="search-error">No matching municipality found</div>
                 </div>
                 <ul class="menu-items" role="tablist">
-                    <li role="tab" tabindex="0" aria-selected="false" id="municipality-view">Gemeente</li>
-                    <li role="tab" tabindex="0" aria-selected="false" id="national-view">Landelijk</li>
+                    <li role="tab" id="municipal-view">Gemeente</li>
+                    <li role="tab" id="national-view">Nederland</li>
                 </ul>
 
                 <div class="stats-view"></div>
             </div>
         </div>
-        <script src="main.js"></script>
+        <script type="module" src="config.js"></script>
+        <script type="module" src="main.js"></script>
     </body>
 </html>

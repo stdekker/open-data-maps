@@ -203,8 +203,11 @@ body, html {
         display: grid;
         grid-template-columns: repeat(2, 1fr); /* Two columns */
         gap: 10px; /* Space between items */
+        text-align: center;
     }
-
+    .menu-items li {
+        padding: 16px;
+    }
     .feature-name-box {
         font-size: .9rem;
     }

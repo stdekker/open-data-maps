@@ -1,38 +1,23 @@
+// Import configuration
+import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
+
 // ===== Projection Setup =====
 // Define the Dutch RD New projection
 proj4.defs('EPSG:28992', '+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs');
 
-// ===== Map Initialization =====            
-// Add your Mapbox access token here
-mapboxgl.accessToken = 'pk.eyJ1Ijoic2Rla2tlciIsImEiOiJjaXF4cjI1ZTAwMDRxaHVubmgwOHJjajJ1In0.w7ja8Yc35uk3yXCd7wXFhg';
-
-// Replace the Leaflet map initialization with Mapbox
-const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)").matches;
-const mapStyle = 'mapbox://styles/mapbox/light-v11';
-
+// Map initialization
+mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 const map = new mapboxgl.Map({
     container: 'map',
-    style: mapStyle,
-    center: [5.3875, 52.1561],
-    zoom: 12,
+    style: MAP_STYLE,
+    center: MAP_CENTER,
+    zoom: MAP_ZOOM,
     pitchWithRotate: false,
-    dragRotate: false
-});
-
-// Set initial menu state before waiting for map load
-document.querySelectorAll('.menu-items li').forEach(item => {
-    if (item.textContent === 'Gemeente') {
-        item.classList.add('active');
-        item.setAttribute('aria-selected', 'true');
-    } else {
-        item.classList.remove('active');
-        item.setAttribute('aria-selected', 'false');
-    }
+    dragRotate: false,
 });
 
 // Wait for map to load before doing anything
 map.on('load', () => {
-    // Load initial data only after map is ready
     fetch('data/overview.json')
         .then(response => response.json())
         .then(data => {
@@ -44,23 +29,10 @@ map.on('load', () => {
                 searchInput.value = municipality.naam;
                 autocompleteList.innerHTML = '';
                 
-                // Store selected municipality in localStorage
-                localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
-                
-                // Always switch to Gemeente view when selecting a municipality
-                document.querySelectorAll('.menu-items li').forEach(item => {
-                    item.classList.remove('active');
-                    item.setAttribute('aria-selected', 'false');
-                    if (item.textContent === 'Gemeente') {
-                        item.classList.add('active');
-                        item.setAttribute('aria-selected', 'true');
-                    }
-                });
-                
-                // Load the municipality data
-                const menuItems = document.querySelector('.stats-view');
-                menuItems.innerHTML = '';
                 loadGeoJson(municipality.code);
+
+                // Store the selected municipality in localStorage first
+                localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
 
                 // Clear the search input after a short delay to show feedback
                 setTimeout(() => {
@@ -102,17 +74,17 @@ map.on('load', () => {
                 }
             });
 
-            // ===== Initial Municipality Loading =====
+            // Initial Municipality Loading
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 selectMunicipality(JSON.parse(lastMunicipality));
             } else {
-                // Load Amer as default if no stored municipality
-                const amersfoort = data.gemeenten.find(municipality => 
-                    municipality.naam.toLowerCase() === 'amersfoort'
+                // Load default if there is no stored municipality
+                const initialMunicipality = data.gemeenten.find(municipality => 
+                    municipality.naam === DEFAULT_MUNICIPALITY
                 );
-                if (amersfoort) {
-                    selectMunicipality(amersfoort);
+                if (initialMunicipality) {
+                    selectMunicipality(initialMunicipality);
                 }
             }
         });
@@ -183,7 +155,7 @@ function loadGeoJson(code) {
         .catch(error => console.error('Error loading GeoJSON:', error));
 }
 
-// ===== Coordinate Transformation =====
+// Coordinate Transformation 
 function transformCoordinates(coords, type) {
     const transform = coord => proj4('EPSG:28992', 'EPSG:4326').forward(coord);
     
@@ -198,7 +170,11 @@ function transformCoordinates(coords, type) {
 // Add click handlers for menu items
 document.addEventListener('DOMContentLoaded', function() {
     const menuItems = document.querySelectorAll('.menu-items li');
-    
+    const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
+
+    if (initialMenuItem) {
+        handleMenuItemActivation.call(initialMenuItem);
+    }
     // Add keyboard support
     menuItems.forEach(item => {
         // Click handler
@@ -217,28 +193,37 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove active class and aria-selected from all items
         menuItems.forEach(i => {
             i.classList.remove('active');
-            i.setAttribute('aria-selected', 'false');
         });
         
         // Add active class and aria-selected to clicked item
         this.classList.add('active');
-        this.setAttribute('aria-selected', 'true');
         
-        if (this.textContent === 'Landelijk') {
-            loadGemeentenData();
-        } else if (this.textContent === 'Gemeente') {
-            // Clear any existing GeoJSON layer
-            if (currentGeoJsonLayer) {
-                map.removeLayer(currentGeoJsonLayer);
-            }
-            // Reload last selected gemeente or default to Amersfoort
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
-            if (lastMunicipality) {
-                loadGeoJson(JSON.parse(lastMunicipality).code);
-            }
+        if (this.id === 'national-view') {
+            activateView('national');
+        } else if (this.id === 'municipal-view') {
+            activateView('municipal');
         }
     }
 });
+
+function activateView(viewType) {
+    const viewItem = document.getElementById(`${viewType}-view`);
+    document.querySelectorAll('.menu-items li').forEach(item => {
+        item.classList.remove('active');
+        item.setAttribute('aria-selected', 'false');
+    });
+    viewItem.classList.add('active');
+    viewItem.setAttribute('aria-selected', 'true');
+
+    if (viewType === 'national') {
+        loadGemeentenData();
+    } else if (viewType === 'municipal') {
+        const lastMunicipality = localStorage.getItem('lastMunicipality');
+        if (lastMunicipality) {
+            loadGeoJson(JSON.parse(lastMunicipality).code);
+        }
+    }
+}
 
 function loadGemeentenData() {
     // Check if map is loaded
@@ -276,31 +261,20 @@ function loadGemeentenData() {
 
             addMapLayers(geoJsonData);
 
-            // When a gemeente is double clicked, switch to gemeente view and load clicked gemeente
+            // When a municipality is double clicked, switch to municipality view and load clicked municipality
             map.on('dblclick', 'municipalities', (e) => {
                 if (e.features.length > 0) {
                     const feature = e.features[0];
-       
-                    const municipalityViewItem = document.getElementById('municipality-view');
-                    document.querySelectorAll('.menu-items li').forEach(item => {
-                        item.classList.remove('active');
-                        item.setAttribute('aria-selected', 'false');
-                    });
-                    municipalityViewItem.classList.add('active');
-                    municipalityViewItem.setAttribute('aria-selected', 'true');
-
-                    // Store selected municipality in localStorage
                     const municipality = {
                         naam: feature.properties.gemeentenaam,
                         code: feature.properties.gemeentecode
                     };
-                    loadGeoJson(municipality.code);
-
                     localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+                    activateView('municipal');
                 }
             });
 
-            // When loading all gemeenten, fit bounds to show all gemeenten
+            // When loading all municipalities, fit bounds to show all municipalities
             try {
                 const bounds = new mapboxgl.LngLatBounds();
                 geoJsonData.features.forEach(feature => {
@@ -318,7 +292,7 @@ function loadGemeentenData() {
                 });
 
                 if (!bounds.isEmpty()) {
-                    map.fitBounds(bounds, { padding: 50 });
+                    map.fitBounds(bounds, { padding: 64 });
                 }
             } catch (e) {
                 console.error('Error fitting bounds:', e);
