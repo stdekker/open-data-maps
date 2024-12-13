@@ -351,35 +351,62 @@ function addMapLayers(geoJsonData) {
         generateId: true  // This can help with performance
     });
 
-    // Add the fill layer
-    map.addLayer({
-        'id': 'municipalities',
-        'type': 'fill',
-        'source': 'municipalities',
-        'paint': {
-            'fill-color': '#6699cc',
-            'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.6,  // hover opacity
-                0.2   // default opacity
-            ],
-            'fill-outline-color': '#6699cc'
-        }
-    });
+// Add this after the imports
+const populationColorScale = chroma.scale(['#cce7ff', '#002f6c', '#000000'])
+    .domain([0, 700000])  // Adjust max population as needed
+    .mode('lab');          // For perceptually uniform color transitions
 
-    // Add the border layer
+// In the addMapLayers function, update the fill layer
+map.addLayer({
+    'id': 'municipalities',
+    'type': 'fill',
+    'source': 'municipalities',
+    'paint': {
+        'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            // Lighter shade when hovering
+            ['interpolate',
+                ['linear'],
+                ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
+                0, chroma(populationColorScale(0)).brighten().hex(),
+                1000000, chroma(populationColorScale(1000000)).brighten().hex()
+            ],
+            // Normal shade
+            ['interpolate',
+                ['linear'],
+                ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
+                0, populationColorScale(0).hex(),
+                1000000, populationColorScale(1000000).hex()
+            ]
+        ],
+        'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.8,  // hover opacity
+            0.6   // default opacity
+        ],
+        'fill-outline-color': '#00509e',  // Normal border
+    }
+});
+
+    // Update the border layer for better contrast
     map.addLayer({
         'id': 'municipality-borders',
         'type': 'line',
         'source': 'municipalities',
         'paint': {
-            'line-color': '#6699cc',
+            'line-color': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                '#99c2ff',  // Lighter border when hovering
+                '#00509e'   // Normal border
+            ],
             'line-width': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
-                1.5,    // hover width
-                1.5     // default width
+                2,    // hover width
+                1     // default width
             ]
         }
     });
@@ -409,7 +436,7 @@ function addMapLayers(geoJsonData) {
         const getPopulationText = (name, code) => {
             const population = municipalityPopulations[code];
             const formattedPopulation = population?.toLocaleString('nl-NL') || '';
-            return `${name} ${formattedPopulation ? `(${formattedPopulation} inwoners)` : ''}`;
+            return `${name} ${formattedPopulation ? `<span class="population-text">(${formattedPopulation} inwoners)</span>` : ''}`;
         };
 
         let content = '';
