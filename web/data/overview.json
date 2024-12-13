@@ -1,0 +1,1376 @@
+{
+    "gemeenten": [
+        {
+            "naam": "'s-Gravenhage",
+            "code": "GM0518"
+        },
+        {
+            "naam": "'s-Hertogenbosch",
+            "code": "GM0796"
+        },
+        {
+            "naam": "Aa en Hunze",
+            "code": "GM1680"
+        },
+        {
+            "naam": "Aalsmeer",
+            "code": "GM0358"
+        },
+        {
+            "naam": "Aalten",
+            "code": "GM0197"
+        },
+        {
+            "naam": "Achtkarspelen",
+            "code": "GM0059"
+        },
+        {
+            "naam": "Alblasserdam",
+            "code": "GM0482"
+        },
+        {
+            "naam": "Albrandswaard",
+            "code": "GM0613"
+        },
+        {
+            "naam": "Alkmaar",
+            "code": "GM0361"
+        },
+        {
+            "naam": "Almelo",
+            "code": "GM0141"
+        },
+        {
+            "naam": "Almere",
+            "code": "GM0034"
+        },
+        {
+            "naam": "Alphen aan den Rijn",
+            "code": "GM0484"
+        },
+        {
+            "naam": "Alphen-Chaam",
+            "code": "GM1723"
+        },
+        {
+            "naam": "Altena",
+            "code": "GM1959"
+        },
+        {
+            "naam": "Ameland",
+            "code": "GM0060"
+        },
+        {
+            "naam": "Amersfoort",
+            "code": "GM0307"
+        },
+        {
+            "naam": "Amstelveen",
+            "code": "GM0362"
+        },
+        {
+            "naam": "Amsterdam",
+            "code": "GM0363"
+        },
+        {
+            "naam": "Apeldoorn",
+            "code": "GM0200"
+        },
+        {
+            "naam": "Arnhem",
+            "code": "GM0202"
+        },
+        {
+            "naam": "Assen",
+            "code": "GM0106"
+        },
+        {
+            "naam": "Asten",
+            "code": "GM0743"
+        },
+        {
+            "naam": "Baarle-Nassau",
+            "code": "GM0744"
+        },
+        {
+            "naam": "Baarn",
+            "code": "GM0308"
+        },
+        {
+            "naam": "Barendrecht",
+            "code": "GM0489"
+        },
+        {
+            "naam": "Barneveld",
+            "code": "GM0203"
+        },
+        {
+            "naam": "Beek",
+            "code": "GM0888"
+        },
+        {
+            "naam": "Beekdaelen",
+            "code": "GM1954"
+        },
+        {
+            "naam": "Beesel",
+            "code": "GM0889"
+        },
+        {
+            "naam": "Berg en Dal",
+            "code": "GM1945"
+        },
+        {
+            "naam": "Bergeijk",
+            "code": "GM1724"
+        },
+        {
+            "naam": "Bergen (L.)",
+            "code": "GM0893"
+        },
+        {
+            "naam": "Bergen (NH.)",
+            "code": "GM0373"
+        },
+        {
+            "naam": "Bergen op Zoom",
+            "code": "GM0748"
+        },
+        {
+            "naam": "Berkelland",
+            "code": "GM1859"
+        },
+        {
+            "naam": "Bernheze",
+            "code": "GM1721"
+        },
+        {
+            "naam": "Best",
+            "code": "GM0753"
+        },
+        {
+            "naam": "Beuningen",
+            "code": "GM0209"
+        },
+        {
+            "naam": "Beverwijk",
+            "code": "GM0375"
+        },
+        {
+            "naam": "Bladel",
+            "code": "GM1728"
+        },
+        {
+            "naam": "Blaricum",
+            "code": "GM0376"
+        },
+        {
+            "naam": "Bloemendaal",
+            "code": "GM0377"
+        },
+        {
+            "naam": "Bodegraven-Reeuwijk",
+            "code": "GM1901"
+        },
+        {
+            "naam": "Boekel",
+            "code": "GM0755"
+        },
+        {
+            "naam": "Borger-Odoorn",
+            "code": "GM1681"
+        },
+        {
+            "naam": "Borne",
+            "code": "GM0147"
+        },
+        {
+            "naam": "Borsele",
+            "code": "GM0654"
+        },
+        {
+            "naam": "Boxtel",
+            "code": "GM0757"
+        },
+        {
+            "naam": "Breda",
+            "code": "GM0758"
+        },
+        {
+            "naam": "Bronckhorst",
+            "code": "GM1876"
+        },
+        {
+            "naam": "Brummen",
+            "code": "GM0213"
+        },
+        {
+            "naam": "Brunssum",
+            "code": "GM0899"
+        },
+        {
+            "naam": "Buitenland",
+            "code": "GM0998"
+        },
+        {
+            "naam": "Bunnik",
+            "code": "GM0312"
+        },
+        {
+            "naam": "Bunschoten",
+            "code": "GM0313"
+        },
+        {
+            "naam": "Buren",
+            "code": "GM0214"
+        },
+        {
+            "naam": "Capelle aan den IJssel",
+            "code": "GM0502"
+        },
+        {
+            "naam": "Castricum",
+            "code": "GM0383"
+        },
+        {
+            "naam": "Coevorden",
+            "code": "GM0109"
+        },
+        {
+            "naam": "Cranendonck",
+            "code": "GM1706"
+        },
+        {
+            "naam": "Culemborg",
+            "code": "GM0216"
+        },
+        {
+            "naam": "Dalfsen",
+            "code": "GM0148"
+        },
+        {
+            "naam": "Dantumadiel",
+            "code": "GM1891"
+        },
+        {
+            "naam": "De Bilt",
+            "code": "GM0310"
+        },
+        {
+            "naam": "De Fryske Marren",
+            "code": "GM1940"
+        },
+        {
+            "naam": "De Ronde Venen",
+            "code": "GM0736"
+        },
+        {
+            "naam": "De Wolden",
+            "code": "GM1690"
+        },
+        {
+            "naam": "Delft",
+            "code": "GM0503"
+        },
+        {
+            "naam": "Den Helder",
+            "code": "GM0400"
+        },
+        {
+            "naam": "Deurne",
+            "code": "GM0762"
+        },
+        {
+            "naam": "Deventer",
+            "code": "GM0150"
+        },
+        {
+            "naam": "Diemen",
+            "code": "GM0384"
+        },
+        {
+            "naam": "Dijk en Waard",
+            "code": "GM1980"
+        },
+        {
+            "naam": "Dinkelland",
+            "code": "GM1774"
+        },
+        {
+            "naam": "Doesburg",
+            "code": "GM0221"
+        },
+        {
+            "naam": "Doetinchem",
+            "code": "GM0222"
+        },
+        {
+            "naam": "Dongen",
+            "code": "GM0766"
+        },
+        {
+            "naam": "Dordrecht",
+            "code": "GM0505"
+        },
+        {
+            "naam": "Drechterland",
+            "code": "GM0498"
+        },
+        {
+            "naam": "Drimmelen",
+            "code": "GM1719"
+        },
+        {
+            "naam": "Dronten",
+            "code": "GM0303"
+        },
+        {
+            "naam": "Druten",
+            "code": "GM0225"
+        },
+        {
+            "naam": "Duiven",
+            "code": "GM0226"
+        },
+        {
+            "naam": "Echt-Susteren",
+            "code": "GM1711"
+        },
+        {
+            "naam": "Edam-Volendam",
+            "code": "GM0385"
+        },
+        {
+            "naam": "Ede",
+            "code": "GM0228"
+        },
+        {
+            "naam": "Eemnes",
+            "code": "GM0317"
+        },
+        {
+            "naam": "Eemsdelta",
+            "code": "GM1979"
+        },
+        {
+            "naam": "Eersel",
+            "code": "GM0770"
+        },
+        {
+            "naam": "Eijsden-Margraten",
+            "code": "GM1903"
+        },
+        {
+            "naam": "Eindhoven",
+            "code": "GM0772"
+        },
+        {
+            "naam": "Elburg",
+            "code": "GM0230"
+        },
+        {
+            "naam": "Emmen",
+            "code": "GM0114"
+        },
+        {
+            "naam": "Enkhuizen",
+            "code": "GM0388"
+        },
+        {
+            "naam": "Enschede",
+            "code": "GM0153"
+        },
+        {
+            "naam": "Epe",
+            "code": "GM0232"
+        },
+        {
+            "naam": "Ermelo",
+            "code": "GM0233"
+        },
+        {
+            "naam": "Etten-Leur",
+            "code": "GM0777"
+        },
+        {
+            "naam": "Geertruidenberg",
+            "code": "GM0779"
+        },
+        {
+            "naam": "Geldrop-Mierlo",
+            "code": "GM1771"
+        },
+        {
+            "naam": "Gemert-Bakel",
+            "code": "GM1652"
+        },
+        {
+            "naam": "Gennep",
+            "code": "GM0907"
+        },
+        {
+            "naam": "Gilze en Rijen",
+            "code": "GM0784"
+        },
+        {
+            "naam": "Goeree-Overflakkee",
+            "code": "GM1924"
+        },
+        {
+            "naam": "Goes",
+            "code": "GM0664"
+        },
+        {
+            "naam": "Goirle",
+            "code": "GM0785"
+        },
+        {
+            "naam": "Gooise Meren",
+            "code": "GM1942"
+        },
+        {
+            "naam": "Gorinchem",
+            "code": "GM0512"
+        },
+        {
+            "naam": "Gouda",
+            "code": "GM0513"
+        },
+        {
+            "naam": "Groningen",
+            "code": "GM0014"
+        },
+        {
+            "naam": "Gulpen-Wittem",
+            "code": "GM1729"
+        },
+        {
+            "naam": "Haaksbergen",
+            "code": "GM0158"
+        },
+        {
+            "naam": "Haarlem",
+            "code": "GM0392"
+        },
+        {
+            "naam": "Haarlemmermeer",
+            "code": "GM0394"
+        },
+        {
+            "naam": "Halderberge",
+            "code": "GM1655"
+        },
+        {
+            "naam": "Hardenberg",
+            "code": "GM0160"
+        },
+        {
+            "naam": "Harderwijk",
+            "code": "GM0243"
+        },
+        {
+            "naam": "Hardinxveld-Giessendam",
+            "code": "GM0523"
+        },
+        {
+            "naam": "Harlingen",
+            "code": "GM0072"
+        },
+        {
+            "naam": "Hattem",
+            "code": "GM0244"
+        },
+        {
+            "naam": "Heemskerk",
+            "code": "GM0396"
+        },
+        {
+            "naam": "Heemstede",
+            "code": "GM0397"
+        },
+        {
+            "naam": "Heerde",
+            "code": "GM0246"
+        },
+        {
+            "naam": "Heerenveen",
+            "code": "GM0074"
+        },
+        {
+            "naam": "Heerlen",
+            "code": "GM0917"
+        },
+        {
+            "naam": "Heeze-Leende",
+            "code": "GM1658"
+        },
+        {
+            "naam": "Heiloo",
+            "code": "GM0399"
+        },
+        {
+            "naam": "Hellendoorn",
+            "code": "GM0163"
+        },
+        {
+            "naam": "Helmond",
+            "code": "GM0794"
+        },
+        {
+            "naam": "Hendrik-Ido-Ambacht",
+            "code": "GM0531"
+        },
+        {
+            "naam": "Hengelo",
+            "code": "GM0164"
+        },
+        {
+            "naam": "Het Hogeland",
+            "code": "GM1966"
+        },
+        {
+            "naam": "Heumen",
+            "code": "GM0252"
+        },
+        {
+            "naam": "Heusden",
+            "code": "GM0797"
+        },
+        {
+            "naam": "Hillegom",
+            "code": "GM0534"
+        },
+        {
+            "naam": "Hilvarenbeek",
+            "code": "GM0798"
+        },
+        {
+            "naam": "Hilversum",
+            "code": "GM0402"
+        },
+        {
+            "naam": "Hoeksche Waard",
+            "code": "GM1963"
+        },
+        {
+            "naam": "Hof van Twente",
+            "code": "GM1735"
+        },
+        {
+            "naam": "Hollands Kroon",
+            "code": "GM1911"
+        },
+        {
+            "naam": "Hoogeveen",
+            "code": "GM0118"
+        },
+        {
+            "naam": "Hoorn",
+            "code": "GM0405"
+        },
+        {
+            "naam": "Horst aan de Maas",
+            "code": "GM1507"
+        },
+        {
+            "naam": "Houten",
+            "code": "GM0321"
+        },
+        {
+            "naam": "Huizen",
+            "code": "GM0406"
+        },
+        {
+            "naam": "Hulst",
+            "code": "GM0677"
+        },
+        {
+            "naam": "IJsselstein",
+            "code": "GM0353"
+        },
+        {
+            "naam": "Kaag en Braassem",
+            "code": "GM1884"
+        },
+        {
+            "naam": "Kampen",
+            "code": "GM0166"
+        },
+        {
+            "naam": "Kapelle",
+            "code": "GM0678"
+        },
+        {
+            "naam": "Katwijk",
+            "code": "GM0537"
+        },
+        {
+            "naam": "Kerkrade",
+            "code": "GM0928"
+        },
+        {
+            "naam": "Koggenland",
+            "code": "GM1598"
+        },
+        {
+            "naam": "Krimpen aan den IJssel",
+            "code": "GM0542"
+        },
+        {
+            "naam": "Krimpenerwaard",
+            "code": "GM1931"
+        },
+        {
+            "naam": "Laarbeek",
+            "code": "GM1659"
+        },
+        {
+            "naam": "Land van Cuijk",
+            "code": "GM1982"
+        },
+        {
+            "naam": "Landgraaf",
+            "code": "GM0882"
+        },
+        {
+            "naam": "Landsmeer",
+            "code": "GM0415"
+        },
+        {
+            "naam": "Lansingerland",
+            "code": "GM1621"
+        },
+        {
+            "naam": "Laren",
+            "code": "GM0417"
+        },
+        {
+            "naam": "Leeuwarden",
+            "code": "GM0080"
+        },
+        {
+            "naam": "Leiden",
+            "code": "GM0546"
+        },
+        {
+            "naam": "Leiderdorp",
+            "code": "GM0547"
+        },
+        {
+            "naam": "Leidschendam-Voorburg",
+            "code": "GM1916"
+        },
+        {
+            "naam": "Lelystad",
+            "code": "GM0995"
+        },
+        {
+            "naam": "Leudal",
+            "code": "GM1640"
+        },
+        {
+            "naam": "Leusden",
+            "code": "GM0327"
+        },
+        {
+            "naam": "Lingewaard",
+            "code": "GM1705"
+        },
+        {
+            "naam": "Lisse",
+            "code": "GM0553"
+        },
+        {
+            "naam": "Lochem",
+            "code": "GM0262"
+        },
+        {
+            "naam": "Loon op Zand",
+            "code": "GM0809"
+        },
+        {
+            "naam": "Lopik",
+            "code": "GM0331"
+        },
+        {
+            "naam": "Losser",
+            "code": "GM0168"
+        },
+        {
+            "naam": "Maasdriel",
+            "code": "GM0263"
+        },
+        {
+            "naam": "Maasgouw",
+            "code": "GM1641"
+        },
+        {
+            "naam": "Maashorst",
+            "code": "GM1991"
+        },
+        {
+            "naam": "Maassluis",
+            "code": "GM0556"
+        },
+        {
+            "naam": "Maastricht",
+            "code": "GM0935"
+        },
+        {
+            "naam": "Medemblik",
+            "code": "GM0420"
+        },
+        {
+            "naam": "Meerssen",
+            "code": "GM0938"
+        },
+        {
+            "naam": "Meierijstad",
+            "code": "GM1948"
+        },
+        {
+            "naam": "Meppel",
+            "code": "GM0119"
+        },
+        {
+            "naam": "Middelburg",
+            "code": "GM0687"
+        },
+        {
+            "naam": "Midden-Delfland",
+            "code": "GM1842"
+        },
+        {
+            "naam": "Midden-Drenthe",
+            "code": "GM1731"
+        },
+        {
+            "naam": "Midden-Groningen",
+            "code": "GM1952"
+        },
+        {
+            "naam": "Moerdijk",
+            "code": "GM1709"
+        },
+        {
+            "naam": "Molenlanden",
+            "code": "GM1978"
+        },
+        {
+            "naam": "Montferland",
+            "code": "GM1955"
+        },
+        {
+            "naam": "Montfoort",
+            "code": "GM0335"
+        },
+        {
+            "naam": "Mook en Middelaar",
+            "code": "GM0944"
+        },
+        {
+            "naam": "Neder-Betuwe",
+            "code": "GM1740"
+        },
+        {
+            "naam": "Nederweert",
+            "code": "GM0946"
+        },
+        {
+            "naam": "Nieuwegein",
+            "code": "GM0356"
+        },
+        {
+            "naam": "Nieuwkoop",
+            "code": "GM0569"
+        },
+        {
+            "naam": "Nijkerk",
+            "code": "GM0267"
+        },
+        {
+            "naam": "Nijmegen",
+            "code": "GM0268"
+        },
+        {
+            "naam": "Nissewaard",
+            "code": "GM1930"
+        },
+        {
+            "naam": "Noardeast-Frysl\u00e2n",
+            "code": "GM1970"
+        },
+        {
+            "naam": "Noord-Beveland",
+            "code": "GM1695"
+        },
+        {
+            "naam": "Noordenveld",
+            "code": "GM1699"
+        },
+        {
+            "naam": "Noordoostpolder",
+            "code": "GM0171"
+        },
+        {
+            "naam": "Noordwijk",
+            "code": "GM0575"
+        },
+        {
+            "naam": "Nuenen, Gerwen en Nederwetten",
+            "code": "GM0820"
+        },
+        {
+            "naam": "Nunspeet",
+            "code": "GM0302"
+        },
+        {
+            "naam": "Oegstgeest",
+            "code": "GM0579"
+        },
+        {
+            "naam": "Oirschot",
+            "code": "GM0823"
+        },
+        {
+            "naam": "Oisterwijk",
+            "code": "GM0824"
+        },
+        {
+            "naam": "Oldambt",
+            "code": "GM1895"
+        },
+        {
+            "naam": "Oldebroek",
+            "code": "GM0269"
+        },
+        {
+            "naam": "Oldenzaal",
+            "code": "GM0173"
+        },
+        {
+            "naam": "Olst-Wijhe",
+            "code": "GM1773"
+        },
+        {
+            "naam": "Ommen",
+            "code": "GM0175"
+        },
+        {
+            "naam": "Oost Gelre",
+            "code": "GM1586"
+        },
+        {
+            "naam": "Oosterhout",
+            "code": "GM0826"
+        },
+        {
+            "naam": "Ooststellingwerf",
+            "code": "GM0085"
+        },
+        {
+            "naam": "Oostzaan",
+            "code": "GM0431"
+        },
+        {
+            "naam": "Opmeer",
+            "code": "GM0432"
+        },
+        {
+            "naam": "Opsterland",
+            "code": "GM0086"
+        },
+        {
+            "naam": "Oss",
+            "code": "GM0828"
+        },
+        {
+            "naam": "Oude IJsselstreek",
+            "code": "GM1509"
+        },
+        {
+            "naam": "Ouder-Amstel",
+            "code": "GM0437"
+        },
+        {
+            "naam": "Oudewater",
+            "code": "GM0589"
+        },
+        {
+            "naam": "Overbetuwe",
+            "code": "GM1734"
+        },
+        {
+            "naam": "Papendrecht",
+            "code": "GM0590"
+        },
+        {
+            "naam": "Peel en Maas",
+            "code": "GM1894"
+        },
+        {
+            "naam": "Pekela",
+            "code": "GM0765"
+        },
+        {
+            "naam": "Pijnacker-Nootdorp",
+            "code": "GM1926"
+        },
+        {
+            "naam": "Purmerend",
+            "code": "GM0439"
+        },
+        {
+            "naam": "Putten",
+            "code": "GM0273"
+        },
+        {
+            "naam": "Raalte",
+            "code": "GM0177"
+        },
+        {
+            "naam": "Reimerswaal",
+            "code": "GM0703"
+        },
+        {
+            "naam": "Renkum",
+            "code": "GM0274"
+        },
+        {
+            "naam": "Renswoude",
+            "code": "GM0339"
+        },
+        {
+            "naam": "Reusel-De Mierden",
+            "code": "GM1667"
+        },
+        {
+            "naam": "Rheden",
+            "code": "GM0275"
+        },
+        {
+            "naam": "Rhenen",
+            "code": "GM0340"
+        },
+        {
+            "naam": "Ridderkerk",
+            "code": "GM0597"
+        },
+        {
+            "naam": "Rijssen-Holten",
+            "code": "GM1742"
+        },
+        {
+            "naam": "Rijswijk",
+            "code": "GM0603"
+        },
+        {
+            "naam": "Roerdalen",
+            "code": "GM1669"
+        },
+        {
+            "naam": "Roermond",
+            "code": "GM0957"
+        },
+        {
+            "naam": "Roosendaal",
+            "code": "GM1674"
+        },
+        {
+            "naam": "Rotterdam",
+            "code": "GM0599"
+        },
+        {
+            "naam": "Rozendaal",
+            "code": "GM0277"
+        },
+        {
+            "naam": "Rucphen",
+            "code": "GM0840"
+        },
+        {
+            "naam": "Schagen",
+            "code": "GM0441"
+        },
+        {
+            "naam": "Scherpenzeel",
+            "code": "GM0279"
+        },
+        {
+            "naam": "Schiedam",
+            "code": "GM0606"
+        },
+        {
+            "naam": "Schiermonnikoog",
+            "code": "GM0088"
+        },
+        {
+            "naam": "Schouwen-Duiveland",
+            "code": "GM1676"
+        },
+        {
+            "naam": "Simpelveld",
+            "code": "GM0965"
+        },
+        {
+            "naam": "Sint-Michielsgestel",
+            "code": "GM0845"
+        },
+        {
+            "naam": "Sittard-Geleen",
+            "code": "GM1883"
+        },
+        {
+            "naam": "Sliedrecht",
+            "code": "GM0610"
+        },
+        {
+            "naam": "Sluis",
+            "code": "GM1714"
+        },
+        {
+            "naam": "Smallingerland",
+            "code": "GM0090"
+        },
+        {
+            "naam": "Soest",
+            "code": "GM0342"
+        },
+        {
+            "naam": "Someren",
+            "code": "GM0847"
+        },
+        {
+            "naam": "Son en Breugel",
+            "code": "GM0848"
+        },
+        {
+            "naam": "Stadskanaal",
+            "code": "GM0037"
+        },
+        {
+            "naam": "Staphorst",
+            "code": "GM0180"
+        },
+        {
+            "naam": "Stede Broec",
+            "code": "GM0532"
+        },
+        {
+            "naam": "Steenbergen",
+            "code": "GM0851"
+        },
+        {
+            "naam": "Steenwijkerland",
+            "code": "GM1708"
+        },
+        {
+            "naam": "Stein",
+            "code": "GM0971"
+        },
+        {
+            "naam": "Stichtse Vecht",
+            "code": "GM1904"
+        },
+        {
+            "naam": "S\u00fadwest-Frysl\u00e2n",
+            "code": "GM1900"
+        },
+        {
+            "naam": "Terneuzen",
+            "code": "GM0715"
+        },
+        {
+            "naam": "Terschelling",
+            "code": "GM0093"
+        },
+        {
+            "naam": "Texel",
+            "code": "GM0448"
+        },
+        {
+            "naam": "Teylingen",
+            "code": "GM1525"
+        },
+        {
+            "naam": "Tholen",
+            "code": "GM0716"
+        },
+        {
+            "naam": "Tiel",
+            "code": "GM0281"
+        },
+        {
+            "naam": "Tilburg",
+            "code": "GM0855"
+        },
+        {
+            "naam": "Tubbergen",
+            "code": "GM0183"
+        },
+        {
+            "naam": "Twenterand",
+            "code": "GM1700"
+        },
+        {
+            "naam": "Tynaarlo",
+            "code": "GM1730"
+        },
+        {
+            "naam": "Tytsjerksteradiel",
+            "code": "GM0737"
+        },
+        {
+            "naam": "Uitgeest",
+            "code": "GM0450"
+        },
+        {
+            "naam": "Uithoorn",
+            "code": "GM0451"
+        },
+        {
+            "naam": "Urk",
+            "code": "GM0184"
+        },
+        {
+            "naam": "Utrecht",
+            "code": "GM0344"
+        },
+        {
+            "naam": "Utrechtse Heuvelrug",
+            "code": "GM1581"
+        },
+        {
+            "naam": "Vaals",
+            "code": "GM0981"
+        },
+        {
+            "naam": "Valkenburg aan de Geul",
+            "code": "GM0994"
+        },
+        {
+            "naam": "Valkenswaard",
+            "code": "GM0858"
+        },
+        {
+            "naam": "Veendam",
+            "code": "GM0047"
+        },
+        {
+            "naam": "Veenendaal",
+            "code": "GM0345"
+        },
+        {
+            "naam": "Veere",
+            "code": "GM0717"
+        },
+        {
+            "naam": "Veldhoven",
+            "code": "GM0861"
+        },
+        {
+            "naam": "Velsen",
+            "code": "GM0453"
+        },
+        {
+            "naam": "Venlo",
+            "code": "GM0983"
+        },
+        {
+            "naam": "Venray",
+            "code": "GM0984"
+        },
+        {
+            "naam": "Vijfheerenlanden",
+            "code": "GM1961"
+        },
+        {
+            "naam": "Vlaardingen",
+            "code": "GM0622"
+        },
+        {
+            "naam": "Vlieland",
+            "code": "GM0096"
+        },
+        {
+            "naam": "Vlissingen",
+            "code": "GM0718"
+        },
+        {
+            "naam": "Voerendaal",
+            "code": "GM0986"
+        },
+        {
+            "naam": "Voorne aan Zee",
+            "code": "GM1992"
+        },
+        {
+            "naam": "Voorschoten",
+            "code": "GM0626"
+        },
+        {
+            "naam": "Voorst",
+            "code": "GM0285"
+        },
+        {
+            "naam": "Vught",
+            "code": "GM0865"
+        },
+        {
+            "naam": "Waadhoeke",
+            "code": "GM1949"
+        },
+        {
+            "naam": "Waalre",
+            "code": "GM0866"
+        },
+        {
+            "naam": "Waalwijk",
+            "code": "GM0867"
+        },
+        {
+            "naam": "Waddinxveen",
+            "code": "GM0627"
+        },
+        {
+            "naam": "Wageningen",
+            "code": "GM0289"
+        },
+        {
+            "naam": "Wassenaar",
+            "code": "GM0629"
+        },
+        {
+            "naam": "Waterland",
+            "code": "GM0852"
+        },
+        {
+            "naam": "Weert",
+            "code": "GM0988"
+        },
+        {
+            "naam": "West Betuwe",
+            "code": "GM1960"
+        },
+        {
+            "naam": "West Maas en Waal",
+            "code": "GM0668"
+        },
+        {
+            "naam": "Westerkwartier",
+            "code": "GM1969"
+        },
+        {
+            "naam": "Westerveld",
+            "code": "GM1701"
+        },
+        {
+            "naam": "Westervoort",
+            "code": "GM0293"
+        },
+        {
+            "naam": "Westerwolde",
+            "code": "GM1950"
+        },
+        {
+            "naam": "Westland",
+            "code": "GM1783"
+        },
+        {
+            "naam": "Weststellingwerf",
+            "code": "GM0098"
+        },
+        {
+            "naam": "Wierden",
+            "code": "GM0189"
+        },
+        {
+            "naam": "Wijchen",
+            "code": "GM0296"
+        },
+        {
+            "naam": "Wijdemeren",
+            "code": "GM1696"
+        },
+        {
+            "naam": "Wijk bij Duurstede",
+            "code": "GM0352"
+        },
+        {
+            "naam": "Winterswijk",
+            "code": "GM0294"
+        },
+        {
+            "naam": "Woensdrecht",
+            "code": "GM0873"
+        },
+        {
+            "naam": "Woerden",
+            "code": "GM0632"
+        },
+        {
+            "naam": "Wormerland",
+            "code": "GM0880"
+        },
+        {
+            "naam": "Woudenberg",
+            "code": "GM0351"
+        },
+        {
+            "naam": "Zaanstad",
+            "code": "GM0479"
+        },
+        {
+            "naam": "Zaltbommel",
+            "code": "GM0297"
+        },
+        {
+            "naam": "Zandvoort",
+            "code": "GM0473"
+        },
+        {
+            "naam": "Zeewolde",
+            "code": "GM0050"
+        },
+        {
+            "naam": "Zeist",
+            "code": "GM0355"
+        },
+        {
+            "naam": "Zevenaar",
+            "code": "GM0299"
+        },
+        {
+            "naam": "Zoetermeer",
+            "code": "GM0637"
+        },
+        {
+            "naam": "Zoeterwoude",
+            "code": "GM0638"
+        },
+        {
+            "naam": "Zuidplas",
+            "code": "GM1892"
+        },
+        {
+            "naam": "Zundert",
+            "code": "GM0879"
+        },
+        {
+            "naam": "Zutphen",
+            "code": "GM0301"
+        },
+        {
+            "naam": "Zwartewaterland",
+            "code": "GM1896"
+        },
+        {
+            "naam": "Zwijndrecht",
+            "code": "GM0642"
+        },
+        {
+            "naam": "Zwolle",
+            "code": "GM0193"
+        }
+    ]
+}

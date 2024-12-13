@@ -1,0 +1,8 @@
+# Ignore data directory and all its contents
+web/data/*
+tools/process/*
+*:Zone.Identifier
+
+# But keep overview.json
+!web/data/overview.json
+!web/data/gemeenten.json 
