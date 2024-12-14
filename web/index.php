@@ -13,10 +13,11 @@
     </head>
     <body>
         <div class="container">
+            <div class="feature-name-box"></div>
             <div id="map"></div>
             <div class="sidebar">
                 <header><h1>Maps<sup title="Open Data">OD</sup></h1></header>
-                <div class="search-container autocomplete-container">
+                <div class="search-container">
                     <input type="text" id="searchInput" placeholder="Search gemeente...">
                     <div id="autocompleteList" class="autocomplete-items"></div>
                     <div class="search-error">No matching municipality found</div>
@@ -25,11 +26,9 @@
                     <li role="tab" id="municipal-view">Gemeente</li>
                     <li role="tab" id="national-view">Nederland</li>
                 </ul>
-
                 <div class="stats-view"></div>
             </div>
         </div>
-        <script type="module" src="config.js"></script>
-        <script type="module" src="main.js"></script>
+        <script type="module" src="src/main.js"></script>
     </body>
 </html>

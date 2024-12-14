@@ -7,6 +7,7 @@ proj4.defs('EPSG:28992', '+proj=sterea +lat_0=52.15616055555555 +lon_0=5.3876388
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+
 const map = new mapboxgl.Map({
     container: 'map',
     style: MAP_STYLE,
@@ -90,8 +91,6 @@ map.on('load', () => {
             }
         });
 });
-
-var currentGeoJsonLayer = null;
 
 // ===== GeoJSON Loading & Display =====
 function loadGeoJson(code) {
@@ -351,44 +350,44 @@ function addMapLayers(geoJsonData) {
         generateId: true  // This can help with performance
     });
 
-// Add this after the imports
-const populationColorScale = chroma.scale(['#cce7ff', '#002f6c', '#000000'])
-    .domain([0, 700000])  // Adjust max population as needed
-    .mode('lab');          // For perceptually uniform color transitions
+    // Add this after the imports
+    const populationColorScale = chroma.scale(['#add8e6', '#4682b4', '#00008b'])
+        .domain([10000, 350000, 1000000])  
+        .mode('lab');
 
-// In the addMapLayers function, update the fill layer
-map.addLayer({
-    'id': 'municipalities',
-    'type': 'fill',
-    'source': 'municipalities',
-    'paint': {
-        'fill-color': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            // Lighter shade when hovering
-            ['interpolate',
-                ['linear'],
-                ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
-                0, chroma(populationColorScale(0)).brighten().hex(),
-                1000000, chroma(populationColorScale(1000000)).brighten().hex()
+    // In the addMapLayers function, update the fill layer
+    map.addLayer({
+        'id': 'municipalities',
+        'type': 'fill',
+        'source': 'municipalities',
+        'paint': {
+            'fill-color': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                // Lighter shade when hovering
+                ['interpolate',
+                    ['linear'],
+                    ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
+                    10000, chroma(populationColorScale(10000)).brighten().hex(),
+                    1000000, chroma(populationColorScale(1000000)).brighten().hex()
+                ],
+                // Normal shade
+                ['interpolate',
+                    ['linear'],
+                    ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
+                    10000, populationColorScale(10000).hex(),
+                    1000000, populationColorScale(1000000).hex()
+                ]
             ],
-            // Normal shade
-            ['interpolate',
-                ['linear'],
-                ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
-                0, populationColorScale(0).hex(),
-                1000000, populationColorScale(1000000).hex()
-            ]
-        ],
-        'fill-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            0.8,  // hover opacity
-            0.6   // default opacity
-        ],
-        'fill-outline-color': '#00509e',  // Normal border
-    }
-});
+            'fill-opacity': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                0.8,  // hover opacity
+                0.6   // default opacity
+            ],
+            'fill-outline-color': '#00509e',  // Normal border
+        }
+    });
 
     // Update the border layer for better contrast
     map.addLayer({
@@ -414,13 +413,8 @@ map.addLayer({
     // Variable to track the currently hovered feature
     let hoveredFeatureId = null;
 
-    // Add a div for the feature name if it doesn't exist
+    // Select the feature name box
     let featureNameBox = document.querySelector('.feature-name-box');
-    if (!featureNameBox) {
-        featureNameBox = document.createElement('div');
-        featureNameBox.className = 'feature-name-box';
-        document.body.appendChild(featureNameBox);
-    }
 
     // Keep track of selected municipality
     const selectedMunicipality = localStorage.getItem('lastMunicipality') 
@@ -451,7 +445,11 @@ map.addLayer({
                 content = `<div>${getPopulationText(currentGemeentenaam, currentCode)}</div>`;
             }
             if (feature.properties?.buurtnaam) {
-                content += `<div class="hovered-name">${feature.properties.buurtnaam}</div>`;
+                content += `<div class="hovered-name">${feature.properties.buurtnaam}`;
+                if (feature.properties?.aantalInwoners) {
+                    content += ` <span class="population-text">(${feature.properties.aantalInwoners} inwoners)</span>`;
+                }
+                content += `</div>`;
             }
         }
 
