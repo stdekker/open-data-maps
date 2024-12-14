@@ -52,6 +52,7 @@ function fetchGemeente($code, $force = false, $progress = null) {
         $properties = $feature['properties'] ?? [];
         $buurtnaam = $properties['buurtnaam'] ?? 'Onbekend';
         $aantalInwoners = isset($properties['aantalInwoners']) ? (int)$properties['aantalInwoners'] : 0;
+        $aantalHuishoudens = isset($properties['aantalHuishoudens']) ? (int)$properties['aantalHuishoudens'] : 0;
 
         // Keep only essential properties
         $optimizedFeature = [
@@ -59,7 +60,8 @@ function fetchGemeente($code, $force = false, $progress = null) {
             'geometry' => $feature['geometry'],
             'properties' => [
                 'buurtnaam' => $buurtnaam,
-                'aantalInwoners' => $aantalInwoners
+                'aantalInwoners' => $aantalInwoners,
+                'aantalHuishoudens' => $aantalHuishoudens
             ]
         ];
         

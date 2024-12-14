@@ -1,0 +1,50 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        /* Coordinate arrays omitted for clarity */
+      ]
+    ]
+  },
+  "properties": {
+    "gemeentecode": "GM0417",
+    "gemeentenaam": "Laren",
+    "water": "NEE",
+    "omgevingsadressendichtheid": 1112,
+    "stedelijkheidAdressenPerKm2": 3,
+    "bevolkingsdichtheidInwonersPerKm2": 944,
+    "aantalInwoners": 11712,
+    "mannen": 5519,
+    "vrouwen": 6193,
+    "percentagePersonen0Tot15Jaar": 16,
+    "percentagePersonen15Tot25Jaar": 9,
+    "percentagePersonen25Tot45Jaar": 15,
+    "percentagePersonen45Tot65Jaar": 28,
+    "percentagePersonen65JaarEnOuder": 32,
+    "percentageOngehuwd": 42,
+    "percentageGehuwd": 40,
+    "percentageGescheid": 10,
+    "percentageVerweduwd": 8,
+    "aantalHuishoudens": 5256,
+    "percentageEenpersoonshuishoudens": 38,
+    "percentageHuishoudensZonderKinderen": 30,
+    "percentageHuishoudensMetKinderen": 32,
+    "gemiddeldeHuishoudsgrootte": 2.1,
+    "percentageMetHerkomstlandNederland": 74,
+    "percentageMetHerkomstlandUitEuropaExclNl": 11,
+    "percentageMetHerkomstlandBuitenEuropa": 14,
+    "percentageGebInNlMetHerkomstlandNederland": 74,
+    "percGebInNlMetHerkomstlandInEuropaExNl": 5,
+    "percGebInNlMetHerkomstlandBuitenEuropa": 6,
+    "percGebBuitenNlMetHerkomstlndInEuropaExNl": 6,
+    "percGebBuitenNlMetHerkomstlndBuitenEuropa": 8,
+    "oppervlakteTotaalInHa": 1241,
+    "oppervlakteLandInHa": 1241,
+    "oppervlakteWaterInHa": 0,
+    "jrstatcode": "2023GM0417",
+    "jaar": 2023
+  },
+  "id": "gemeenten.9581c3bd-ab13-4071-a370-854d839b27a6"
+} 

@@ -106,37 +106,48 @@ foreach ($elections as $election => $urls) {
             continue;
         }
         
-        // Extract municipality name
+        // Extract municipality code from AuthorityIdentifier
+        $authorityId = (string)$xml->ManagingAuthority->AuthorityIdentifier['Id'];
+        if (empty($authorityId)) {
+            echo "Warning: No AuthorityIdentifier found in file: " . basename($xmlFile) . "\n";
+            continue;
+        }
+        
+        // Extract municipality name (keep this for reporting units)
         $municipality = str_replace(['Telling_', $election . '_gemeente_', '.eml.xml'], '', basename($xmlFile));
         
         // Process reporting units
-        if (isset($xml->Count->Election->Contests->Contest->TotalVotes->ReportingUnitIdentifier)) {
+        if (isset($xml->Count->Election->Contests->Contest->ReportingUnitVotes)) {
             // Initialize municipality array if it doesn't exist
-            if (!isset($reportingUnits[$municipality])) {
-                $reportingUnits[$municipality] = [];
+            if (!isset($reportingUnits[$authorityId])) {  // Use authorityId instead of municipality name
+                $reportingUnits[$authorityId] = [
+                    'name' => $municipality,  // Store municipality name
+                    'units' => []
+                ];
             }
             
-            foreach ($xml->Count->Election->Contests->Contest->TotalVotes->ReportingUnitIdentifier as $unit) {
-                $unitId = (string)$unit;
+            foreach ($xml->Count->Election->Contests->Contest->ReportingUnitVotes as $reportingUnitVotes) {
+                $unitId = (string)$reportingUnitVotes->ReportingUnitIdentifier;
                 
                 // Split into name and postcode if possible
-                if (preg_match('/^(.+?)(?:\s*\(postcode:\s*([^)]+)\))?$/', $unitId, $matches)) {
-                    $reportingUnits[$municipality][$unitId] = [
+                if (preg_match('/^Stembureau\s+(.+?)(?:\s*\(postcode:\s*([^)]+)\))?$/i', $unitId, $matches)) {
+                    $reportingUnits[$authorityId]['units'][$unitId] = [
                         'original_id' => $unitId,
-                        'name' => trim($matches[1]),
+                        'address' => trim($matches[1]),  // Changed from 'name' to 'address' and removed "Stembureau"
                         'postcode' => isset($matches[2]) ? trim($matches[2]) : null
                     ];
                 } else {
-                    $reportingUnits[$municipality][$unitId] = [
+                    $reportingUnits[$authorityId]['units'][$unitId] = [
                         'original_id' => $unitId,
-                        'name' => $unitId,
+                        'address' => $unitId,  // Changed from 'name' to 'address'
                         'postcode' => null
                     ];
                 }
             }
         }
-        // Create output filename
-        $jsonFile = __DIR__ . "/../web/data/elections/$election/{$municipality}.json";
+
+        // Create output filename using GM prefix and authority ID
+        $jsonFile = __DIR__ . "/../web/data/elections/$election/GM{$authorityId}.json";
         
         // Use simplified or full data based on configuration
         $data = $simplifyOutput ? simplifyElectionData($xml) : $xml;
@@ -152,10 +163,10 @@ foreach ($elections as $election => $urls) {
     $reportingUnitsFile = __DIR__ . "/../web/data/elections/$election/reporting_units.json";
     // Sort municipalities alphabetically
     ksort($reportingUnits);
-    foreach ($reportingUnits as &$units) {
-        // Sort reporting units within each municipality by name
-        uasort($units, function($a, $b) {
-            return strcmp($a['name'], $b['name']);
+    foreach ($reportingUnits as &$municipality) {
+        // Sort reporting units within each municipality by address
+        uasort($municipality['units'], function($a, $b) {
+            return strcmp($a['address'], $b['address']);
         });
     }
     if (file_put_contents($reportingUnitsFile, json_encode($reportingUnits, JSON_PRETTY_PRINT)) === false) {

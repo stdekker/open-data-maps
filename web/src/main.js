@@ -100,48 +100,52 @@ function loadGeoJson(code) {
         return;
     }
 
-    fetch(`fetch-municipality.php?code=${code}`)
-        .then(response => response.json())
-        .then(data => {
-            const geoJsonData = {
-                ...data,
-                features: data.features.map((feature, index) => ({
-                    ...feature,
-                    id: index,
-                    geometry: {
-                        type: feature.geometry.type,
-                        coordinates: transformCoordinates(feature.geometry.coordinates, feature.geometry.type)
-                    }
-                }))
-            };
+    // Load both GeoJSON and election data
+    Promise.all([
+        fetch(`fetch-municipality.php?code=${code}`),
+        loadElectionData(code)
+    ])
+    .then(([geoJsonResponse]) => geoJsonResponse.json())
+    .then(data => {
+        const geoJsonData = {
+            ...data,
+            features: data.features.map((feature, index) => ({
+                ...feature,
+                id: index,
+                geometry: {
+                    type: feature.geometry.type,
+                    coordinates: transformCoordinates(feature.geometry.coordinates, feature.geometry.type)
+                }
+            }))
+        };
 
-            addMapLayers(geoJsonData);
+        addMapLayers(geoJsonData);
 
-            // Fit bounds to the loaded GeoJSON
-            try {
-                const bounds = new mapboxgl.LngLatBounds();
-                geoJsonData.features.forEach(feature => {
-                    if (feature.geometry.type === 'Polygon') {
-                        feature.geometry.coordinates[0].forEach(coord => {
+        // Fit bounds to the loaded GeoJSON
+        try {
+            const bounds = new mapboxgl.LngLatBounds();
+            geoJsonData.features.forEach(feature => {
+                if (feature.geometry.type === 'Polygon') {
+                    feature.geometry.coordinates[0].forEach(coord => {
+                        bounds.extend(coord);
+                    });
+                } else if (feature.geometry.type === 'MultiPolygon') {
+                    feature.geometry.coordinates.forEach(polygon => {
+                        polygon[0].forEach(coord => {
                             bounds.extend(coord);
                         });
-                    } else if (feature.geometry.type === 'MultiPolygon') {
-                        feature.geometry.coordinates.forEach(polygon => {
-                            polygon[0].forEach(coord => {
-                                bounds.extend(coord);
-                            });
-                        });
-                    }
-                });
-                
-                if (!bounds.isEmpty()) {
-                    map.fitBounds(bounds, { padding: 64 });
+                    });
                 }
-            } catch (e) {
-                console.error('Error fitting bounds:', e);
+            });
+            
+            if (!bounds.isEmpty()) {
+                map.fitBounds(bounds, { padding: 64 });
             }
-        })
-        .catch(error => console.error('Error loading GeoJSON:', error));
+        } catch (e) {
+            console.error('Error fitting bounds:', e);
+        }
+    })
+    .catch(error => console.error('Error loading data:', error));
 }
 
 // Coordinate Transformation 
@@ -221,9 +225,14 @@ function activateView(viewType, municipalityCode = null) {
     viewItem.classList.add('active');
     viewItem.setAttribute('aria-selected', 'true');
 
+    // Clear and hide stats view when switching to national view
+    const statsView = document.querySelector('.stats-view');
     if (viewType === 'national') {
+        statsView.innerHTML = '';
+        statsView.style.display = 'none';
         loadNationalGeoJson();
     } else if (viewType === 'municipal') {
+        statsView.style.display = 'block';
         ensurePopulationData().then(() => {
             if (municipalityCode) {
                 loadGeoJson(municipalityCode);
@@ -495,4 +504,49 @@ function addMapLayers(geoJsonData) {
         // Show only selected municipality if it exists
         updateFeatureNameBox();
     });
+}
+
+// Add this function after the imports
+async function loadElectionData(municipalityCode) {
+    try {
+        const response = await fetch(`data/elections/TK2021/${municipalityCode}.json`);
+        const data = await response.json();
+        
+        // Get the total votes per party from the data
+        const totalVotes = data.Count.Election.Contests.Contest.TotalVotes.Selection;
+        
+        // Sort parties by number of votes (descending)
+        totalVotes.sort((a, b) => parseInt(b.ValidVotes) - parseInt(a.ValidVotes));
+        
+        // Create HTML for the stats view
+        const statsView = document.querySelector('.stats-view');
+        // Calculate total valid votes for percentage calculation
+        const totalValidVotes = totalVotes.reduce((sum, party) => sum + parseInt(party.ValidVotes), 0);
+        
+        let html = `
+            <h2>TK2021</h2>
+            <div class="total-votes">Totaal geldige stemmen: ${totalValidVotes.toLocaleString('nl-NL')}</div>
+            <div class="election-results">
+        `;
+        
+        totalVotes.forEach(party => {
+            const votes = parseInt(party.ValidVotes);
+            const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
+            if (votes > 0) { // Only show parties with votes
+                html += `
+                    <div class="party-result">
+                        <span class="party-name">${party.AffiliationIdentifier.Name}</span>
+                        <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                    </div>
+                `;
+            }
+        });
+        
+        html += '</div>';
+        statsView.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading election data:', error);
+        document.querySelector('.stats-view').innerHTML = `<p>Geen verkiezingsdata beschikbaar voor ${municipalityCode}.json</p>`;
+    }
 }
