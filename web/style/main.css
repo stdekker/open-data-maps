@@ -178,6 +178,9 @@ body, html {
 }
 
 @media screen and (max-width: 768px) {
+    .sidebar header h1 {
+        font-size: 1.6rem;
+    }
     .container {
         flex-direction: column;
         height: 100%;
@@ -209,16 +212,16 @@ body, html {
         bottom: 0;
         left: 0;
         background: #f8f9fa;
-        transform: translateY(calc(100% - 60px));
+        transform: translateY(calc(100% - 120px));
         touch-action: pan-x pan-y;
     }
 
     .sidebar.collapsed {
-        transform: translateY(calc(100% - 60px));
+        transform: translateY(calc(100% - 120px));
     }
 
     .sidebar::before {
-        content: '↧';
+        content: '\21A7';
         position: absolute;
         top: 8px;
         left: 50%;
@@ -273,6 +276,16 @@ body, html {
     .sidebar.collapsed::before {
         transform: translateX(-50%) rotate(180deg);
         background: transparent;
+    }
+
+    .search-container {
+        position: relative;
+        /* padding-top: 35px; */
+        margin-bottom: 24px;
+    }
+
+    .search-container input {
+        background-color: white;
     }
 }
 

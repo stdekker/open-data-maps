@@ -7,7 +7,6 @@ export function initializeMobileHandler() {
     sidebar.classList.add('collapsed');
     
     // Remove old touch event listeners and add click handler
-    const handle = sidebar.querySelector('::before');
     sidebar.addEventListener('click', (e) => {
         // Check if click was on the handle (near the top of sidebar)
         const clickY = e.clientY;
@@ -24,7 +23,7 @@ export function initializeMobileHandler() {
             } else {
                 // Collapse
                 sidebar.classList.add('collapsed');
-                sidebar.style.transform = '';
+                sidebar.style.transform = 'translateY(calc(100% - 120px))';
             }
         }
     });
