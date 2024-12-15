@@ -126,6 +126,9 @@ function selectMunicipality(municipality) {
     localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
     updateUrlParams(municipality.naam);
 
+    // Hide keyboard on mobile devices
+    searchInput.blur();
+
     setTimeout(() => {
         searchInput.value = '';
     }, 585);
