@@ -1,6 +1,7 @@
 // Import configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 import { loadElectionData } from './modules/electionService.js';
+import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 
 let showElectionData = false;
 
@@ -24,102 +25,100 @@ map.on('load', () => {
             const searchInput = document.getElementById('searchInput');
             const autocompleteList = document.getElementById('autocompleteList');
 
-            function selectMunicipality(municipality) {
-                const searchError = document.querySelector('.search-error');
-                searchError.classList.remove('visible');
-                
-                // First update the input value to show feedback
-                searchInput.value = municipality.naam;
-                autocompleteList.innerHTML = '';
-                
-                // Store the selected municipality in localStorage
-                localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+            setupSearch(searchInput, autocompleteList, data);
 
-                // Update URL params
-                updateUrlParams(municipality.naam);
-
-                // Activate municipal view and load the municipality data
-                activateView('municipal', municipality.code);
-
-                // Clear the search input after a short delay to show feedback
-                setTimeout(() => {
-                    searchInput.value = '';
-                }, 500);
-            }
-
-            // Handle input for autocomplete
-            searchInput.addEventListener('input', function() {
-                const value = this.value.toLowerCase();
-                autocompleteList.innerHTML = '';
-                const searchError = document.querySelector('.search-error');
-                
-                // Hide error when input is cleared or too short
-                if (value.length < 2) {
-                    searchError.classList.remove('visible');
-                    return;
-                }
-
-                const matches = data.gemeenten.filter(municipality => 
-                    municipality.naam.toLowerCase().includes(value)
-                );
-
-                // Show error if no matches and input is long enough
-                if (matches.length === 0) {
-                    searchError.classList.add('visible');
-                } else {
-                    searchError.classList.remove('visible');
-                }
-
-                matches.forEach(municipality => {
-                    const div = document.createElement('div');
-                    div.textContent = municipality.naam;
-                    div.addEventListener('click', () => {
-                        selectMunicipality(municipality);
-                    });
-                    autocompleteList.appendChild(div);
-                });
-            });
-
-            // Handle Enter key press
-            searchInput.addEventListener('keyup', function(e) {
-                if (e.key === 'Enter') {
-                    const value = this.value.toLowerCase();
-                    const matches = data.gemeenten.filter(municipality => 
-                        municipality.naam.toLowerCase().includes(value)
-                    );
-                    if (matches.length === 1) {
-                        selectMunicipality(matches[0]);
-                    }
-                }
-            });
-
-            // Check URL parameters first
-            const params = getUrlParams();
-            if (params.gemeente) {
-                const municipalityFromUrl = data.gemeenten.find(municipality => 
-                    municipality.naam.toLowerCase() === params.gemeente.toLowerCase()
-                );
-                if (municipalityFromUrl) {
-                    selectMunicipality(municipalityFromUrl);
-                    return;
-                }
-            }
-
-            // If no valid URL parameter, proceed with localStorage or default
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
-            if (lastMunicipality) {
-                selectMunicipality(JSON.parse(lastMunicipality));
-            } else {
-                // Load default if there is no stored municipality
-                const initialMunicipality = data.gemeenten.find(municipality => 
-                    municipality.naam === DEFAULT_MUNICIPALITY
-                );
-                if (initialMunicipality) {
-                    selectMunicipality(initialMunicipality);
-                }
-            }
+            initialMunicipalitySelection(data);
         });
 });
+
+function setupSearch(searchInput, autocompleteList, data) {
+    searchInput.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        autocompleteList.innerHTML = '';
+        const searchError = document.querySelector('.search-error');
+        
+        if (value.length < 2) {
+            searchError.classList.remove('visible');
+            return;
+        }
+
+        const matches = data.gemeenten.filter(municipality => 
+            municipality.naam.toLowerCase().includes(value)
+        );
+
+        if (matches.length === 0) {
+            searchError.classList.add('visible');
+        } else {
+            searchError.classList.remove('visible');
+        }
+
+        matches.forEach(municipality => {
+            const div = document.createElement('div');
+            div.textContent = municipality.naam;
+            div.addEventListener('click', () => {
+                selectMunicipality(municipality, searchInput, autocompleteList);
+            });
+            autocompleteList.appendChild(div);
+        });
+    });
+
+    searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+            const value = this.value.toLowerCase();
+            const matches = data.gemeenten.filter(municipality => 
+                municipality.naam.toLowerCase().includes(value)
+            );
+            if (matches.length === 1) {
+                selectMunicipality(matches[0], searchInput, document.getElementById('autocompleteList'));
+            }
+        }
+    });
+}
+
+function initialMunicipalitySelection(data) {
+    const params = getUrlParams();
+    let municipality = null;
+    
+    if (params.gemeente) {
+        municipality = data.gemeenten.find(m => 
+            m.naam.toLowerCase() === params.gemeente.toLowerCase()
+        );
+    }
+    
+    if (!municipality) {
+        const lastMunicipality = localStorage.getItem('lastMunicipality');
+        if (lastMunicipality) {
+            municipality = JSON.parse(lastMunicipality);
+        } else {
+            municipality = data.gemeenten.find(m => 
+                m.naam === DEFAULT_MUNICIPALITY
+            );
+        }
+    }
+    
+    if (municipality) {
+        selectMunicipality(municipality);
+    }
+}
+
+function selectMunicipality(municipality) {
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
+    const searchError = document.querySelector('.search-error');
+ 
+    activateView('municipal', municipality.code);
+    
+    // Interface updates
+    autocompleteList.innerHTML = '';
+    searchError.classList.remove('visible');
+    
+    localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+    updateUrlParams(municipality.naam);
+
+    setTimeout(() => {
+        searchInput.value = '';
+    }, 585);
+}
 
 // ===== GeoJSON Loading & Display =====
 function loadGeoJson(code) {
@@ -404,7 +403,7 @@ function addMapLayers(geoJsonData) {
         generateId: true  // This can help with performance
     });
 
-    // Add this after the imports
+    // Color scale
     const populationColorScale = chroma.scale(['#add8e6', '#4682b4', '#00008b'])
         .domain([10000, 350000, 1000000])  
         .mode('lab');
@@ -549,22 +548,4 @@ function addMapLayers(geoJsonData) {
         // Show only selected municipality if it exists
         updateFeatureNameBox();
     });
-}
-
-// Add these functions near the top of the file after the imports
-function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    return {
-        gemeente: params.get('gemeente')
-    };
-}
-
-function updateUrlParams(gemeente) {
-    const url = new URL(window.location);
-    if (gemeente) {
-        url.searchParams.set('gemeente', gemeente);
-    } else {
-        url.searchParams.delete('gemeente');
-    }
-    window.history.pushState({}, '', url);
 }
