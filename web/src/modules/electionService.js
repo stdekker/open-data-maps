@@ -1,11 +1,4 @@
 export async function loadElectionData(municipalityCode) {
-    // Check if election data should be shown
-    const showElectionData = localStorage.getItem('showElectionData') === 'true';
-    if (!showElectionData) {
-        document.querySelector('.stats-view').style.display = 'none';
-        return;
-    }
-
     try {
         const response = await fetch(`data/elections/TK2021/${municipalityCode}.json`);
         const data = await response.json();
