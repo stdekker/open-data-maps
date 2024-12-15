@@ -2,6 +2,7 @@
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 import { loadElectionData } from './modules/electionService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
+import { initializeMobileHandler } from './modules/mobileHandler.js';
 
 let showElectionData = false;
 
@@ -233,6 +234,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Initialize mobile handler
+    initializeMobileHandler();
 });
 
 // Add this function near the top of the file
