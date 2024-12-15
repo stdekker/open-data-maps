@@ -1,12 +1,8 @@
 // Import configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
+import { loadElectionData } from './modules/electionService.js';
 
-// Add this line after the imports
 let showElectionData = false;
-
-// ===== Projection Setup =====
-// Define the Dutch RD New projection
-proj4.defs('EPSG:28992', '+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs');
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -38,6 +34,9 @@ map.on('load', () => {
                 
                 // Store the selected municipality in localStorage
                 localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+
+                // Update URL params
+                updateUrlParams(municipality.naam);
 
                 // Activate municipal view and load the municipality data
                 activateView('municipal', municipality.code);
@@ -94,7 +93,19 @@ map.on('load', () => {
                 }
             });
 
-            // Initial Municipality Loading
+            // Check URL parameters first
+            const params = getUrlParams();
+            if (params.gemeente) {
+                const municipalityFromUrl = data.gemeenten.find(municipality => 
+                    municipality.naam.toLowerCase() === params.gemeente.toLowerCase()
+                );
+                if (municipalityFromUrl) {
+                    selectMunicipality(municipalityFromUrl);
+                    return;
+                }
+            }
+
+            // If no valid URL parameter, proceed with localStorage or default
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 selectMunicipality(JSON.parse(lastMunicipality));
@@ -160,18 +171,6 @@ function loadGeoJson(code) {
         }
     })
     .catch(error => console.error('Error loading data:', error));
-}
-
-// Coordinate Transformation 
-function transformCoordinates(coords, type) {
-    const transform = coord => proj4('EPSG:28992', 'EPSG:4326').forward(coord);
-    
-    if (type === 'Polygon') {
-        return coords.map(ring => ring.map(transform));
-    } else if (type === 'MultiPolygon') {
-        return coords.map(polygon => polygon.map(ring => ring.map(transform)));
-    }
-    return coords;
 }
 
 // Add click handlers for menu items
@@ -268,6 +267,7 @@ function activateView(viewType, municipalityCode = null) {
     if (viewType === 'national') {
         statsView.innerHTML = '';
         statsView.style.display = 'none';
+        updateUrlParams(null); // Remove gemeente parameter
         loadNationalGeoJson();
     } else if (viewType === 'municipal') {
         statsView.style.display = showElectionData ? 'block' : 'none';
@@ -321,7 +321,7 @@ function loadNationalGeoJson() {
                     id: index,
                     geometry: {
                         type: feature.geometry.type,
-                        coordinates: transformCoordinates(feature.geometry.coordinates, feature.geometry.type)
+                        coordinates: feature.geometry.coordinates
                     }
                 }))
             };
@@ -551,5 +551,20 @@ function addMapLayers(geoJsonData) {
     });
 }
 
-// Add this import at the top with other imports
-import { loadElectionData } from './modules/electionService.js';
+// Add these functions near the top of the file after the imports
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        gemeente: params.get('gemeente')
+    };
+}
+
+function updateUrlParams(gemeente) {
+    const url = new URL(window.location);
+    if (gemeente) {
+        url.searchParams.set('gemeente', gemeente);
+    } else {
+        url.searchParams.delete('gemeente');
+    }
+    window.history.pushState({}, '', url);
+}
