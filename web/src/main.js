@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 const municipality = JSON.parse(lastMunicipality);
-                loadElectionData(municipality.code);
+                loadElectionData(municipality.code, localStorage.getItem('currentElection') || 'TK2021');
             }
         }
     });
@@ -291,7 +291,7 @@ function activateView(viewType, municipalityCode = null) {
             if (municipalityCode) {
                 loadGeoJson(municipalityCode);
                 if (showElectionData) {
-                    loadElectionData(municipalityCode);
+                    loadElectionData(municipalityCode, localStorage.getItem('currentElection') || 'TK2021');
                 }
             } else {
                 const lastMunicipality = localStorage.getItem('lastMunicipality');
@@ -299,7 +299,7 @@ function activateView(viewType, municipalityCode = null) {
                     const municipality = JSON.parse(lastMunicipality);
                     loadGeoJson(municipality.code);
                     if (showElectionData) {
-                        loadElectionData(municipality.code);
+                        loadElectionData(municipality.code, localStorage.getItem('currentElection') || 'TK2021');
                     }
                 }
             }

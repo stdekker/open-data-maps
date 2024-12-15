@@ -1,6 +1,8 @@
-export async function loadElectionData(municipalityCode) {
+const AVAILABLE_ELECTIONS = ['TK2021', 'TK2023'];
+
+export async function loadElectionData(municipalityCode, electionId = 'TK2021') {
     try {
-        const response = await fetch(`data/elections/TK2021/${municipalityCode}.json`);
+        const response = await fetch(`data/elections/${electionId}/${municipalityCode}.json`);
         const data = await response.json();
         
         // Get the total votes per party from the data
@@ -18,7 +20,15 @@ export async function loadElectionData(municipalityCode) {
         const statsView = document.querySelector('.stats-view');
         
         let html = `
-            <h2>TK2021</h2>
+            <div class="election-header">
+                <button class="nav-button prev" ${AVAILABLE_ELECTIONS.indexOf(electionId) === 0 ? 'disabled' : ''}>
+                    &#8249;
+                </button>
+                <h2>${electionId}</h2>
+                <button class="nav-button next" ${AVAILABLE_ELECTIONS.indexOf(electionId) === AVAILABLE_ELECTIONS.length - 1 ? 'disabled' : ''}>
+                    &#8250;
+                </button>
+            </div>
             <div class="total-votes">
                 Uitgebracht: ${totalCastVotes.toLocaleString('nl-NL')}<br>
                 Geldig: ${totalValidVotes.toLocaleString('nl-NL')}
@@ -83,6 +93,24 @@ export async function loadElectionData(municipalityCode) {
                 othersElement.classList.toggle('expanded', !isExpanded);
             });
         }
+        
+        // Add event listeners for navigation buttons
+        const prevButton = statsView.querySelector('.nav-button.prev');
+        const nextButton = statsView.querySelector('.nav-button.next');
+
+        prevButton.addEventListener('click', () => {
+            const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
+            if (currentIndex > 0) {
+                loadElectionData(municipalityCode, AVAILABLE_ELECTIONS[currentIndex - 1]);
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
+            if (currentIndex < AVAILABLE_ELECTIONS.length - 1) {
+                loadElectionData(municipalityCode, AVAILABLE_ELECTIONS[currentIndex + 1]);
+            }
+        });
         
     } catch (error) {
         console.error('Error loading election data:', error);
