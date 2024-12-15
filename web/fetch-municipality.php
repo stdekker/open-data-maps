@@ -1,4 +1,29 @@
 <?php
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use proj4php\Proj4php;
+use proj4php\Proj;
+use proj4php\Point;
+
+// Add this function for coordinate transformation
+function transformCoordinates($coordinates, $proj4, $projFrom, $projTo) {
+    if (empty($coordinates)) return $coordinates;
+    
+    // Handle different geometry types
+    if (is_numeric($coordinates[0])) {
+        // Single point
+        $point = new Point($coordinates[0], $coordinates[1], $projFrom);
+        $newPoint = $proj4->transform($projTo, $point);
+        return [$newPoint->x, $newPoint->y];
+    }
+    
+    // Array of coordinates (polygon or linestring)
+    $transformed = [];
+    foreach ($coordinates as $coord) {
+        $transformed[] = transformCoordinates($coord, $proj4, $projFrom, $projTo);
+    }
+    return $transformed;
+}
 
 // Function to fetch and save gemeente data
 function fetchGemeente($code, $force = false, $progress = null) {
@@ -38,7 +63,12 @@ function fetchGemeente($code, $force = false, $progress = null) {
         return;
     }
 
-    // Decode the JSON
+    // Initialize Proj4
+    $proj4 = new Proj4php();
+    $projFrom = new Proj('EPSG:28992', $proj4);
+    $projTo = new Proj('EPSG:4326', $proj4);
+
+    // After decoding the JSON, transform the coordinates
     $data = json_decode($response, true);
 
     // Create a new optimized structure
@@ -54,10 +84,19 @@ function fetchGemeente($code, $force = false, $progress = null) {
         $aantalInwoners = isset($properties['aantalInwoners']) ? (int)$properties['aantalInwoners'] : 0;
         $aantalHuishoudens = isset($properties['aantalHuishoudens']) ? (int)$properties['aantalHuishoudens'] : 0;
 
+        // Transform the geometry coordinates
+        $geometry = $feature['geometry'];
+        $geometry['coordinates'] = transformCoordinates(
+            $geometry['coordinates'],
+            $proj4,
+            $projFrom,
+            $projTo
+        );
+
         // Keep only essential properties
         $optimizedFeature = [
             'type' => 'Feature',
-            'geometry' => $feature['geometry'],
+            'geometry' => $geometry,
             'properties' => [
                 'buurtnaam' => $buurtnaam,
                 'aantalInwoners' => $aantalInwoners,

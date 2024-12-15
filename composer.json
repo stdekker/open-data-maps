@@ -1,0 +1,19 @@
+{
+    "name": "sdkkr/maps",
+    "description": "Open data maps",
+    "license": "GPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "Sdkkr\\Maps\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Stijn Dekker",
+            "email": "stijn.dekker@gmail.com"
+        }
+    ],
+    "require": {
+        "proj4php/proj4php": "^2.0"
+    }
+}

@@ -26,6 +26,13 @@
                     <li role="tab" id="municipal-view">Gemeente</li>
                     <li role="tab" id="national-view">Nederland</li>
                 </ul>
+                <div class="toggle-container">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="electionToggle">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Verkiezingen</span>
+                    </label>
+                </div>
                 <div class="stats-view"></div>
             </div>
         </div>

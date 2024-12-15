@@ -1,6 +1,9 @@
 // Import configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 
+// Add this line after the imports
+let showElectionData = false;
+
 // ===== Projection Setup =====
 // Define the Dutch RD New projection
 proj4.defs('EPSG:28992', '+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs');
@@ -26,6 +29,9 @@ map.on('load', () => {
             const autocompleteList = document.getElementById('autocompleteList');
 
             function selectMunicipality(municipality) {
+                const searchError = document.querySelector('.search-error');
+                searchError.classList.remove('visible');
+                
                 // First update the input value to show feedback
                 searchInput.value = municipality.naam;
                 autocompleteList.innerHTML = '';
@@ -46,12 +52,24 @@ map.on('load', () => {
             searchInput.addEventListener('input', function() {
                 const value = this.value.toLowerCase();
                 autocompleteList.innerHTML = '';
-
-                if (value.length < 2) return;
+                const searchError = document.querySelector('.search-error');
+                
+                // Hide error when input is cleared or too short
+                if (value.length < 2) {
+                    searchError.classList.remove('visible');
+                    return;
+                }
 
                 const matches = data.gemeenten.filter(municipality => 
                     municipality.naam.toLowerCase().includes(value)
                 );
+
+                // Show error if no matches and input is long enough
+                if (matches.length === 0) {
+                    searchError.classList.add('visible');
+                } else {
+                    searchError.classList.remove('visible');
+                }
 
                 matches.forEach(municipality => {
                     const div = document.createElement('div');
@@ -111,11 +129,7 @@ function loadGeoJson(code) {
             ...data,
             features: data.features.map((feature, index) => ({
                 ...feature,
-                id: index,
-                geometry: {
-                    type: feature.geometry.type,
-                    coordinates: transformCoordinates(feature.geometry.coordinates, feature.geometry.type)
-                }
+                id: index
             }))
         };
 
@@ -197,6 +211,30 @@ document.addEventListener('DOMContentLoaded', function() {
             activateView('municipal');
         }
     }
+
+    // Add election toggle handler
+    const electionToggle = document.getElementById('electionToggle');
+    const statsView = document.querySelector('.stats-view');
+    
+    // Restore toggle state from localStorage
+    showElectionData = localStorage.getItem('showElectionData') === 'true';
+    electionToggle.checked = showElectionData;
+    statsView.style.display = showElectionData ? 'block' : 'none';
+
+    electionToggle.addEventListener('change', function() {
+        showElectionData = this.checked;
+        localStorage.setItem('showElectionData', showElectionData);
+        statsView.style.display = showElectionData ? 'block' : 'none';
+        
+        // If showing election data and we have a municipality selected, load the data
+        if (showElectionData) {
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality) {
+                const municipality = JSON.parse(lastMunicipality);
+                loadElectionData(municipality.code);
+            }
+        }
+    });
 });
 
 // Add this function near the top of the file
@@ -232,14 +270,21 @@ function activateView(viewType, municipalityCode = null) {
         statsView.style.display = 'none';
         loadNationalGeoJson();
     } else if (viewType === 'municipal') {
-        statsView.style.display = 'block';
+        statsView.style.display = showElectionData ? 'block' : 'none';
         ensurePopulationData().then(() => {
             if (municipalityCode) {
                 loadGeoJson(municipalityCode);
+                if (showElectionData) {
+                    loadElectionData(municipalityCode);
+                }
             } else {
                 const lastMunicipality = localStorage.getItem('lastMunicipality');
                 if (lastMunicipality) {
-                    loadGeoJson(JSON.parse(lastMunicipality).code);
+                    const municipality = JSON.parse(lastMunicipality);
+                    loadGeoJson(municipality.code);
+                    if (showElectionData) {
+                        loadElectionData(municipality.code);
+                    }
                 }
             }
         });
@@ -506,47 +551,5 @@ function addMapLayers(geoJsonData) {
     });
 }
 
-// Add this function after the imports
-async function loadElectionData(municipalityCode) {
-    try {
-        const response = await fetch(`data/elections/TK2021/${municipalityCode}.json`);
-        const data = await response.json();
-        
-        // Get the total votes per party from the data
-        const totalVotes = data.Count.Election.Contests.Contest.TotalVotes.Selection;
-        
-        // Sort parties by number of votes (descending)
-        totalVotes.sort((a, b) => parseInt(b.ValidVotes) - parseInt(a.ValidVotes));
-        
-        // Create HTML for the stats view
-        const statsView = document.querySelector('.stats-view');
-        // Calculate total valid votes for percentage calculation
-        const totalValidVotes = totalVotes.reduce((sum, party) => sum + parseInt(party.ValidVotes), 0);
-        
-        let html = `
-            <h2>TK2021</h2>
-            <div class="total-votes">Totaal geldige stemmen: ${totalValidVotes.toLocaleString('nl-NL')}</div>
-            <div class="election-results">
-        `;
-        
-        totalVotes.forEach(party => {
-            const votes = parseInt(party.ValidVotes);
-            const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
-            if (votes > 0) { // Only show parties with votes
-                html += `
-                    <div class="party-result">
-                        <span class="party-name">${party.AffiliationIdentifier.Name}</span>
-                        <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
-                    </div>
-                `;
-            }
-        });
-        
-        html += '</div>';
-        statsView.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading election data:', error);
-        document.querySelector('.stats-view').innerHTML = `<p>Geen verkiezingsdata beschikbaar voor ${municipalityCode}.json</p>`;
-    }
-}
+// Add this import at the top with other imports
+import { loadElectionData } from './modules/electionService.js';

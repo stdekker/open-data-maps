@@ -6,3 +6,5 @@ tools/process/*
 # But keep overview.json
 !web/data/overview.json
 !web/data/gemeenten.json 
+
+/vendor/
