@@ -34,7 +34,7 @@ map.on('load', () => {
 
 function setupSearch(searchInput, autocompleteList, data) {
     searchInput.addEventListener('input', function() {
-        const value = this.value.toLowerCase();
+        const value = this.value.trim().toLowerCase();
         autocompleteList.innerHTML = '';
         const searchError = document.querySelector('.search-error');
         
@@ -65,7 +65,7 @@ function setupSearch(searchInput, autocompleteList, data) {
 
     searchInput.addEventListener('keyup', function(e) {
         if (e.key === 'Enter') {
-            const value = this.value.toLowerCase();
+            const value = this.value.trim().toLowerCase();
             const matches = data.gemeenten.filter(municipality => 
                 municipality.naam.toLowerCase().includes(value)
             );
