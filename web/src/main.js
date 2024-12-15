@@ -69,7 +69,17 @@ function setupSearch(searchInput, autocompleteList, data) {
             const matches = data.gemeenten.filter(municipality => 
                 municipality.naam.toLowerCase().includes(value)
             );
-            if (matches.length === 1) {
+            
+            // First try to find an exact match
+            const exactMatch = data.gemeenten.find(municipality =>
+                municipality.naam.toLowerCase() === value
+            );
+
+            if (exactMatch) {
+                // If there's an exact match, use that
+                selectMunicipality(exactMatch, searchInput, document.getElementById('autocompleteList'));
+            } else if (matches.length === 1) {
+                // If there's only one partial match, use that
                 selectMunicipality(matches[0], searchInput, document.getElementById('autocompleteList'));
             }
         }
