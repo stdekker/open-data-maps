@@ -218,7 +218,7 @@ body, html {
     }
 
     .sidebar::before {
-        content: '⭳';
+        content: '↧';
         position: absolute;
         top: 8px;
         left: 50%;
