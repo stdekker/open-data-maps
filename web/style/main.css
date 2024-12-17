@@ -446,3 +446,74 @@ body, html {
 .nav-button:focus {
     outline: none;
 }
+
+/* Reporting Unit Popup Styles */
+.mapboxgl-popup-content {
+    padding: 15px;
+    max-width: 300px;
+}
+
+.mapboxgl-popup-content h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+}
+
+.popup-content {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.popup-content p {
+    margin: 0 0 10px 0;
+}
+
+.popup-content strong {
+    color: #666;
+}
+
+.popup-results {
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0 -15px;
+    padding: 0 15px;
+    border-top: 1px solid #eee;
+}
+
+.popup-party {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.popup-party-name {
+    flex: 1;
+    padding-right: 10px;
+}
+
+.popup-party-votes {
+    text-align: right;
+    white-space: nowrap;
+    color: #666;
+}
+
+/* Add custom scrollbar styles */
+.popup-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.popup-results::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.popup-results::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.popup-results::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

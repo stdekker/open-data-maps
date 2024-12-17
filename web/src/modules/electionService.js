@@ -1,9 +1,73 @@
-const AVAILABLE_ELECTIONS = ['TK2021', 'TK2023'];
+const AVAILABLE_ELECTIONS = ['TK2023','TK2021']; // From newest to oldest
 
 export async function loadElectionData(municipalityCode, electionId = 'TK2021') {
     try {
         const response = await fetch(`data/elections/${electionId}/${municipalityCode}.json`);
+        
+        // Check if response is ok before trying to parse JSON
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        
+        // If the file is geocoded, dispatch an event with the reporting units
+        if (data['@attributes']?.geocoded) {
+            console.log('Found geocoded data:', data);
+            const reportingUnits = data.Count.Election.Contests.Contest.ReportingUnitVotes;
+            const unitsArray = Array.isArray(reportingUnits) ? reportingUnits : [reportingUnits];
+            
+            console.log('Units array:', unitsArray);
+
+            const features = unitsArray
+                .filter(unit => unit.GeoLocation)
+                .map((unit, index) => {
+                    console.log('Processing unit:', unit);
+                    const { lon, lat } = unit.GeoLocation;
+                    console.log('Coordinates:', lon, lat);
+                    const { ReportingUnitIdentifier: name, Cast, TotalCounted, RejectedVotes, Selection } = unit;
+
+                    const rejectedVotes = RejectedVotes 
+                        ? (Array.isArray(RejectedVotes) 
+                            ? RejectedVotes.reduce((total, votes) => total + parseInt(votes), 0)
+                            : parseInt(RejectedVotes))
+                        : 0;
+
+                    const results = Selection.map(selection => ({
+                        party: selection.AffiliationIdentifier.RegisteredName || selection.AffiliationIdentifier.Name,
+                        votes: parseInt(selection.ValidVotes)
+                    })).sort((a, b) => b.votes - a.votes);
+
+                    return {
+                        type: 'Feature',
+                        id: index,
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [parseFloat(lon), parseFloat(lat)]
+                        },
+                        properties: {
+                            name,
+                            cast: parseInt(Cast) || 0,
+                            totalCounted: parseInt(TotalCounted) || 0,
+                            rejectedVotes,
+                            results: JSON.stringify(results), // Stringify for GeoJSON compatibility
+                            electionId // Add election ID to properties
+                        }
+                    };
+                });
+
+            console.log('Generated features:', features);
+            
+            const geoJsonData = {
+                type: 'FeatureCollection',
+                features
+            };
+
+            console.log('Dispatching event with data:', geoJsonData);
+            window.dispatchEvent(new CustomEvent('reportingUnitsLoaded', {
+                detail: { geoJsonData, electionId }
+            }));
+        }
         
         // Get the total votes per party from the data
         const totalVotes = data.Count.Election.Contests.Contest.TotalVotes.Selection;
@@ -101,19 +165,36 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
         prevButton.addEventListener('click', () => {
             const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
             if (currentIndex > 0) {
-                loadElectionData(municipalityCode, AVAILABLE_ELECTIONS[currentIndex - 1]);
+                const newElectionId = AVAILABLE_ELECTIONS[currentIndex - 1];
+                localStorage.setItem('lastElection', newElectionId);
+                loadElectionData(municipalityCode, newElectionId);
             }
         });
 
         nextButton.addEventListener('click', () => {
             const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
             if (currentIndex < AVAILABLE_ELECTIONS.length - 1) {
-                loadElectionData(municipalityCode, AVAILABLE_ELECTIONS[currentIndex + 1]);
+                const newElectionId = AVAILABLE_ELECTIONS[currentIndex + 1];
+                localStorage.setItem('lastElection', newElectionId);
+                loadElectionData(municipalityCode, newElectionId);
             }
         });
         
     } catch (error) {
         console.error('Error loading election data:', error);
-        document.querySelector('.stats-view').innerHTML = `<p>Geen verkiezingsdata beschikbaar voor ${municipalityCode}</p>`;
+        const statsView = document.querySelector('.stats-view');
+        statsView.innerHTML = `
+            <div class="election-header">
+                <button class="nav-button prev" disabled>&#8249;</button>
+                <h2>${electionId}</h2>
+                <button class="nav-button next" disabled>&#8250;</button>
+            </div>
+            <p class="error-message">Geen verkiezingsdata beschikbaar voor deze gemeente</p>
+        `;
+        
+        // Clean up any existing reporting units since we don't have data
+        if (typeof cleanupReportingUnits === 'function') {
+            cleanupReportingUnits();
+        }
     }
-} 
+}

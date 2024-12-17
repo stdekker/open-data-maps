@@ -142,6 +142,9 @@ function loadGeoJson(code) {
         return;
     }
 
+    // Clean up any existing reporting units
+    cleanupReportingUnits();
+
     // Load both GeoJSON and election data
     Promise.all([
         fetch(`fetch-municipality.php?code=${code}`),
@@ -243,8 +246,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 const municipality = JSON.parse(lastMunicipality);
-                loadElectionData(municipality.code, localStorage.getItem('currentElection') || 'TK2021');
+                const currentElection = localStorage.getItem('lastElection') || 'TK2021';
+                loadElectionData(municipality.code, currentElection);
             }
+        } else {
+            // Clean up reporting units when hiding election data
+            cleanupReportingUnits();
         }
     });
 
@@ -291,7 +298,7 @@ function activateView(viewType, municipalityCode = null) {
             if (municipalityCode) {
                 loadGeoJson(municipalityCode);
                 if (showElectionData) {
-                    loadElectionData(municipalityCode, localStorage.getItem('currentElection') || 'TK2021');
+                    loadElectionData(municipalityCode, localStorage.getItem('lastElection') || 'TK2021');
                 }
             } else {
                 const lastMunicipality = localStorage.getItem('lastMunicipality');
@@ -299,7 +306,7 @@ function activateView(viewType, municipalityCode = null) {
                     const municipality = JSON.parse(lastMunicipality);
                     loadGeoJson(municipality.code);
                     if (showElectionData) {
-                        loadElectionData(municipality.code, localStorage.getItem('currentElection') || 'TK2021');
+                        loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021');
                     }
                 }
             }
@@ -565,4 +572,126 @@ function addMapLayers(geoJsonData) {
         // Show only selected municipality if it exists
         updateFeatureNameBox();
     });
+}
+
+// Add this near the top of the file with other global variables
+let reportingUnitsPopup = null;
+
+// Add this function to handle cleanup of reporting units
+function cleanupReportingUnits() {
+    if (map.getLayer('reporting-units')) {
+        map.removeLayer('reporting-units');
+    }
+    if (map.getSource('reporting-units')) {
+        map.removeSource('reporting-units');
+    }
+    if (reportingUnitsPopup) {
+        reportingUnitsPopup.remove();
+        reportingUnitsPopup = null;
+    }
+}
+
+// Add this near the top of the file with other global variables
+let currentElectionId = null;
+
+// Update the event listener for reporting units
+window.addEventListener('reportingUnitsLoaded', (event) => {
+    console.log('Received reporting units event:', event.detail);
+    const { geoJsonData, electionId } = event.detail;
+    
+    // Clean up existing layers first
+    cleanupReportingUnits();
+
+    // Add the reporting units
+    console.log('Adding reporting units to map');
+    addReportingUnits(geoJsonData);
+});
+
+// Modify the addReportingUnits function
+function addReportingUnits(geoJsonData) {
+    try {
+        // Remove any existing event listeners
+        if (map.getLayer('reporting-units')) {
+            map.off('click', 'reporting-units');
+            map.off('mouseenter', 'reporting-units');
+            map.off('mouseleave', 'reporting-units');
+        }
+
+        console.log('Adding source with data:', geoJsonData);
+        map.addSource('reporting-units', {
+            type: 'geojson',
+            data: geoJsonData
+        });
+
+        console.log('Adding layer');
+        map.addLayer({
+            'id': 'reporting-units',
+            'type': 'circle',
+            'source': 'reporting-units',
+            'paint': {
+                'circle-radius': 8,
+                'circle-color': '#4CAF50',
+                'circle-opacity': 0.6,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        // Add click handler for reporting units
+        map.on('click', 'reporting-units', (e) => {
+            if (!e.features.length) return;
+
+            const feature = e.features[0];
+            const { name, cast, totalCounted, rejectedVotes, results } = feature.properties;
+
+            // Create popup content
+            let content = `
+                <h3>${name}</h3>
+                <div class="popup-content">
+                    <p><strong>Uitgebracht:</strong> ${cast.toLocaleString('nl-NL')}</p>
+                    <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
+                    ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
+                    <p><strong>Partijen:</strong></p>
+                    <div class="popup-results">
+            `;
+
+            // Add all parties
+            const allParties = JSON.parse(results);
+            allParties.forEach(party => {
+                const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
+                content += `
+                    <div class="popup-party">
+                        <span class="popup-party-name">${party.party}</span>
+                        <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                    </div>
+                `;
+            });
+
+            content += '</div></div>';
+
+            // Remove existing popup if it exists
+            if (reportingUnitsPopup) {
+                reportingUnitsPopup.remove();
+            }
+
+            // Create new popup
+            reportingUnitsPopup = new mapboxgl.Popup()
+                .setLngLat(feature.geometry.coordinates)
+                .setHTML(content)
+                .addTo(map);
+        });
+
+        // Change cursor on hover
+        map.on('mouseenter', 'reporting-units', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+
+        map.on('mouseleave', 'reporting-units', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        console.log('Layer and handlers added successfully');
+    } catch (error) {
+        console.error('Error adding reporting units:', error);
+    }
 }
