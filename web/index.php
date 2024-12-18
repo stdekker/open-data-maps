@@ -12,7 +12,19 @@
     </head>
     <body>
         <div class="container">
-            <div class="feature-name-box"></div>
+            <div class="feature-name-box">
+                <div class="feature-name-content"></div>
+                <button class="settings-button" aria-label="Statistics settings">⚙</button>
+                <div class="stats-popup">
+                    <div class="stats-selector">
+                        <label for="statsSelect">Show statistic:</label>
+                        <select id="statsSelect">
+                            <option value="aantalInwoners">Population</option>
+                            <option value="aantalHuishoudens">Households</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="sidebar">
                 <header><h1>Maps<sup title="Open Data">OD</sup></h1></header>

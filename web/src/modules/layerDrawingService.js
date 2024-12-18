@@ -265,6 +265,46 @@ export function cleanupReportingUnits(map) {
 export function setupFeatureNameBox(map, municipalityPopulations) {
     let hoveredFeatureId = null;
     let featureNameBox = document.querySelector('.feature-name-box');
+    let featureNameContent = featureNameBox.querySelector('.feature-name-content');
+    const statsSelect = document.getElementById('statsSelect');
+    const settingsButton = featureNameBox.querySelector('.settings-button');
+    const statsPopup = featureNameBox.querySelector('.stats-popup');
+
+    // Remove any existing click listeners to prevent duplicates
+    const newSettingsButton = settingsButton.cloneNode(true);
+    settingsButton.parentNode.replaceChild(newSettingsButton, settingsButton);
+
+    // Setup settings button click handler
+    newSettingsButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        statsPopup.classList.toggle('active');
+        console.log('Settings button clicked, popup state:', statsPopup.classList.contains('active'));
+    });
+
+    // Close popup when clicking outside
+    const clickHandler = (e) => {
+        if (!statsPopup.contains(e.target) && !newSettingsButton.contains(e.target)) {
+            statsPopup.classList.remove('active');
+        }
+    };
+
+    // Remove existing click listener and add new one
+    document.removeEventListener('click', clickHandler);
+    document.addEventListener('click', clickHandler);
+
+    // Function to get the statistic text
+    function getStatisticText(properties, statType) {
+        const statValue = properties[statType];
+        if (!statValue) return '';
+        
+        const labels = {
+            'aantalInwoners': 'inwoners',
+            'aantalHuishoudens': 'huishoudens'
+        };
+        
+        return `<span class="population-text">(${statValue.toLocaleString('nl-NL')} ${labels[statType]})</span>`;
+    }
 
     // Update feature name box content
     function updateFeatureNameBox(feature) {
@@ -272,34 +312,35 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
             ? JSON.parse(localStorage.getItem('lastMunicipality'))
             : null;
 
-        const getPopulationText = (name, code) => {
-            const population = municipalityPopulations[code];
-            const formattedPopulation = population?.toLocaleString('nl-NL') || '';
-            return `${name} ${formattedPopulation ? `<span class="population-text">(${formattedPopulation} inwoners)</span>` : ''}`;
+        const selectedStat = statsSelect.value;
+
+        const getNameWithStat = (name, properties) => {
+            return `${name} ${getStatisticText(properties, selectedStat)}`;
         };
 
         let content = '';
         if (storedMunicipality) {
-            content = `<div>${getPopulationText(storedMunicipality.naam, storedMunicipality.code)}</div>`;
+            const municipalityData = municipalityPopulations[storedMunicipality.code];
+            if (municipalityData) {
+                content = `<div>${getNameWithStat(storedMunicipality.naam, municipalityData)}</div>`;
+            }
         }
 
         if (feature) {
             const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
-            const currentCode = feature.properties.gemeentecode;
             if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-                content = `<div>${getPopulationText(currentGemeentenaam, currentCode)}</div>`;
+                content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
             }
             if (feature.properties?.buurtnaam) {
-                content += `<div class="hovered-name">${feature.properties.buurtnaam}`;
-                if (feature.properties?.aantalInwoners) {
-                    content += ` <span class="population-text">(${feature.properties.aantalInwoners} inwoners)</span>`;
-                }
-                content += `</div>`;
+                content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
             }
         }
 
-        featureNameBox.innerHTML = content;
+        featureNameContent.innerHTML = content;
         featureNameBox.style.display = content ? 'block' : 'none';
+        
+        // Hide stats popup when content changes
+        statsPopup.classList.remove('active');
     }
 
     // Initial display of selected municipality
@@ -308,6 +349,18 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         : null;
     if (selectedMunicipality) {
         updateFeatureNameBox();
+    }
+
+    // Add event listener for statistic selection change
+    statsSelect.addEventListener('change', () => {
+        localStorage.setItem('selectedStat', statsSelect.value);
+        updateFeatureNameBox();
+    });
+
+    // Restore last selected statistic
+    const lastSelectedStat = localStorage.getItem('selectedStat');
+    if (lastSelectedStat) {
+        statsSelect.value = lastSelectedStat;
     }
 
     // Mouse enter event

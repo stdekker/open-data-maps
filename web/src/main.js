@@ -268,7 +268,10 @@ async function ensurePopulationData() {
             const response = await fetch('data/gemeenten.json');
             const data = await response.json();
             data.features.forEach(feature => {
-                municipalityPopulations[feature.properties.gemeentecode] = feature.properties.aantalInwoners;
+                municipalityPopulations[feature.properties.gemeentecode] = {
+                    aantalInwoners: feature.properties.aantalInwoners,
+                    aantalHuishoudens: feature.properties.aantalHuishoudens
+                };
             });
         } catch (error) {
             console.error('Error loading population data:', error);
@@ -319,7 +322,7 @@ function activateView(viewType, municipalityCode = null) {
 // Add this at the top level of the file, after the imports
 let municipalityPopulations = {};
 
-// In the loadNationalGeoJson function, after fetching the data
+// Modify the loadNationalGeoJson function
 function loadNationalGeoJson() {
     // Check if map is loaded
     if (!map.loaded()) {
@@ -333,9 +336,12 @@ function loadNationalGeoJson() {
     fetch('data/gemeenten.json')
         .then(response => response.json())
         .then(data => {
-            // Store population data
+            // Store both population and household data
             data.features.forEach(feature => {
-                municipalityPopulations[feature.properties.gemeentecode] = feature.properties.aantalInwoners;
+                municipalityPopulations[feature.properties.gemeentecode] = {
+                    aantalInwoners: feature.properties.aantalInwoners,
+                    aantalHuishoudens: feature.properties.aantalHuishoudens
+                };
             });
             
             // Convert coordinates and add layers

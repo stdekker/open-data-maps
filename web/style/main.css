@@ -143,19 +143,70 @@ body, html {
     padding: 10px 15px;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: none;
     z-index: 1000;
-    pointer-events: none;
+    display: none;
     font-weight: bold;
     font-size: 1.2em;
+    min-height: 24px;
 }
 
-.feature-name-box .hovered-name {
-    margin-top: 5px;
-    padding-top: 5px;
-    border-top: 1px solid #eee;
+.feature-name-content {
+    display: inline-block;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.settings-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 5px;
+    font-size: 16px;
     color: #666;
-    font-size: 0.8em;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.settings-button:hover {
+    color: #333;
+}
+
+.stats-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: none;
+    min-width: 200px;
+    z-index: 1001;
+}
+
+.stats-selector {
+    margin: 0;
+}
+
+.stats-selector label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.stats-selector select {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+}
+
+/* Show popup when active */
+.stats-popup.active {
+    display: block;
 }
 
 .search-error {
@@ -516,4 +567,12 @@ body, html {
 
 .popup-results::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+.feature-name-box .hovered-name {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid #eee;
+    color: #666;
+    font-size: 0.8em;
 }
