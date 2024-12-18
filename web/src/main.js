@@ -6,6 +6,7 @@ import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
 
 let showElectionData = false;
+let currentView = 'national';
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -281,6 +282,9 @@ async function ensurePopulationData() {
 
 // Modify the activateView function
 function activateView(viewType, municipalityCode = null) {
+    // Update current view
+    currentView = viewType;
+
     // Update menu item states
     const viewItem = document.getElementById(`${viewType}-view`);
     document.querySelectorAll('.menu-items li').forEach(item => {
@@ -365,7 +369,12 @@ function loadNationalGeoJson() {
 
             // Add the double-click handler
             map.on('dblclick', 'municipalities', (e) => {
-                e.preventDefault(); // Prevent default double-click behavior
+                // Only handle double-click if we're in national view
+                if (currentView !== 'national') {
+                    return;
+                }
+
+                e.preventDefault();
                 
                 if (e.features && e.features.length > 0) {
                     const feature = e.features[0];
