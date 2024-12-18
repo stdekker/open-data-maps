@@ -1,3 +1,6 @@
+<?php
+    $version = "1.0.0"; // Version number for cache busting
+?>
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -8,19 +11,19 @@
         <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
         <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
-        <link rel="stylesheet" href="style/main.css">
+        <link rel="stylesheet" href="style/main.css?v=<?php echo $version; ?>">
     </head>
     <body>
         <div class="container">
             <div class="feature-name-box">
                 <div class="feature-name-content"></div>
-                <button class="settings-button" aria-label="Statistics settings">⚙</button>
+                <button class="settings-button" aria-label="Statistics settings">⋮</button>
                 <div class="stats-popup">
                     <div class="stats-selector">
-                        <label for="statsSelect">Show statistic:</label>
+                        <label for="statsSelect">Statistiek</label>
                         <select id="statsSelect">
-                            <option value="aantalInwoners">Population</option>
-                            <option value="aantalHuishoudens">Households</option>
+                            <option value="aantalInwoners">Inwoners</option>
+                            <option value="aantalHuishoudens">Huishoudens</option>
                         </select>
                     </div>
                 </div>
@@ -47,6 +50,6 @@
                 <div class="stats-view"></div>
             </div>
         </div>
-        <script type="module" src="src/main.js"></script>
+        <script type="module" src="src/main.js?v=<?php echo $version; ?>"></script>
     </body>
 </html>
