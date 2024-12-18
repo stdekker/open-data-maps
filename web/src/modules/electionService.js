@@ -1,4 +1,4 @@
-const AVAILABLE_ELECTIONS = ['TK2023','TK2021']; // From newest to oldest
+const AVAILABLE_ELECTIONS = ['TK2021','TK2023']; // From newest to oldest
 
 export async function loadElectionData(municipalityCode, electionId = 'TK2021') {
     try {

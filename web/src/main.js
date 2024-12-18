@@ -3,6 +3,7 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { loadElectionData } from './modules/electionService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
+import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
 
 let showElectionData = false;
 
@@ -143,7 +144,7 @@ function loadGeoJson(code) {
     }
 
     // Clean up any existing reporting units
-    cleanupReportingUnits();
+    cleanupReportingUnits(map);
 
     // Load both GeoJSON and election data
     Promise.all([
@@ -160,7 +161,8 @@ function loadGeoJson(code) {
             }))
         };
 
-        addMapLayers(geoJsonData);
+        addMapLayers(map, geoJsonData, municipalityPopulations);
+        setupFeatureNameBox(map, municipalityPopulations);
 
         // Fit bounds to the loaded GeoJSON
         try {
@@ -251,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             // Clean up reporting units when hiding election data
-            cleanupReportingUnits();
+            cleanupReportingUnits(map);
         }
     });
 
@@ -349,7 +351,8 @@ function loadNationalGeoJson() {
                 }))
             };
 
-            addMapLayers(geoJsonData);
+            addMapLayers(map, geoJsonData, municipalityPopulations);
+            setupFeatureNameBox(map, municipalityPopulations);
 
             // Remove previous double-click handler if it exists
             map.off('dblclick', 'municipalities');
@@ -407,291 +410,8 @@ function loadNationalGeoJson() {
         });
 }
 
-// Modify the addMapLayers function
-function addMapLayers(geoJsonData) {
-    // Clean up existing layers and sources first
-    const layersToRemove = ['municipality-borders', 'municipalities'];
-    layersToRemove.forEach(layer => {
-        if (map.getLayer(layer)) {
-            map.removeLayer(layer);
-        }
-    });
-    if (map.getSource('municipalities')) {
-        map.removeSource('municipalities');
-    }
-
-    // Add the GeoJSON source immediately
-    map.addSource('municipalities', {
-        type: 'geojson',
-        data: geoJsonData,
-        generateId: true  // This can help with performance
-    });
-
-    // Color scale
-    const populationColorScale = chroma.scale(['#add8e6', '#4682b4', '#00008b'])
-        .domain([10000, 350000, 1000000])  
-        .mode('lab');
-
-    // In the addMapLayers function, update the fill layer
-    map.addLayer({
-        'id': 'municipalities',
-        'type': 'fill',
-        'source': 'municipalities',
-        'paint': {
-            'fill-color': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                // Lighter shade when hovering
-                ['interpolate',
-                    ['linear'],
-                    ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
-                    10000, chroma(populationColorScale(10000)).brighten().hex(),
-                    1000000, chroma(populationColorScale(1000000)).brighten().hex()
-                ],
-                // Normal shade
-                ['interpolate',
-                    ['linear'],
-                    ['coalesce', ['get', 'aantalInwoners'], 0],  // Use 0 if aantalInwoners is null
-                    10000, populationColorScale(10000).hex(),
-                    1000000, populationColorScale(1000000).hex()
-                ]
-            ],
-            'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.8,  // hover opacity
-                0.6   // default opacity
-            ],
-            'fill-outline-color': '#00509e',  // Normal border
-        }
-    });
-
-    // Update the border layer for better contrast
-    map.addLayer({
-        'id': 'municipality-borders',
-        'type': 'line',
-        'source': 'municipalities',
-        'paint': {
-            'line-color': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                '#99c2ff',  // Lighter border when hovering
-                '#00509e'   // Normal border
-            ],
-            'line-width': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                2,    // hover width
-                1     // default width
-            ]
-        }
-    });
-
-    // Variable to track the currently hovered feature
-    let hoveredFeatureId = null;
-
-    // Select the feature name box
-    let featureNameBox = document.querySelector('.feature-name-box');
-
-    // Keep track of selected municipality
-    const selectedMunicipality = localStorage.getItem('lastMunicipality') 
-        ? JSON.parse(localStorage.getItem('lastMunicipality')).naam 
-        : null;
-
-    // Update feature name box content
-    function updateFeatureNameBox(feature) {
-        const storedMunicipality = localStorage.getItem('lastMunicipality') 
-            ? JSON.parse(localStorage.getItem('lastMunicipality'))
-            : null;
-
-        const getPopulationText = (name, code) => {
-            const population = municipalityPopulations[code];
-            const formattedPopulation = population?.toLocaleString('nl-NL') || '';
-            return `${name} ${formattedPopulation ? `<span class="population-text">(${formattedPopulation} inwoners)</span>` : ''}`;
-        };
-
-        let content = '';
-        if (storedMunicipality) {
-            content = `<div>${getPopulationText(storedMunicipality.naam, storedMunicipality.code)}</div>`;
-        }
-
-        if (feature) {
-            const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
-            const currentCode = feature.properties.gemeentecode;
-            if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-                content = `<div>${getPopulationText(currentGemeentenaam, currentCode)}</div>`;
-            }
-            if (feature.properties?.buurtnaam) {
-                content += `<div class="hovered-name">${feature.properties.buurtnaam}`;
-                if (feature.properties?.aantalInwoners) {
-                    content += ` <span class="population-text">(${feature.properties.aantalInwoners} inwoners)</span>`;
-                }
-                content += `</div>`;
-            }
-        }
-
-        featureNameBox.innerHTML = content;
-        featureNameBox.style.display = content ? 'block' : 'none';
-    }
-
-    // Initial display of selected municipality
-    if (selectedMunicipality) {
-        updateFeatureNameBox();
-    }
-
-    // Mouse enter event
-    map.on('mousemove', 'municipalities', (e) => {
-        if (e.features.length > 0) {
-            if (hoveredFeatureId !== null) {
-                map.setFeatureState(
-                    { source: 'municipalities', id: hoveredFeatureId },
-                    { hover: false }
-                );
-            }
-            hoveredFeatureId = e.features[0].id;
-            map.setFeatureState(
-                { source: 'municipalities', id: hoveredFeatureId },
-                { hover: true }
-            );
-
-            // Show feature names
-            updateFeatureNameBox(e.features[0]);
-        }
-    });
-
-    // Mouse leave event
-    map.on('mouseleave', 'municipalities', () => {
-        if (hoveredFeatureId !== null) {
-            map.setFeatureState(
-                { source: 'municipalities', id: hoveredFeatureId },
-                { hover: false }
-            );
-        }
-        hoveredFeatureId = null;
-        
-        // Show only selected municipality if it exists
-        updateFeatureNameBox();
-    });
-}
-
-// Add this near the top of the file with other global variables
-let reportingUnitsPopup = null;
-
-// Add this function to handle cleanup of reporting units
-function cleanupReportingUnits() {
-    if (map.getLayer('reporting-units')) {
-        map.removeLayer('reporting-units');
-    }
-    if (map.getSource('reporting-units')) {
-        map.removeSource('reporting-units');
-    }
-    if (reportingUnitsPopup) {
-        reportingUnitsPopup.remove();
-        reportingUnitsPopup = null;
-    }
-}
-
-// Add this near the top of the file with other global variables
-let currentElectionId = null;
-
 // Update the event listener for reporting units
 window.addEventListener('reportingUnitsLoaded', (event) => {
-    console.log('Received reporting units event:', event.detail);
-    const { geoJsonData, electionId } = event.detail;
-    
-    // Clean up existing layers first
-    cleanupReportingUnits();
-
-    // Add the reporting units
-    console.log('Adding reporting units to map');
-    addReportingUnits(geoJsonData);
+    const { geoJsonData } = event.detail;
+    addReportingUnits(map, geoJsonData, showElectionData);
 });
-
-// Modify the addReportingUnits function
-function addReportingUnits(geoJsonData) {
-    try {
-        // Remove any existing event listeners
-        if (map.getLayer('reporting-units')) {
-            map.off('click', 'reporting-units');
-            map.off('mouseenter', 'reporting-units');
-            map.off('mouseleave', 'reporting-units');
-        }
-
-        console.log('Adding source with data:', geoJsonData);
-        map.addSource('reporting-units', {
-            type: 'geojson',
-            data: geoJsonData
-        });
-
-        console.log('Adding layer');
-        map.addLayer({
-            'id': 'reporting-units',
-            'type': 'circle',
-            'source': 'reporting-units',
-            'paint': {
-                'circle-radius': 8,
-                'circle-color': '#4CAF50',
-                'circle-opacity': 0.6,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#fff'
-            }
-        });
-
-        // Add click handler for reporting units
-        map.on('click', 'reporting-units', (e) => {
-            if (!e.features.length) return;
-
-            const feature = e.features[0];
-            const { name, cast, totalCounted, rejectedVotes, results } = feature.properties;
-
-            // Create popup content
-            let content = `
-                <h3>${name}</h3>
-                <div class="popup-content">
-                    <p><strong>Uitgebracht:</strong> ${cast.toLocaleString('nl-NL')}</p>
-                    <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
-                    ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
-                    <p><strong>Partijen:</strong></p>
-                    <div class="popup-results">
-            `;
-
-            // Add all parties
-            const allParties = JSON.parse(results);
-            allParties.forEach(party => {
-                const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
-                content += `
-                    <div class="popup-party">
-                        <span class="popup-party-name">${party.party}</span>
-                        <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
-                    </div>
-                `;
-            });
-
-            content += '</div></div>';
-
-            // Remove existing popup if it exists
-            if (reportingUnitsPopup) {
-                reportingUnitsPopup.remove();
-            }
-
-            // Create new popup
-            reportingUnitsPopup = new mapboxgl.Popup()
-                .setLngLat(feature.geometry.coordinates)
-                .setHTML(content)
-                .addTo(map);
-        });
-
-        // Change cursor on hover
-        map.on('mouseenter', 'reporting-units', () => {
-            map.getCanvas().style.cursor = 'pointer';
-        });
-
-        map.on('mouseleave', 'reporting-units', () => {
-            map.getCanvas().style.cursor = '';
-        });
-
-        console.log('Layer and handlers added successfully');
-    } catch (error) {
-        console.error('Error adding reporting units:', error);
-    }
-}
