@@ -1,3 +1,15 @@
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 export function addMapLayers(map, geoJsonData, municipalityPopulations) {
     // Clean up existing layers and sources first
     const layersToRemove = ['municipality-borders', 'municipalities'];
@@ -127,9 +139,18 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
         }
     });
 
-    // Track mouse position and update points
-    map.on('mousemove', (e) => {
-        const point = e.point;
+    let lastMousePoint = null;
+
+    // Debounced update function
+    const updatePoints = debounce((point) => {
+        // Skip update if the mouse hasn't moved significantly
+        if (lastMousePoint && 
+            Math.abs(point.x - lastMousePoint.x) < 5 && 
+            Math.abs(point.y - lastMousePoint.y) < 5) {
+            return;
+        }
+        
+        lastMousePoint = point;
         const mouseRadius = 100; // pixels
         
         // Create location tracking map
@@ -181,10 +202,16 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
 
         // Update the source data
         map.getSource('reporting-units').setData(spreadData);
+    }, 16); // 60fps = ~16ms
+
+    // Track mouse position and update points
+    map.on('mousemove', (e) => {
+        updatePoints(e.point);
     });
 
     // Reset points when mouse leaves the map
     map.on('mouseout', () => {
+        lastMousePoint = null;
         map.getSource('reporting-units').setData(originalData);
     });
 
@@ -279,7 +306,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         e.preventDefault();
         e.stopPropagation();
         statsPopup.classList.toggle('active');
-        console.log('Settings button clicked, popup state:', statsPopup.classList.contains('active'));
     });
 
     // Close popup when clicking outside
