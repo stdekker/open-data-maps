@@ -88,32 +88,104 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations) {
 }
 
 export function addReportingUnits(map, geoJsonData, showElectionData = false) {
-    // Don't add reporting units if election data is not being shown
     if (!showElectionData) {
         return;
     }
 
-    // Clean up existing reporting units layers and sources first
     cleanupReportingUnits(map);
 
-    // Add the reporting units source
+    // Store the original data
+    const originalData = geoJsonData;
+    
+    // Add the reporting units source with original data
     map.addSource('reporting-units', {
         type: 'geojson',
-        data: geoJsonData
+        data: originalData
     });
 
-    // Add reporting units layer on top (no second parameter means it goes on top)
+    // Add reporting units layer with dynamic radius
     map.addLayer({
         'id': 'reporting-units',
         'type': 'circle',
         'source': 'reporting-units',
         'paint': {
-            'circle-radius': 8,
+            'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['get', 'totalCounted'],
+                0, 6,
+                500, 8,
+                2000, 12,
+                5000, 16,
+                10000, 22,
+                20000, 30
+            ],
             'circle-color': '#4CAF50',
             'circle-opacity': 0.6,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#fff'
         }
+    });
+
+    // Track mouse position and update points
+    map.on('mousemove', (e) => {
+        const point = e.point;
+        const mouseRadius = 100; // pixels
+        
+        // Create location tracking map
+        const locationCounts = new Map();
+        
+        // Create new feature collection with spread points
+        const spreadData = {
+            type: 'FeatureCollection',
+            features: originalData.features.map(feature => {
+                // Convert feature coordinates to screen coordinates
+                const screenCoord = map.project(feature.geometry.coordinates);
+                
+                // Calculate distance to mouse
+                const distance = Math.sqrt(
+                    Math.pow(screenCoord.x - point.x, 2) + 
+                    Math.pow(screenCoord.y - point.y, 2)
+                );
+
+                // Only spread points if mouse is nearby
+                if (distance <= mouseRadius) {
+                    const coord = feature.geometry.coordinates;
+                    const key = coord.join(',');
+                    
+                    const count = locationCounts.get(key) || 0;
+                    locationCounts.set(key, count + 1);
+                    
+                    if (count > 0) {
+                        const angle = (Math.PI * 2 * count) / 8;
+                        // Scale the offset based on how close the mouse is
+                        const offsetScale = 1 - (distance / mouseRadius);
+                        const offsetDistance = 0.0003 * offsetScale;
+                        
+                        const newCoord = [
+                            coord[0] + Math.cos(angle) * offsetDistance,
+                            coord[1] + Math.sin(angle) * offsetDistance
+                        ];
+                        return {
+                            ...feature,
+                            geometry: {
+                                ...feature.geometry,
+                                coordinates: newCoord
+                            }
+                        };
+                    }
+                }
+                return feature;
+            })
+        };
+
+        // Update the source data
+        map.getSource('reporting-units').setData(spreadData);
+    });
+
+    // Reset points when mouse leaves the map
+    map.on('mouseout', () => {
+        map.getSource('reporting-units').setData(originalData);
     });
 
     // Add click handler for reporting units
@@ -172,6 +244,9 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
 
 export function cleanupReportingUnits(map) {
     if (map.getLayer('reporting-units')) {
+        // Only remove event listeners specific to reporting units
+        map.off('mousemove', 'reporting-units');
+        map.off('mouseout', 'reporting-units');
         map.off('click', 'reporting-units');
         map.off('mouseenter', 'reporting-units');
         map.off('mouseleave', 'reporting-units');
@@ -180,7 +255,6 @@ export function cleanupReportingUnits(map) {
     if (map.getSource('reporting-units')) {
         map.removeSource('reporting-units');
     }
-    // Remove the popup if it exists
     if (window.reportingUnitsPopup) {
         window.reportingUnitsPopup.remove();
         window.reportingUnitsPopup = null;

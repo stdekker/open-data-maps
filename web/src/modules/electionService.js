@@ -13,18 +13,13 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
         
         // If the file is geocoded, dispatch an event with the reporting units
         if (data['@attributes']?.geocoded) {
-            console.log('Found geocoded data:', data);
             const reportingUnits = data.Count.Election.Contests.Contest.ReportingUnitVotes;
             const unitsArray = Array.isArray(reportingUnits) ? reportingUnits : [reportingUnits];
-            
-            console.log('Units array:', unitsArray);
 
             const features = unitsArray
                 .filter(unit => unit.GeoLocation)
                 .map((unit, index) => {
-                    console.log('Processing unit:', unit);
                     const { lon, lat } = unit.GeoLocation;
-                    console.log('Coordinates:', lon, lat);
                     const { ReportingUnitIdentifier: name, Cast, TotalCounted, RejectedVotes, Selection } = unit;
 
                     const rejectedVotes = RejectedVotes 
@@ -55,15 +50,12 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
                         }
                     };
                 });
-
-            console.log('Generated features:', features);
             
             const geoJsonData = {
                 type: 'FeatureCollection',
                 features
             };
 
-            console.log('Dispatching event with data:', geoJsonData);
             window.dispatchEvent(new CustomEvent('reportingUnitsLoaded', {
                 detail: { geoJsonData, electionId }
             }));
@@ -94,7 +86,7 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
                 </button>
             </div>
             <div class="total-votes">
-                Uitgebracht: ${totalCastVotes.toLocaleString('nl-NL')}<br>
+                Opgeroepen: ${totalCastVotes.toLocaleString('nl-NL')}<br>
                 Geldig: ${totalValidVotes.toLocaleString('nl-NL')}
             </div>
             <div class="election-results">
