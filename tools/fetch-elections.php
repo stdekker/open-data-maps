@@ -1,4 +1,15 @@
 <?php
+/**
+ * Election Data Processing Script
+ * 
+ * This script downloads and processes election data from data.overheid.nl:
+ * 1. Downloads ZIP files containing election results in EML XML format
+ * 2. Extracts the ZIP files
+ * 3. Processes each municipality's XML file to:
+ *    - Extract voting location data into reporting_units.json
+ *    - Convert election results to simplified JSON format
+ * 4. Organizes results by municipality code (GM code)
+ */
 
 // Ensure this script is only run from command line
 if (php_sapi_name() !== 'cli') {

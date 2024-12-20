@@ -1,4 +1,16 @@
 <?php
+/**
+ * Geocoding Script for Election Reporting Units
+ * 
+ * This script processes election reporting unit data (polling stations) to add geographic coordinates:
+ * 1. Reads reporting unit data from election JSON files
+ * 2. For each polling station that has a postcode:
+ *    - Extracts the postcode from the reporting unit identifier
+ *    - Geocodes the postcode using PDOK Locatieserver API
+ *    - Adds latitude/longitude coordinates to the data
+ * 3. Updates the JSON files with geocoded locations
+ * 
+ */
 
 // Ensure this script is only run from command line
 if (php_sapi_name() !== 'cli') {
@@ -13,7 +25,7 @@ if (!isset($options['election'])) {
 
 $election = $options['election'];
 $targetMunicipality = isset($options['municipality']) ? $options['municipality'] : null;
-$delay = isset($options['delay']) ? (int)$options['delay'] : 100; // Default 280ms delay
+$delay = isset($options['delay']) ? (int)$options['delay'] : 200; // Default 200ms delay to respect API limits
 $debug = isset($options['debug']); // Debug mode flag
 
 // Directory path

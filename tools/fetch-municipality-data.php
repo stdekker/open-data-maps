@@ -1,4 +1,17 @@
 <?php
+/**
+ * Municipality Data Processing Script
+ * 
+ * This script fetches and processes municipality (gemeente) data from the Dutch CBS (Central Bureau of Statistics):
+ * 1. Checks if municipality data exists locally, if not:
+ *    - Fetches data from PDOK WFS service (Dutch public geodata)
+ *    - Filters out water bodies using OGC filter
+ *    - Saves raw GeoJSON response to gemeenten.json
+ * 2. Processes the municipality data to create a simplified overview:
+ *    - Extracts municipality names and codes
+ *    - Sorts municipalities alphabetically
+ *    - Saves simplified data to overview.json for use by the web application
+ */
 
 // Ensure this script is only run from command line
 if (php_sapi_name() !== 'cli') {
