@@ -10,6 +10,7 @@
         <title>Open Data Maps</title>
         <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
         <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
         <link rel="stylesheet" href="style/main.css?v=<?php echo $version; ?>">
     </head>
@@ -32,9 +33,9 @@
             <div class="sidebar">
                 <header><h1>Maps<sup title="Open Data">OD</sup></h1></header>
                 <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Search gemeente..." aria-label="Search gemeente">
+                    <input type="text" id="searchInput" placeholder="Zoek een gemeente..." aria-label="Zoek een gemeente">
                     <div id="autocompleteList" class="autocomplete-items"></div>
-                    <div class="search-error">No matching municipality found</div>
+                    <div class="search-error">Geen gemeente gevonden</div>
                 </div>
                 <ul class="menu-items" role="tablist">
                     <li role="tab" id="municipal-view" tabindex="0" aria-selected="false">Gemeente</li>

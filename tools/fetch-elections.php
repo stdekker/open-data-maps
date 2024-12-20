@@ -6,7 +6,6 @@
  * 1. Downloads ZIP files containing election results in EML XML format
  * 2. Extracts the ZIP files
  * 3. Processes each municipality's XML file to:
- *    - Extract voting location data into reporting_units.json
  *    - Convert election results to simplified JSON format
  * 4. Organizes results by municipality code (GM code)
  */
@@ -50,9 +49,6 @@ if (!file_exists('process')) {
 if (!file_exists(__DIR__ . '/../web/data/elections')) {
     mkdir(__DIR__ . '/../web/data/elections', 0777, true);
 }
-
-// Add at the start of the script, after elections array
-$reportingUnits = [];
 
 foreach ($elections as $election => $urls) {
     // Create election-specific data directory
@@ -128,39 +124,6 @@ foreach ($elections as $election => $urls) {
             echo "Warning: No AuthorityIdentifier found in file: " . basename($xmlFile) . "\n";
             continue;
         }
-        
-        // Extract municipality name (keep this for reporting units)
-        $municipality = str_replace(['Telling_', $election . '_gemeente_', '.eml.xml'], '', basename($xmlFile));
-        
-        // Process reporting units
-        if (isset($xml->Count->Election->Contests->Contest->ReportingUnitVotes)) {
-            // Initialize municipality array if it doesn't exist
-            if (!isset($reportingUnits[$authorityId])) {  // Use authorityId instead of municipality name
-                $reportingUnits[$authorityId] = [
-                    'name' => $municipality,  // Store municipality name
-                    'units' => []
-                ];
-            }
-            
-            foreach ($xml->Count->Election->Contests->Contest->ReportingUnitVotes as $reportingUnitVotes) {
-                $unitId = (string)$reportingUnitVotes->ReportingUnitIdentifier;
-                
-                // Split into name and postcode if possible
-                if (preg_match('/^Stembureau\s+(.+?)(?:\s*\(postcode:\s*([^)]+)\))?$/i', $unitId, $matches)) {
-                    $reportingUnits[$authorityId]['units'][$unitId] = [
-                        'original_id' => $unitId,
-                        'address' => trim($matches[1]),  // Changed from 'name' to 'address' and removed "Stembureau"
-                        'postcode' => isset($matches[2]) ? trim($matches[2]) : null
-                    ];
-                } else {
-                    $reportingUnits[$authorityId]['units'][$unitId] = [
-                        'original_id' => $unitId,
-                        'address' => $unitId,  // Changed from 'name' to 'address'
-                        'postcode' => null
-                    ];
-                }
-            }
-        }
 
         // Create output filename using GM prefix and authority ID
         $jsonFile = __DIR__ . "/../web/data/elections/$election/GM{$authorityId}.json";
@@ -173,22 +136,6 @@ foreach ($elections as $election => $urls) {
         } else {
             echo "Created JSON file: $jsonFile\n";
         }
-    }
-    
-    // After processing all files, save the reporting units data
-    $reportingUnitsFile = __DIR__ . "/../web/data/elections/$election/reporting_units.json";
-    // Sort municipalities alphabetically
-    ksort($reportingUnits);
-    foreach ($reportingUnits as &$municipality) {
-        // Sort reporting units within each municipality by address
-        uasort($municipality['units'], function($a, $b) {
-            return strcmp($a['address'], $b['address']);
-        });
-    }
-    if (file_put_contents($reportingUnitsFile, json_encode($reportingUnits, JSON_PRETTY_PRINT)) === false) {
-        echo "Failed to write reporting units file\n";
-    } else {
-        echo "Created reporting units file\n";
     }
     
     echo "Completed processing $election\n";
