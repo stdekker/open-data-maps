@@ -304,7 +304,11 @@ function activateView(viewType, municipalityCode = null) {
         statsView.innerHTML = '';
         statsView.style.display = 'none';
         updateUrlParams(null); // Remove gemeente parameter
-        loadNationalGeoJson();
+        
+        // Load national view first, then clean up reporting units
+        loadNationalGeoJson().then(() => {
+            cleanupReportingUnits(map);
+        });
     } else if (viewType === 'municipal') {
         statsView.style.display = showElectionData ? 'block' : 'none';
         ensurePopulationData().then(() => {
@@ -334,14 +338,17 @@ let municipalityPopulations = {};
 function loadNationalGeoJson() {
     // Check if map is loaded
     if (!map.loaded()) {
-        map.on('load', () => loadNationalGeoJson());
-        return;
+        return new Promise(resolve => {
+            map.on('load', () => {
+                loadNationalGeoJson().then(resolve);
+            });
+        });
     }
 
     // Remove any existing event listeners to prevent duplicates
     map.off('dblclick', 'municipalities');
 
-    fetch('data/gemeenten.json')
+    return fetch('data/gemeenten.json')
         .then(response => response.json())
         .then(data => {
             // Store both population and household data
@@ -423,9 +430,12 @@ function loadNationalGeoJson() {
             } catch (e) {
                 console.error('Error fitting bounds:', e);
             }
+
+            return data; // Return the data to indicate completion
         })
         .catch(error => {
             console.error('Error loading gemeenten data:', error);
+            throw error;
         });
 }
 
