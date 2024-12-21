@@ -12,7 +12,76 @@ function debounce(func, wait) {
     };
 }
 
-export function addMapLayers(map, geoJsonData, municipalityPopulations) {
+/**
+ * Returns the min and max values for a given statistic from the features array.
+ *
+ * @param {Object} geoJsonData - The GeoJSON data.
+ * @param {String} statisticKey - The property key to look for in features.
+ * @returns {Array} [minValue, maxValue]
+ */
+function getMinMaxFromGeoJson(geoJsonData, statisticKey) {
+    const values = geoJsonData.features.map(f => f.properties[statisticKey])
+        .filter(val => typeof val === 'number' && !isNaN(val));
+
+    if (!values.length) {
+        // No valid numeric data; fallback
+        return [0, 0];
+    }
+
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+
+    // If they are the same, create an artificial range to avoid domain errors
+    if (minValue === maxValue) {
+        return [minValue, minValue + 1];
+    }
+
+    return [minValue, maxValue];
+}
+
+/**
+ * Builds a dynamic 'fill-color' expression for Mapbox GL
+ * such that the smallest value is lightest and the largest is darkest.
+ *
+ * @param {Object} geoJsonData     - The full GeoJSON data.
+ * @param {String} statisticKey    - The property key to color by (e.g., "aantalInwoners").
+ * @returns {Array} Mapbox GL Style expression for 'fill-color'.
+ */
+export function getDynamicFillColorExpression(geoJsonData, statisticKey) {
+    const [minValue, maxValue] = getMinMaxFromGeoJson(geoJsonData, statisticKey);
+
+    // Create a chroma scale from lightest to darkest
+    const colorScale = chroma
+        .scale(['#add8e6', '#4682b4', '#00008b'])
+        .domain([minValue, maxValue])
+        .mode('lab');
+
+    // Here we construct a single expression which checks for hover,
+    // then uses the scale’s color for that data value.
+    // We “brighten” colors a bit on hover.
+    return [
+        'case',
+        // If hovered
+        ['boolean', ['feature-state', 'hover'], false],
+        [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', statisticKey], 0],
+            minValue, colorScale(minValue).brighten().hex(),
+            maxValue, colorScale(maxValue).brighten().hex()
+        ],
+        // Else (not hovered)
+        [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', statisticKey], 0],
+            minValue, colorScale(minValue).hex(),
+            maxValue, colorScale(maxValue).hex()
+        ]
+    ];
+}
+
+export function addMapLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners') {
     // Clean up existing layers and sources first
     const layersToRemove = ['municipality-borders', 'municipalities'];
     layersToRemove.forEach(layer => {
@@ -43,10 +112,8 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations) {
         generateId: true
     });
 
-    // Color scale
-    const populationColorScale = chroma.scale(['#add8e6', '#4682b4', '#00008b'])
-        .domain([10000, 350000, 1000000])  
-        .mode('lab');
+    // Get a dynamic fill-color expression for this statisticKey
+    const fillColorExpression = getDynamicFillColorExpression(geoJsonData, statisticKey);
 
     // Add GeoJSON geometry layers before symbol layers
     map.addLayer({
@@ -54,29 +121,14 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations) {
         'type': 'fill',
         'source': 'municipalities',
         'paint': {
-            'fill-color': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                ['interpolate',
-                    ['linear'],
-                    ['coalesce', ['get', 'aantalInwoners'], 0],
-                    10000, chroma(populationColorScale(10000)).brighten().hex(),
-                    1000000, chroma(populationColorScale(1000000)).brighten().hex()
-                ],
-                ['interpolate',
-                    ['linear'],
-                    ['coalesce', ['get', 'aantalInwoners'], 0],
-                    10000, populationColorScale(10000).hex(),
-                    1000000, populationColorScale(1000000).hex()
-                ]
-            ],
+            'fill-color': fillColorExpression,
             'fill-opacity': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
                 0.8,
                 0.6
             ],
-            'fill-outline-color': '#00509e',
+            'fill-outline-color': '#00509e'
         }
     }, firstSymbolId);
 
