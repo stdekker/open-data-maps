@@ -362,7 +362,7 @@ body, html {
 }
 
 .party-result.others::after {
-    content: "▼";
+    content: "â–¼";
     position: absolute;
     right: 0;
     top: 50%;
@@ -552,4 +552,110 @@ body, html {
     border-top: 1px solid #eee;
     color: #666;
     font-size: 0.8em;
+}
+
+/* Add these modal styles at the end of the file */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+}
+
+.modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 2001;
+    opacity: 0;
+    transition: all 0.15s ease-out;
+}
+
+.modal.active {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    color: #666;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.help-button {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: #666;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.help-button:hover {
+    background: #4CAF50;
+    color: white;
+    transform: scale(1.05);
+}
+
+@media screen and (max-width: 768px) {
+    .modal {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .help-button {
+        bottom: 130px;
+        right: 10px;
+        width: 35px;
+        height: 35px;
+        font-size: 18px;
+    }
 }

@@ -51,6 +51,18 @@
                 <div class="stats-view"></div>
             </div>
         </div>
+        <button class="help-button" aria-label="Help">?</button>
+        <div class="modal-overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Help</h2>
+                    <button class="modal-close" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="modal-content">
+                    <!-- Content will be dynamically inserted -->
+                </div>
+            </div>
+        </div>
         <script type="module" src="src/main.js?v=<?php echo $version; ?>"></script>
     </body>
 </html>

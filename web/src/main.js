@@ -5,6 +5,7 @@ import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
 import { initializeElectionService } from './modules/electionService.js';
+import { Modal } from './modules/modalService.js';
 
 let showElectionData = false;
 let currentView = 'national';
@@ -264,6 +265,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize mobile handler
     initializeMobileHandler();
+
+    // Initialize modal
+    const modal = new Modal();
+    
+    // Add help button handler
+    const helpButton = document.querySelector('.help-button');
+    helpButton.addEventListener('click', () => {
+        modal.openFromUrl('Help', 'content/help.php');
+    });
 });
 
 // Add this function near the top of the file
