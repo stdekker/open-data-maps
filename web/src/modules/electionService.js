@@ -1,4 +1,5 @@
 let AVAILABLE_ELECTIONS = [];
+let isInitialized = false;
 
 export async function initializeElectionService() {
     try {
@@ -27,6 +28,7 @@ export async function initializeElectionService() {
             localStorage.setItem('lastElection', AVAILABLE_ELECTIONS[0]);
         }
 
+        isInitialized = true;
         return AVAILABLE_ELECTIONS;
     } catch (error) {
         console.error('Failed to initialize election service:', error);
@@ -40,10 +42,15 @@ export function getAvailableElections() {
 
 export async function loadElectionData(municipalityCode, electionId = null) {
     try {
+        // Wait for initialization if not already done
+        if (!isInitialized) {
+            await initializeElectionService();
+        }
+
         // If no election ID is provided, use the newest available election
         if (!electionId && AVAILABLE_ELECTIONS.length > 0) {
             electionId = AVAILABLE_ELECTIONS[0];
-        } else if (!electionId) {
+        } else if (!electionId && AVAILABLE_ELECTIONS.length === 0) {
             throw new Error('No elections available');
         }
 
