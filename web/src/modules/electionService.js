@@ -122,11 +122,11 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         
         let html = `
             <div class="election-header">
-                <button class="nav-button prev" ${AVAILABLE_ELECTIONS.indexOf(electionId) === 0 ? 'disabled' : ''}>
+                <button class="nav-button prev" ${AVAILABLE_ELECTIONS.indexOf(electionId) === AVAILABLE_ELECTIONS.length - 1 ? 'disabled' : ''}>
                     &#8249;
                 </button>
                 <h2>${electionId}</h2>
-                <button class="nav-button next" ${AVAILABLE_ELECTIONS.indexOf(electionId) === AVAILABLE_ELECTIONS.length - 1 ? 'disabled' : ''}>
+                <button class="nav-button next" ${AVAILABLE_ELECTIONS.indexOf(electionId) === 0 ? 'disabled' : ''}>
                     &#8250;
                 </button>
             </div>
@@ -202,8 +202,8 @@ export async function loadElectionData(municipalityCode, electionId = null) {
 
         prevButton.addEventListener('click', () => {
             const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
-            if (currentIndex > 0) {
-                const newElectionId = AVAILABLE_ELECTIONS[currentIndex - 1];
+            if (currentIndex < AVAILABLE_ELECTIONS.length - 1) {
+                const newElectionId = AVAILABLE_ELECTIONS[currentIndex + 1];
                 localStorage.setItem('lastElection', newElectionId);
                 loadElectionData(municipalityCode, newElectionId);
             }
@@ -211,8 +211,8 @@ export async function loadElectionData(municipalityCode, electionId = null) {
 
         nextButton.addEventListener('click', () => {
             const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
-            if (currentIndex < AVAILABLE_ELECTIONS.length - 1) {
-                const newElectionId = AVAILABLE_ELECTIONS[currentIndex + 1];
+            if (currentIndex > 0) {
+                const newElectionId = AVAILABLE_ELECTIONS[currentIndex - 1];
                 localStorage.setItem('lastElection', newElectionId);
                 loadElectionData(municipalityCode, newElectionId);
             }
