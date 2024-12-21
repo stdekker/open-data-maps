@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../../vendor/autoload.php';  // Updated path to vendor
 
 // Function to fetch and save gemeente data
 function fetchGemeente($code, $force = false, $progress = null) {
-    $dataDir = __DIR__ . '/data';
+    $dataDir = __DIR__ . '/../data';  // Updated path to data directory
     $gemeenteFile = $dataDir . '/' . $code . '.json';
 
     // Create directory if it doesn't exist
@@ -86,8 +86,8 @@ if (php_sapi_name() === 'cli') {
     $force = isset($options['force']);
 
     if (isset($options['all'])) {
-        // Load overview.json to get all gemeente codes
-        $overviewFile = __DIR__ . '/data/overview.json';
+        // Updated path to overview.json
+        $overviewFile = __DIR__ . '/../data/overview.json';
         if (!file_exists($overviewFile)) {
             die("overview.json not found. Please run data-processor.php first.\n");
         }
@@ -103,7 +103,7 @@ if (php_sapi_name() === 'cli') {
     } elseif (isset($options['code'])) {
         fetchGemeente($options['code'], $force);
     } else {
-        echo "Usage: php fetch-gemeente.php [--all] [--force] [--code=GM0363]\n";
+        echo "Usage: php api/municipality.php [--all] [--force] [--code=GM0363]\n";
         echo "  --all   : Fetch data for all gemeenten\n";
         echo "  --force : Force update existing files\n";
         echo "  --code  : Fetch specific gemeente by code\n";
@@ -120,7 +120,7 @@ if (!isset($_GET['code'])) {
 }
 
 // For web requests, always serve from cache if available
-$gemeenteFile = __DIR__ . '/data/' . $_GET['code'] . '.json';
+$gemeenteFile = __DIR__ . '/../data/' . $_GET['code'] . '.json';
 fetchGemeente($_GET['code']);
 
 if (file_exists($gemeenteFile)) {
@@ -130,4 +130,4 @@ if (file_exists($gemeenteFile)) {
     header('Content-Type: application/json');
     http_response_code(404);
     echo json_encode(['error' => 'Gemeente data not found']);
-}
+} 

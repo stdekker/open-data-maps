@@ -1,3 +1,5 @@
+import { setupReportingUnitPopupHandlers } from './electionService.js';
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -139,134 +141,8 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
         }
     });
 
-    let lastMousePoint = null;
-
-    // Debounced update function
-    const updatePoints = debounce((point) => {
-        // Skip update if the mouse hasn't moved significantly
-        if (lastMousePoint && 
-            Math.abs(point.x - lastMousePoint.x) < 5 && 
-            Math.abs(point.y - lastMousePoint.y) < 5) {
-            return;
-        }
-        
-        lastMousePoint = point;
-        const mouseRadius = 100; // pixels
-        
-        // Create location tracking map
-        const locationCounts = new Map();
-        
-        // Create new feature collection with spread points
-        const spreadData = {
-            type: 'FeatureCollection',
-            features: originalData.features.map(feature => {
-                // Convert feature coordinates to screen coordinates
-                const screenCoord = map.project(feature.geometry.coordinates);
-                
-                // Calculate distance to mouse
-                const distance = Math.sqrt(
-                    Math.pow(screenCoord.x - point.x, 2) + 
-                    Math.pow(screenCoord.y - point.y, 2)
-                );
-
-                // Only spread points if mouse is nearby
-                if (distance <= mouseRadius) {
-                    const coord = feature.geometry.coordinates;
-                    const key = coord.join(',');
-                    
-                    const count = locationCounts.get(key) || 0;
-                    locationCounts.set(key, count + 1);
-                    
-                    if (count > 0) {
-                        const angle = (Math.PI * 2 * count) / 8;
-                        // Scale the offset based on how close the mouse is
-                        const offsetScale = 1 - (distance / mouseRadius);
-                        const offsetDistance = 0.0003 * offsetScale;
-                        
-                        const newCoord = [
-                            coord[0] + Math.cos(angle) * offsetDistance,
-                            coord[1] + Math.sin(angle) * offsetDistance
-                        ];
-                        return {
-                            ...feature,
-                            geometry: {
-                                ...feature.geometry,
-                                coordinates: newCoord
-                            }
-                        };
-                    }
-                }
-                return feature;
-            })
-        };
-
-        // Update the source data
-        map.getSource('reporting-units').setData(spreadData);
-    }, 16); // 60fps = ~16ms
-
-    // Track mouse position and update points
-    map.on('mousemove', (e) => {
-        updatePoints(e.point);
-    });
-
-    // Reset points when mouse leaves the map
-    map.on('mouseout', () => {
-        lastMousePoint = null;
-        map.getSource('reporting-units').setData(originalData);
-    });
-
-    // Add click handler for reporting units
-    map.on('click', 'reporting-units', (e) => {
-        if (!e.features.length) return;
-
-        const feature = e.features[0];
-        const { name, cast, totalCounted, rejectedVotes, results } = feature.properties;
-
-        // Create popup content
-        let content = `
-            <h3>${name}</h3>
-            <div class="popup-content">
-                <p><strong>Uitgebracht:</strong> ${cast.toLocaleString('nl-NL')}</p>
-                <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
-                ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
-                <p><strong>Partijen:</strong></p>
-                <div class="popup-results">
-        `;
-
-        // Add all parties
-        const allParties = JSON.parse(results);
-        allParties.forEach(party => {
-            const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
-            content += `
-                <div class="popup-party">
-                    <span class="popup-party-name">${party.party}</span>
-                    <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
-                </div>
-            `;
-        });
-
-        content += '</div></div>';
-
-        // Remove existing popup if it exists
-        if (window.reportingUnitsPopup) {
-            window.reportingUnitsPopup.remove();
-        }
-
-        // Create new popup
-        window.reportingUnitsPopup = new mapboxgl.Popup()
-            .setLngLat(feature.geometry.coordinates)
-            .setHTML(content)
-            .addTo(map);
-    });
-
-    // Change cursor on hover
-    map.on('mouseenter', 'reporting-units', () => {
-        map.getCanvas().style.cursor = 'pointer';
-    });
-
-    map.on('mouseleave', 'reporting-units', () => {
-        map.getCanvas().style.cursor = '';
-    });
+    // Setup popup handlers
+    setupReportingUnitPopupHandlers(map);
 }
 
 export function cleanupReportingUnits(map) {

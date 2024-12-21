@@ -4,6 +4,7 @@ import { loadElectionData } from './modules/electionService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
+import { initializeElectionService } from './modules/electionService.js';
 
 let showElectionData = false;
 let currentView = 'national';
@@ -21,7 +22,10 @@ const map = new mapboxgl.Map({
 });
 
 // Wait for map to load before doing anything
-map.on('load', () => {
+map.on('load', async () => {
+    // Initialize election service
+    await initializeElectionService();
+    
     fetch('data/overview.json')
         .then(response => response.json())
         .then(data => {
@@ -149,7 +153,7 @@ function loadGeoJson(code) {
 
     // Load both GeoJSON and election data
     Promise.all([
-        fetch(`fetch-municipality.php?code=${code}`),
+        fetch(`api/municipality.php?code=${code}`),
         loadElectionData(code)
     ])
     .then(([geoJsonResponse]) => geoJsonResponse.json())

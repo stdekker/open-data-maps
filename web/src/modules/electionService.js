@@ -1,7 +1,52 @@
-const AVAILABLE_ELECTIONS = ['TK2021','TK2023']; // From newest to oldest
+let AVAILABLE_ELECTIONS = [];
 
-export async function loadElectionData(municipalityCode, electionId = 'TK2021') {
+export async function initializeElectionService() {
     try {
+        const response = await fetch('api/elections.php');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Sort elections by year (descending) and type
+        AVAILABLE_ELECTIONS = data.elections.sort((a, b) => {
+            // Extract year and type (e.g., "TK" from "TK2023")
+            const [, typeA, yearA] = a.match(/([A-Z]+)(\d{4})/);
+            const [, typeB, yearB] = b.match(/([A-Z]+)(\d{4})/);
+            
+            // Compare years first
+            const yearDiff = parseInt(yearB) - parseInt(yearA);
+            if (yearDiff !== 0) return yearDiff;
+            
+            // If years are equal, sort by type
+            return typeB.localeCompare(typeA);
+        });
+
+        // Set the most recent election as default if none is stored
+        if (!localStorage.getItem('lastElection')) {
+            localStorage.setItem('lastElection', AVAILABLE_ELECTIONS[0]);
+        }
+
+        return AVAILABLE_ELECTIONS;
+    } catch (error) {
+        console.error('Failed to initialize election service:', error);
+        return [];
+    }
+}
+
+export function getAvailableElections() {
+    return AVAILABLE_ELECTIONS;
+}
+
+export async function loadElectionData(municipalityCode, electionId = null) {
+    try {
+        // If no election ID is provided, use the newest available election
+        if (!electionId && AVAILABLE_ELECTIONS.length > 0) {
+            electionId = AVAILABLE_ELECTIONS[0];
+        } else if (!electionId) {
+            throw new Error('No elections available');
+        }
+
         const response = await fetch(`data/elections/${electionId}/${municipalityCode}.json`);
         
         // Check if response is ok before trying to parse JSON
@@ -97,7 +142,8 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
         totalVotes.forEach(party => {
             const votes = parseInt(party.ValidVotes);
             const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
-            if (percentage >= 1) { // Only show parties with 1% or more of the votes
+            // Only directly show parties with 1% or more of the votes, the rest are grouped under 'overigen'
+            if (percentage >= 1) { 
                 html += `
                     <div class="party-result">
                         <span class="party-name">${party.AffiliationIdentifier.Name}</span>
@@ -189,4 +235,64 @@ export async function loadElectionData(municipalityCode, electionId = 'TK2021') 
             cleanupReportingUnits();
         }
     }
+}
+
+export function createReportingUnitPopup(feature) {
+    const { name, cast, totalCounted, rejectedVotes, results } = feature.properties;
+
+    // Create popup content
+    let content = `
+        <h3>${name}</h3>
+        <div class="popup-content">
+            <p><strong>Uitgebracht:</strong> ${cast.toLocaleString('nl-NL')}</p>
+            <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
+            ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
+            <p><strong>Partijen:</strong></p>
+            <div class="popup-results">
+    `;
+
+    // Add all parties
+    const allParties = JSON.parse(results);
+    allParties.forEach(party => {
+        const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
+        content += `
+            <div class="popup-party">
+                <span class="popup-party-name">${party.party}</span>
+                <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+            </div>
+        `;
+    });
+
+    content += '</div></div>';
+    return content;
+}
+
+export function setupReportingUnitPopupHandlers(map) {
+    // Add click handler for reporting units
+    map.on('click', 'reporting-units', (e) => {
+        if (!e.features.length) return;
+
+        const feature = e.features[0];
+        const content = createReportingUnitPopup(feature);
+
+        // Remove existing popup if it exists
+        if (window.reportingUnitsPopup) {
+            window.reportingUnitsPopup.remove();
+        }
+
+        // Create new popup
+        window.reportingUnitsPopup = new mapboxgl.Popup()
+            .setLngLat(feature.geometry.coordinates)
+            .setHTML(content)
+            .addTo(map);
+    });
+
+    // Change cursor on hover
+    map.on('mouseenter', 'reporting-units', () => {
+        map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mouseleave', 'reporting-units', () => {
+        map.getCanvas().style.cursor = '';
+    });
 }
