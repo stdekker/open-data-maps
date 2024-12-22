@@ -14,3 +14,14 @@ https://github.com/mbloch/mapshaper
 
 This project uses DDEV to simplify local development. DDEV is a tool for creating local PHP development environments. You can download it from the [DDEV GitHub releases page](https://github.com/drud/ddev/releases). Follow the instructions for your operating system to install it.
 
+## Atrtribution  
+This project is based on an original project by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](www.bvvlt.nl). 
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+### Data attribution
+
+The data used in this project is provided by the Dutch government and is available under the [Open Data License](https://www.pdok.nl/nl/over-pdok/open-data/open-data-licenties/open-data-licentie-gemeenten-wijken-buurten-2022).
+
