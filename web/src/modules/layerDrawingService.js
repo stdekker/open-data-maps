@@ -22,7 +22,7 @@ function debounce(func, wait) {
  */
 function getMinMaxFromGeoJson(geoJsonData, statisticKey) {
     const values = geoJsonData.features.map(f => f.properties[statisticKey])
-        .filter(val => typeof val === 'number' && !isNaN(val));
+        .filter(val => typeof val === 'number' && !isNaN(val) && val !== null);
 
     if (!values.length) {
         // No valid numeric data; fallback
@@ -82,6 +82,102 @@ export function getDynamicFillColorExpression(geoJsonData, statisticKey) {
     ];
 }
 
+// Add this function near the top of the file
+function populateStatisticsSelect(statsSelect, data) {
+    // Define the groups and their statistics
+    const groups = {
+        'Basis': [
+            'aantalInwoners',
+            'aantalHuishoudens',
+            'omgevingsadressendichtheid',
+            'stedelijkheidAdressenPerKm2',
+            'bevolkingsdichtheidInwonersPerKm2',
+            'mannen',
+            'vrouwen'
+        ],
+        'Leeftijdsgroepen': [
+            'percentagePersonen0Tot15Jaar',
+            'percentagePersonen15Tot25Jaar',
+            'percentagePersonen25Tot45Jaar',
+            'percentagePersonen45Tot65Jaar',
+            'percentagePersonen65JaarEnOuder'
+        ],
+        'Burgerlijke staat': [
+            'percentageOngehuwd',
+            'percentageGehuwd',
+            'percentageGescheid',
+            'percentageVerweduwd'
+        ],
+        'Huishoudens': [
+            'percentageEenpersoonshuishoudens',
+            'percentageHuishoudensZonderKinderen',
+            'percentageHuishoudensMetKinderen',
+            'gemiddeldeHuishoudsgrootte'
+        ],
+        'Herkomst': [
+            'percentageMetHerkomstlandNederland',
+            'percentageMetHerkomstlandUitEuropaExclNl',
+            'percentageMetHerkomstlandBuitenEuropa'
+        ],
+        'Oppervlakte': [
+            'oppervlakteTotaalInHa',
+            'oppervlakteLandInHa'
+        ]
+    };
+
+    const labels = {
+        'aantalInwoners': 'Inwoners',
+        'aantalHuishoudens': 'Huishoudens',
+        'omgevingsadressendichtheid': 'Omgevingsadressendichtheid',
+        'stedelijkheidAdressenPerKm2': 'Stedelijkheid (adressen/km²)',
+        'bevolkingsdichtheidInwonersPerKm2': 'Bevolkingsdichtheid (inw/km²)',
+        'mannen': 'Mannen',
+        'vrouwen': 'Vrouwen',
+        'percentagePersonen0Tot15Jaar': '0-15 jaar (%)',
+        'percentagePersonen15Tot25Jaar': '15-25 jaar (%)',
+        'percentagePersonen25Tot45Jaar': '25-45 jaar (%)',
+        'percentagePersonen45Tot65Jaar': '45-65 jaar (%)',
+        'percentagePersonen65JaarEnOuder': '65+ jaar (%)',
+        'percentageOngehuwd': 'Ongehuwd (%)',
+        'percentageGehuwd': 'Gehuwd (%)',
+        'percentageGescheid': 'Gescheiden (%)',
+        'percentageVerweduwd': 'Verweduwd (%)',
+        'percentageEenpersoonshuishoudens': 'Eenpersoonshuishoudens (%)',
+        'percentageHuishoudensZonderKinderen': 'Huishoudens zonder kinderen (%)',
+        'percentageHuishoudensMetKinderen': 'Huishoudens met kinderen (%)',
+        'gemiddeldeHuishoudsgrootte': 'Gemiddelde huishoudgrootte',
+        'percentageMetHerkomstlandNederland': 'Nederlands (%)',
+        'percentageMetHerkomstlandUitEuropaExclNl': 'Europees (excl. NL) (%)',
+        'percentageMetHerkomstlandBuitenEuropa': 'Buiten Europa (%)',
+        'oppervlakteTotaalInHa': 'Totaal (ha)',
+        'oppervlakteLandInHa': 'Land (ha)'
+    };
+
+    // Clear existing options
+    statsSelect.innerHTML = '';
+
+    // Add options by group
+    for (const [groupName, stats] of Object.entries(groups)) {
+        const group = document.createElement('optgroup');
+        group.label = groupName;
+
+        stats.forEach(stat => {
+            // Check if this statistic exists in the data
+            if (data.features[0].properties.hasOwnProperty(stat)) {
+                const option = document.createElement('option');
+                option.value = stat;
+                option.textContent = labels[stat];
+                group.appendChild(option);
+            }
+        });
+
+        // Only add group if it has any options
+        if (group.children.length > 0) {
+            statsSelect.appendChild(group);
+        }
+    }
+}
+
 export function addMapLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners') {
     // Clean up existing layers and sources first
     const layersToRemove = ['municipality-borders', 'municipalities'];
@@ -112,6 +208,10 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations, statisti
         data: geoJsonData,
         generateId: true
     });
+
+    // Populate statistics select with available data
+    const statsSelect = document.getElementById('statsSelect');
+    populateStatisticsSelect(statsSelect, geoJsonData);
 
     // Get a dynamic fill-color expression for this statisticKey
     const fillColorExpression = getDynamicFillColorExpression(geoJsonData, statisticKey);
@@ -155,19 +255,21 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations, statisti
 }
 
 export function addReportingUnits(map, geoJsonData, showElectionData = false) {
-    if (!showElectionData) {
+    if (!showElectionData || !geoJsonData) {
+        return;
+    }
+
+    // Check if the layer already exists
+    if (map.getLayer('reporting-units')) {
         return;
     }
 
     cleanupReportingUnits(map);
 
-    // Store the original data
-    const originalData = geoJsonData;
-    
     // Add the reporting units source with original data
     map.addSource('reporting-units', {
         type: 'geojson',
-        data: originalData
+        data: geoJsonData
     });
 
     // Add reporting units layer with dynamic radius
@@ -199,21 +301,27 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
 }
 
 export function cleanupReportingUnits(map) {
-    if (map.getLayer('reporting-units')) {
-        // Only remove event listeners specific to reporting units
-        map.off('mousemove', 'reporting-units');
-        map.off('mouseout', 'reporting-units');
-        map.off('click', 'reporting-units');
-        map.off('mouseenter', 'reporting-units');
-        map.off('mouseleave', 'reporting-units');
-        map.removeLayer('reporting-units');
+    // Check if map exists and is loaded
+    if (!map || !map.loaded()) {
+        return;
     }
-    if (map.getSource('reporting-units')) {
-        map.removeSource('reporting-units');
-    }
-    if (window.reportingUnitsPopup) {
-        window.reportingUnitsPopup.remove();
-        window.reportingUnitsPopup = null;
+
+    try {
+        // Only remove layers if they exist
+        if (map.getLayer('reporting-units')) {
+            map.removeLayer('reporting-units');
+        }
+        if (map.getLayer('reporting-units-fill')) {
+            map.removeLayer('reporting-units-fill');
+        }
+        if (map.getLayer('reporting-units-line')) {
+            map.removeLayer('reporting-units-line');
+        }
+        if (map.getSource('reporting-units')) {
+            map.removeSource('reporting-units');
+        }
+    } catch (error) {
+        console.warn('Error cleaning up reporting units:', error);
     }
 }
 
@@ -225,17 +333,16 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     const statsSelect = document.getElementById('statsSelect');
     const electionToggle = document.getElementById('electionToggle');
     const settingsButton = featureNameBox.querySelector('.settings-button');
-    const modal = new Modal();
 
     // Setup settings button click handler
     settingsButton.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        modal.open('Settings', document.querySelector('.modal-content').innerHTML);
+        window.settingsModal.open('Settings');
         
         // Re-attach event listeners to the cloned elements in the modal
-        const modalStatsSelect = modal.modal.querySelector('#statsSelect');
-        const modalElectionToggle = modal.modal.querySelector('#electionToggle');
+        const modalStatsSelect = window.settingsModal.modal.querySelector('#statsSelect');
+        const modalElectionToggle = window.settingsModal.modal.querySelector('#electionToggle');
 
         // Sync stats select
         if (modalStatsSelect) {
@@ -244,6 +351,9 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
                 statsSelect.value = modalStatsSelect.value;
                 localStorage.setItem('selectedStat', modalStatsSelect.value);
                 updateFeatureNameBox();
+                
+                // Update the map colors for the new statistic
+                updateMapColors(map, modalStatsSelect.value);
             });
         }
 
@@ -252,10 +362,36 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
             modalElectionToggle.checked = electionToggle.checked;
             modalElectionToggle.addEventListener('change', () => {
                 electionToggle.checked = modalElectionToggle.checked;
-                electionToggle.dispatchEvent(new Event('change'));
             });
         }
     });
+
+    // Add event listener for statistic selection change
+    statsSelect.addEventListener('change', () => {
+        localStorage.setItem('selectedStat', statsSelect.value);
+        updateFeatureNameBox();
+        
+        // Update the map colors for the new statistic
+        updateMapColors(map, statsSelect.value);
+    });
+
+    // Restore last selected statistic
+    const lastSelectedStat = localStorage.getItem('selectedStat');
+    if (lastSelectedStat) {
+        statsSelect.value = lastSelectedStat;
+        // Update the map colors for the restored statistic
+        updateMapColors(map, lastSelectedStat);
+    }
+
+    // Function to update map colors
+    function updateMapColors(map, statisticKey) {
+        if (map.getSource('municipalities')) {
+            const source = map.getSource('municipalities');
+            const data = source._data; // Get current GeoJSON data
+            const fillColorExpression = getDynamicFillColorExpression(data, statisticKey);
+            map.setPaintProperty('municipalities', 'fill-color', fillColorExpression);
+        }
+    }
 
     // Function to get the statistic text
     function getStatisticText(properties, statType) {
@@ -264,10 +400,38 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         
         const labels = {
             'aantalInwoners': 'inwoners',
-            'aantalHuishoudens': 'huishoudens'
+            'aantalHuishoudens': 'huishoudens',
+            'omgevingsadressendichtheid': 'adressen/km²',
+            'stedelijkheidAdressenPerKm2': 'adressen/km²',
+            'bevolkingsdichtheidInwonersPerKm2': 'inw/km²',
+            'mannen': 'mannen',
+            'vrouwen': 'vrouwen',
+            'percentagePersonen0Tot15Jaar': '% 0-15 jaar',
+            'percentagePersonen15Tot25Jaar': '% 15-25 jaar',
+            'percentagePersonen25Tot45Jaar': '% 25-45 jaar',
+            'percentagePersonen45Tot65Jaar': '% 45-65 jaar',
+            'percentagePersonen65JaarEnOuder': '% 65+ jaar',
+            'percentageOngehuwd': '% ongehuwd',
+            'percentageGehuwd': '% gehuwd',
+            'percentageGescheid': '% gescheiden',
+            'percentageVerweduwd': '% verweduwd',
+            'percentageEenpersoonshuishoudens': '% eenpersoons',
+            'percentageHuishoudensZonderKinderen': '% zonder kinderen',
+            'percentageHuishoudensMetKinderen': '% met kinderen',
+            'gemiddeldeHuishoudsgrootte': 'personen/huishouden',
+            'percentageMetHerkomstlandNederland': '% NL',
+            'percentageMetHerkomstlandUitEuropaExclNl': '% EU (excl. NL)',
+            'percentageMetHerkomstlandBuitenEuropa': '% buiten EU',
+            'oppervlakteTotaalInHa': 'ha totaal',
+            'oppervlakteLandInHa': 'ha land'
         };
         
-        return `<span class="population-text">(${statValue.toLocaleString('nl-NL')} ${labels[statType]})</span>`;
+        const label = labels[statType] || statType;
+        const formattedValue = typeof statValue === 'number' && statValue % 1 !== 0 
+            ? statValue.toFixed(1) 
+            : statValue;
+        
+        return `<span class="population-text">(${formattedValue.toLocaleString('nl-NL')} ${label})</span>`;
     }
 
     // Update feature name box content

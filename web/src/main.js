@@ -6,10 +6,17 @@ import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
 import { initializeElectionService } from './modules/electionService.js';
 import { Modal } from './modules/modalService.js';
+import { ensurePopulationData, loadOverviewData } from './modules/dataService.js';
 
 let showElectionData = false;
 let currentView = 'national';
-let showPostcodeLayer = false;
+let settingsModal;
+let helpModal;
+
+// Declare municipalityPopulations and feature name elements at the top
+let municipalityPopulations = {};
+let featureNameContent;
+let featureNameBox;
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -28,16 +35,24 @@ map.on('load', async () => {
     // Initialize election service
     await initializeElectionService();
     
-    fetch('data/overview.json')
-        .then(response => response.json())
-        .then(data => {
-            const searchInput = document.getElementById('searchInput');
-            const autocompleteList = document.getElementById('autocompleteList');
+    const data = await loadOverviewData();
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
 
-            setupSearch(searchInput, autocompleteList, data);
+    setupSearch(searchInput, autocompleteList, data);
+    initialMunicipalitySelection(data);
 
-            initialMunicipalitySelection(data);
-        });
+    // Initialize featureNameContent and featureNameBox after the DOM is ready
+    featureNameContent = document.querySelector('.feature-name-content');
+    featureNameBox = document.querySelector('.feature-name-box');
+
+    // Check if featureNameContent and featureNameBox are initialized
+    if (featureNameContent && featureNameBox) {
+        // Initial call to update the feature name box
+        updateFeatureNameBox();
+    } else {
+        console.error('Feature name content or box element not found.');
+    }
 });
 
 function setupSearch(searchInput, autocompleteList, data) {
@@ -140,6 +155,9 @@ function selectMunicipality(municipality) {
     setTimeout(() => {
         searchInput.value = '';
     }, 585);
+
+    // Update the feature name box with the selected municipality
+    updateFeatureNameBox();
 }
 
 // ===== GeoJSON Loading & Display =====
@@ -200,6 +218,23 @@ function loadGeoJson(code) {
 
 // Add click handlers for menu items
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    settingsModal = new Modal('settings-modal');
+    window.settingsModal = settingsModal;
+    helpModal = new Modal('help-modal');
+
+    // Add settings button handler
+    const settingsButton = document.querySelector('.settings-button');
+    settingsButton.addEventListener('click', () => {
+        settingsModal.open('Settings');
+    });
+
+    // Add help button handler
+    const helpButton = document.querySelector('.help-button');
+    helpButton.addEventListener('click', () => {
+        helpModal.openFromUrl('Help', 'content/help.php');
+    });
+
     const menuItems = document.querySelectorAll('.menu-items li');
     const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
 
@@ -250,72 +285,28 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('showElectionData', showElectionData);
         statsView.style.display = showElectionData ? 'block' : 'none';
         
-        // If showing election data and we have a municipality selected, load the data
         if (showElectionData) {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 const municipality = JSON.parse(lastMunicipality);
                 const currentElection = localStorage.getItem('lastElection') || 'TK2021';
-                loadElectionData(municipality.code, currentElection);
+                // Only load election data if we're in municipal view
+                if (currentView === 'municipal') {
+                    loadElectionData(municipality.code, currentElection);
+                }
             }
         } else {
-            // Clean up reporting units when hiding election data
+            // Clean up reporting units when toggling off
             cleanupReportingUnits(map);
-        }
-    });
-
-    // Add postcode toggle handler
-    const postcodeToggle = document.getElementById('postcodeToggle');
-
-    // Restore toggle state from localStorage
-    showPostcodeLayer = localStorage.getItem('showPostcodeLayer') === 'true';
-    postcodeToggle.checked = showPostcodeLayer;
-
-    if (showPostcodeLayer) {
-        addWmsLayer(map);
-    }
-
-    postcodeToggle.addEventListener('change', function() {
-        showPostcodeLayer = this.checked;
-        localStorage.setItem('showPostcodeLayer', showPostcodeLayer);
-        
-        if (showPostcodeLayer) {
-            addWmsLayer(map);
-        } else {
-            removeWmsLayer(map);
         }
     });
 
     // Initialize mobile handler
     initializeMobileHandler();
-
-    // Initialize modal
-    const modal = new Modal();
-    
-    // Add help button handler
-    const helpButton = document.querySelector('.help-button');
-    helpButton.addEventListener('click', () => {
-        modal.openFromUrl('Help', 'content/help.php');
-    });
 });
 
-// Add this function near the top of the file
-async function ensurePopulationData() {
-    if (Object.keys(municipalityPopulations).length === 0) {
-        try {
-            const response = await fetch('data/gemeenten.json');
-            const data = await response.json();
-            data.features.forEach(feature => {
-                municipalityPopulations[feature.properties.gemeentecode] = {
-                    aantalInwoners: feature.properties.aantalInwoners,
-                    aantalHuishoudens: feature.properties.aantalHuishoudens
-                };
-            });
-        } catch (error) {
-            console.error('Error loading population data:', error);
-        }
-    }
-}
+// Ensure population data is loaded before using it
+ensurePopulationData(municipalityPopulations);
 
 // Modify the activateView function
 function activateView(viewType, municipalityCode = null) {
@@ -344,7 +335,7 @@ function activateView(viewType, municipalityCode = null) {
         });
     } else if (viewType === 'municipal') {
         statsView.style.display = showElectionData ? 'block' : 'none';
-        ensurePopulationData().then(() => {
+        ensurePopulationData(municipalityPopulations).then(() => {
             if (municipalityCode) {
                 loadGeoJson(municipalityCode);
                 if (showElectionData) {
@@ -363,9 +354,6 @@ function activateView(viewType, municipalityCode = null) {
         });
     }
 }
-
-// Add this at the top level of the file, after the imports
-let municipalityPopulations = {};
 
 // Modify the loadNationalGeoJson function
 function loadNationalGeoJson() {
@@ -476,4 +464,89 @@ function loadNationalGeoJson() {
 window.addEventListener('reportingUnitsLoaded', (event) => {
     const { geoJsonData } = event.detail;
     addReportingUnits(map, geoJsonData, showElectionData);
+});
+
+// Update the feature name box to include the total of the selected statistic
+function updateFeatureNameBox(feature = null) {
+    if (!featureNameContent || !featureNameBox) {
+        console.error('Feature name content or box element is not initialized.');
+        return;
+    }
+
+    const storedMunicipality = localStorage.getItem('lastMunicipality') 
+        ? JSON.parse(localStorage.getItem('lastMunicipality'))
+        : null;
+
+    // Get statsSelect and check if it exists
+    const statsSelect = document.getElementById('statsSelect');
+    if (!statsSelect) {
+        console.error('Stats select element not found.');
+        return;
+    }
+
+    const selectedStat = statsSelect.value;
+
+    const getNameWithStat = (name, properties) => {
+        const statValue = properties[selectedStat];
+        // Only format and show the value if it exists
+        if (statValue !== undefined && statValue !== null) {
+            let formattedValue;
+            if (typeof statValue === 'number') {
+                // Format numbers consistently
+                if (selectedStat.startsWith('percentage')) {
+                    // Format percentages with 1 decimal place
+                    formattedValue = statValue.toLocaleString('nl-NL', { 
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1 
+                    });
+                } else if (selectedStat === 'gemiddeldeHuishoudsgrootte') {
+                    // Format average household size with 1 decimal place
+                    formattedValue = statValue.toLocaleString('nl-NL', { 
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1 
+                    });
+                } else {
+                    // Format other numbers as integers
+                    formattedValue = statValue.toLocaleString('nl-NL', { 
+                        maximumFractionDigits: 0 
+                    });
+                }
+            } else {
+                formattedValue = statValue;
+            }
+            return `${name} (${formattedValue})`;
+        }
+        return name; // Return just the name if no statistic is available
+    };
+
+    let content = '';
+    if (storedMunicipality) {
+        const municipalityData = municipalityPopulations[storedMunicipality.code];
+        if (municipalityData) {
+            content = `<div>${getNameWithStat(storedMunicipality.naam, municipalityData)}</div>`;
+        }
+    }
+
+    if (feature) {
+        const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
+        if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
+            content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
+        }
+        if (feature.properties?.buurtnaam) {
+            content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
+        }
+    }
+
+    featureNameContent.innerHTML = content;
+    featureNameBox.style.display = content ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize feature name elements
+    featureNameContent = document.querySelector('.feature-name-content');
+    featureNameBox = document.querySelector('.feature-name-box');
+    
+    if (!featureNameContent || !featureNameBox) {
+        console.error('Feature name elements not found in DOM');
+    }
 });

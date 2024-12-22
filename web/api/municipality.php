@@ -41,10 +41,17 @@ function fetchGemeente($code, $force = false, $progress = null) {
         return;
     }
 
-    // Decode and save the complete data without any transformations
+    // Decode and process the data
     $data = json_decode($response, true);
-    
-    // Save the complete data
+
+    // Replace -99999999 with null
+    array_walk_recursive($data, function (&$item) {
+        if ($item === -99999999) {
+            $item = null;
+        }
+    });
+
+    // Save the processed data
     file_put_contents($gemeenteFile, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     
     if (php_sapi_name() === 'cli') {    

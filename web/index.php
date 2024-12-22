@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.1"; // Version number for cache busting
+    $version = "1.0.2"; // Version number for cache busting
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,7 +36,7 @@
             </div>
         </div>
         <button class="help-button" aria-label="Help">?</button>
-        <div class="modal-overlay">
+        <div class="modal-overlay" id="settings-modal">
             <div class="modal">
                 <div class="modal-header">
                     <h2 class="modal-title">Settings</h2>
@@ -48,8 +48,7 @@
                         <div class="stats-selector">
                             <label for="statsSelect">Statistiek</label>
                             <select id="statsSelect">
-                                <option value="aantalInwoners">Inwoners</option>
-                                <option value="aantalHuishoudens">Huishoudens</option>
+                                <!-- Options will be populated dynamically -->
                             </select>
                         </div>
                     </div>
@@ -63,6 +62,17 @@
                             </label>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-overlay" id="help-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Help</h2>
+                    <button class="modal-close" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="modal-content">
+                    <!-- Help content will be loaded here -->
                 </div>
             </div>
         </div>

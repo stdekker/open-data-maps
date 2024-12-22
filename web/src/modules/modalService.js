@@ -1,10 +1,10 @@
 export class Modal {
-    constructor() {
-        this.overlay = document.querySelector('.modal-overlay');
-        this.modal = document.querySelector('.modal');
-        this.closeButton = document.querySelector('.modal-close');
-        this.content = document.querySelector('.modal-content');
-        this.title = document.querySelector('.modal-title');
+    constructor(modalId) {
+        this.overlay = document.querySelector(`#${modalId}`);
+        this.modal = this.overlay.querySelector('.modal');
+        this.closeButton = this.overlay.querySelector('.modal-close');
+        this.content = this.overlay.querySelector('.modal-content');
+        this.title = this.overlay.querySelector('.modal-title');
         
         this.setupEventListeners();
     }
@@ -39,9 +39,11 @@ export class Modal {
         }
     }
 
-    open(title, content) {
+    open(title, content = null) {
         this.title.textContent = title;
-        this.content.innerHTML = content;
+        if (content !== null) {
+            this.content.innerHTML = content;
+        }
         this.overlay.style.display = 'block';
         // Force reflow
         this.overlay.offsetHeight;
