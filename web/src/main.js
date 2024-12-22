@@ -9,6 +9,7 @@ import { Modal } from './modules/modalService.js';
 
 let showElectionData = false;
 let currentView = 'national';
+let showPostcodeLayer = false;
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -260,6 +261,28 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Clean up reporting units when hiding election data
             cleanupReportingUnits(map);
+        }
+    });
+
+    // Add postcode toggle handler
+    const postcodeToggle = document.getElementById('postcodeToggle');
+
+    // Restore toggle state from localStorage
+    showPostcodeLayer = localStorage.getItem('showPostcodeLayer') === 'true';
+    postcodeToggle.checked = showPostcodeLayer;
+
+    if (showPostcodeLayer) {
+        addWmsLayer(map);
+    }
+
+    postcodeToggle.addEventListener('change', function() {
+        showPostcodeLayer = this.checked;
+        localStorage.setItem('showPostcodeLayer', showPostcodeLayer);
+        
+        if (showPostcodeLayer) {
+            addWmsLayer(map);
+        } else {
+            removeWmsLayer(map);
         }
     });
 

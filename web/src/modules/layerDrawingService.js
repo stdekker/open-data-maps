@@ -1,4 +1,5 @@
 import { setupReportingUnitPopupHandlers } from './electionService.js';
+import { Modal } from './modalService.js';
 
 function debounce(func, wait) {
     let timeout;
@@ -222,30 +223,39 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     let featureNameBox = document.querySelector('.feature-name-box');
     let featureNameContent = featureNameBox.querySelector('.feature-name-content');
     const statsSelect = document.getElementById('statsSelect');
+    const electionToggle = document.getElementById('electionToggle');
     const settingsButton = featureNameBox.querySelector('.settings-button');
-    const statsPopup = featureNameBox.querySelector('.stats-popup');
-
-    // Remove any existing click listeners to prevent duplicates
-    const newSettingsButton = settingsButton.cloneNode(true);
-    settingsButton.parentNode.replaceChild(newSettingsButton, settingsButton);
+    const modal = new Modal();
 
     // Setup settings button click handler
-    newSettingsButton.addEventListener('click', (e) => {
+    settingsButton.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        statsPopup.classList.toggle('active');
-    });
+        modal.open('Settings', document.querySelector('.modal-content').innerHTML);
+        
+        // Re-attach event listeners to the cloned elements in the modal
+        const modalStatsSelect = modal.modal.querySelector('#statsSelect');
+        const modalElectionToggle = modal.modal.querySelector('#electionToggle');
 
-    // Close popup when clicking outside
-    const clickHandler = (e) => {
-        if (!statsPopup.contains(e.target) && !newSettingsButton.contains(e.target)) {
-            statsPopup.classList.remove('active');
+        // Sync stats select
+        if (modalStatsSelect) {
+            modalStatsSelect.value = statsSelect.value;
+            modalStatsSelect.addEventListener('change', () => {
+                statsSelect.value = modalStatsSelect.value;
+                localStorage.setItem('selectedStat', modalStatsSelect.value);
+                updateFeatureNameBox();
+            });
         }
-    };
 
-    // Remove existing click listener and add new one
-    document.removeEventListener('click', clickHandler);
-    document.addEventListener('click', clickHandler);
+        // Sync election toggle
+        if (modalElectionToggle) {
+            modalElectionToggle.checked = electionToggle.checked;
+            modalElectionToggle.addEventListener('change', () => {
+                electionToggle.checked = modalElectionToggle.checked;
+                electionToggle.dispatchEvent(new Event('change'));
+            });
+        }
+    });
 
     // Function to get the statistic text
     function getStatisticText(properties, statType) {
@@ -292,9 +302,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
 
         featureNameContent.innerHTML = content;
         featureNameBox.style.display = content ? 'block' : 'none';
-        
-        // Hide stats popup when content changes
-        statsPopup.classList.remove('active');
     }
 
     // Initial display of selected municipality
@@ -303,18 +310,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         : null;
     if (selectedMunicipality) {
         updateFeatureNameBox();
-    }
-
-    // Add event listener for statistic selection change
-    statsSelect.addEventListener('change', () => {
-        localStorage.setItem('selectedStat', statsSelect.value);
-        updateFeatureNameBox();
-    });
-
-    // Restore last selected statistic
-    const lastSelectedStat = localStorage.getItem('selectedStat');
-    if (lastSelectedStat) {
-        statsSelect.value = lastSelectedStat;
     }
 
     // Mouse enter event

@@ -18,16 +18,7 @@
         <div class="container">
             <div class="feature-name-box">
                 <div class="feature-name-content"></div>
-                <button class="settings-button" aria-label="Statistics settings">⋮</button>
-                <div class="stats-popup">
-                    <div class="stats-selector">
-                        <label for="statsSelect">Statistiek</label>
-                        <select id="statsSelect">
-                            <option value="aantalInwoners">Inwoners</option>
-                            <option value="aantalHuishoudens">Huishoudens</option>
-                        </select>
-                    </div>
-                </div>
+                <button class="settings-button" aria-label="Settings">⋮</button>
             </div>
             <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="sidebar">
@@ -41,13 +32,6 @@
                     <li role="tab" id="municipal-view" tabindex="0" aria-selected="false">Gemeente</li>
                     <li role="tab" id="national-view" tabindex="0" aria-selected="false">Nederland</li>
                 </ul>
-                <div class="toggle-container">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="electionToggle" tabindex="0" aria-label="Toggle Verkiezingen">
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-label">Verkiezingen</span>
-                    </label>
-                </div>
                 <div class="stats-view"></div>
             </div>
         </div>
@@ -55,11 +39,30 @@
         <div class="modal-overlay">
             <div class="modal">
                 <div class="modal-header">
-                    <h2 class="modal-title">Help</h2>
+                    <h2 class="modal-title">Settings</h2>
                     <button class="modal-close" aria-label="Close modal">&times;</button>
                 </div>
                 <div class="modal-content">
-                    <!-- Content will be dynamically inserted -->
+                    <div class="settings-section">
+                        <h3>Statistics</h3>
+                        <div class="stats-selector">
+                            <label for="statsSelect">Statistiek</label>
+                            <select id="statsSelect">
+                                <option value="aantalInwoners">Inwoners</option>
+                                <option value="aantalHuishoudens">Huishoudens</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>Layers</h3>
+                        <div class="toggle-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="electionToggle" tabindex="0" aria-label="Toggle Verkiezingen">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Verkiezingen</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

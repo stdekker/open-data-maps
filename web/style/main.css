@@ -381,7 +381,11 @@ body, html {
 }
 
 .toggle-container {
-    margin: 15px 0;
+    margin: 8px 0;
+}
+
+.toggle-container + .toggle-container {
+    margin-top: 4px;
 }
 
 .toggle-switch {
@@ -658,4 +662,40 @@ body, html {
         height: 35px;
         font-size: 18px;
     }
+}
+
+.settings-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.settings-section h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.stats-selector {
+    margin-bottom: 15px;
+}
+
+.stats-selector label {
+    display: block;
+    margin-bottom: 8px;
+    color: #666;
+}
+
+.stats-selector select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+}
+
+/* Remove the stats-popup styles since we're not using it anymore */
+.stats-popup {
+    display: none;
 }

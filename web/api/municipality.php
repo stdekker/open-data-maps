@@ -1,12 +1,13 @@
 <?php
-require_once __DIR__ . '/../../vendor/autoload.php';  // Updated path to vendor
+require_once __DIR__ . '/../../vendor/autoload.php';
 
 // Function to fetch and save gemeente data
 function fetchGemeente($code, $force = false, $progress = null) {
-    $dataDir = __DIR__ . '/../data';  // Updated path to data directory
+    // Updated path to store CBS data in a dedicated directory
+    $dataDir = __DIR__ . '/../data/cbs/2023';
     $gemeenteFile = $dataDir . '/' . $code . '.json';
 
-    // Create directory if it doesn't exist
+    // Create directory structure if it doesn't exist
     if (!is_dir($dataDir)) {
         mkdir($dataDir, 0777, true);
     }
@@ -20,6 +21,7 @@ function fetchGemeente($code, $force = false, $progress = null) {
         }
         return;
     }
+
     $baseUrl = 'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0';
     $params = [
         'service' => 'WFS',
@@ -27,8 +29,8 @@ function fetchGemeente($code, $force = false, $progress = null) {
         'version' => '1.1.0',
         'typeName' => 'wijkenbuurten:buurten',
         'outputFormat' => 'json',
-        'srsName' => 'EPSG:4326', // Request data in WGS84 coordinates
-        'filter' => '<ogc:Filter><ogc:And><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentecode</ogc:PropertyName><ogc:Literal>' . $code . '</ogc:Literal></ogc:PropertyIsEqualTo><ogc:PropertyIsNotEqualTo><ogc:PropertyName>water</ogc:PropertyName><ogc:Literal>JA</ogc:Literal></ogc:PropertyIsNotEqualTo></ogc:And></ogc:Filter>'
+        'srsName' => 'EPSG:4326',
+        'filter' => '<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentecode</ogc:PropertyName><ogc:Literal>' . $code . '</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
     ];
 
     $url = $baseUrl . '?' . http_build_query($params);
@@ -39,42 +41,12 @@ function fetchGemeente($code, $force = false, $progress = null) {
         return;
     }
 
-
-    // After decoding the JSON, transform the coordinates
+    // Decode and save the complete data without any transformations
     $data = json_decode($response, true);
-
-    // Create a new optimized structure
-    $optimizedData = [
-        'type' => 'FeatureCollection',
-        'features' => []
-    ];
-
-    foreach ($data['features'] as $feature) {
-        // Extract properties with default values
-        $properties = $feature['properties'] ?? [];
-        $buurtnaam = $properties['buurtnaam'] ?? 'Onbekend';
-        $aantalInwoners = isset($properties['aantalInwoners']) ? (int)$properties['aantalInwoners'] : 0;
-        $aantalHuishoudens = isset($properties['aantalHuishoudens']) ? (int)$properties['aantalHuishoudens'] : 0;
-
-        // Keep geometry as-is without transforming coordinates
-        $geometry = $feature['geometry'];
-
-        // Keep only essential properties
-        $optimizedFeature = [
-            'type' => 'Feature',
-            'geometry' => $geometry,
-            'properties' => [
-                'buurtnaam' => $buurtnaam,
-                'aantalInwoners' => $aantalInwoners,
-                'aantalHuishoudens' => $aantalHuishoudens
-            ]
-        ];
-        
-        $optimizedData['features'][] = $optimizedFeature;
-    }
-
-    // Save the cleaned data without pretty printing
-    file_put_contents($gemeenteFile, json_encode($optimizedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    
+    // Save the complete data
+    file_put_contents($gemeenteFile, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    
     if (php_sapi_name() === 'cli') {    
         echo "Generated data file for gemeente {$code}{$progressStr}\n";
     }
@@ -86,7 +58,7 @@ if (php_sapi_name() === 'cli') {
     $force = isset($options['force']);
 
     if (isset($options['all'])) {
-        // Updated path to overview.json
+        // Updated path to overview.json while maintaining backward compatibility
         $overviewFile = __DIR__ . '/../data/overview.json';
         if (!file_exists($overviewFile)) {
             die("overview.json not found. Please run data-processor.php first.\n");
@@ -120,7 +92,7 @@ if (!isset($_GET['code'])) {
 }
 
 // For web requests, always serve from cache if available
-$gemeenteFile = __DIR__ . '/../data/' . $_GET['code'] . '.json';
+$gemeenteFile = __DIR__ . '/../data/cbs/2023/' . $_GET['code'] . '.json';
 fetchGemeente($_GET['code']);
 
 if (file_exists($gemeenteFile)) {
