@@ -6,7 +6,7 @@ import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
 import { initializeElectionService } from './modules/electionService.js';
 import { Modal } from './modules/modalService.js';
-import { ensurePopulationData, loadOverviewData } from './modules/dataService.js';
+import { ensurePopulationData, loadOverviewData, loadGeoJsonData } from './modules/dataService.js';
 
 let showElectionData = false;
 let currentView = 'national';
@@ -55,6 +55,13 @@ map.on('load', async () => {
     }
 });
 
+/**
+ * Sets up the search functionality for municipalities.
+ * Handles autocomplete suggestions and municipality selection.
+ * @param {HTMLElement} searchInput - The search input element
+ * @param {HTMLElement} autocompleteList - The autocomplete suggestions container
+ * @param {Object} data - Municipality data for searching
+ */
 function setupSearch(searchInput, autocompleteList, data) {
     searchInput.addEventListener('input', function() {
         const value = this.value.trim().toLowerCase();
@@ -135,6 +142,11 @@ function initialMunicipalitySelection(data) {
     }
 }
 
+/**
+ * Handles selection of a municipality.
+ * Updates the UI, stores the selection, and loads municipality data.
+ * @param {Object} municipality - The selected municipality object
+ */
 function selectMunicipality(municipality) {
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
@@ -161,38 +173,37 @@ function selectMunicipality(municipality) {
 }
 
 // ===== GeoJSON Loading & Display =====
+/**
+ * Loads and displays GeoJSON data for a municipality or region.
+ * Sets up map layers and fits the view to the loaded data.
+ * @param {String} code - The municipality/region code to load
+ */
 function loadGeoJson(code) {
-    // Check if map is loaded
     if (!map.loaded()) {
         map.on('load', () => loadGeoJson(code));
         return;
     }
-
-    // Clean up any existing reporting units
     cleanupReportingUnits(map);
 
-    // Load both GeoJSON and election data
     Promise.all([
-        fetch(`api/municipality.php?code=${code}`),
+        loadGeoJsonData(code),
         loadElectionData(code)
     ])
-    .then(([geoJsonResponse]) => geoJsonResponse.json())
-    .then(data => {
-        const geoJsonData = {
-            ...data,
-            features: data.features.map((feature, index) => ({
+    .then(([geoJsonData]) => {
+        const geoJsonDataWithIds = {
+            ...geoJsonData,
+            features: geoJsonData.features.map((feature, index) => ({
                 ...feature,
                 id: index
             }))
         };
-
-        addMapLayers(map, geoJsonData, municipalityPopulations);
+        addMapLayers(map, geoJsonDataWithIds, municipalityPopulations);
         setupFeatureNameBox(map, municipalityPopulations);
 
         // Fit bounds to the loaded GeoJSON
         try {
             const bounds = new mapboxgl.LngLatBounds();
-            geoJsonData.features.forEach(feature => {
+            geoJsonDataWithIds.features.forEach(feature => {
                 if (feature.geometry.type === 'Polygon') {
                     feature.geometry.coordinates[0].forEach(coord => {
                         bounds.extend(coord);
@@ -308,7 +319,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Ensure population data is loaded before using it
 ensurePopulationData(municipalityPopulations);
 
-// Modify the activateView function
+/**
+ * Activates either the national or municipal view.
+ * Updates menu state and loads appropriate data.
+ * @param {String} viewType - Either 'national' or 'municipal'
+ * @param {String} municipalityCode - Optional municipality code for municipal view
+ */
 function activateView(viewType, municipalityCode = null) {
     // Update current view
     currentView = viewType;

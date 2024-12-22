@@ -1,3 +1,8 @@
+/**
+ * Initializes mobile-specific UI behavior for the sidebar.
+ * Only runs on screens narrower than 768px.
+ * Adds click handling to collapse/expand the sidebar when clicking near its top edge.
+ */
 export function initializeMobileHandler() {
     if (!window.matchMedia("(max-width: 768px)").matches) {
         return;

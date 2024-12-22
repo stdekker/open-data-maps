@@ -1,6 +1,11 @@
 let AVAILABLE_ELECTIONS = [];
 let isInitialized = false;
 
+/**
+ * Initializes the election service by fetching available elections and sorting them.
+ * Sets the most recent election as default if none is stored.
+ * @returns {Promise<Array>} Array of available election IDs
+ */
 export async function initializeElectionService() {
     try {
         const response = await fetch('api/elections.php');
@@ -40,6 +45,12 @@ export function getAvailableElections() {
     return AVAILABLE_ELECTIONS;
 }
 
+/**
+ * Loads and displays election data for a specific municipality.
+ * Updates the stats view with election results and sets up reporting unit markers if available.
+ * @param {String} municipalityCode - The municipality code to load data for
+ * @param {String} electionId - The election ID to load (defaults to most recent)
+ */
 export async function loadElectionData(municipalityCode, electionId = null) {
     try {
         // Wait for initialization if not already done
@@ -244,6 +255,11 @@ export async function loadElectionData(municipalityCode, electionId = null) {
     }
 }
 
+/**
+ * Creates HTML content for a popup showing reporting unit election results.
+ * @param {Object} feature - The GeoJSON feature containing reporting unit data
+ * @returns {String} HTML content for the popup
+ */
 export function createReportingUnitPopup(feature) {
     const { name, cast, totalCounted, rejectedVotes, results } = feature.properties;
 

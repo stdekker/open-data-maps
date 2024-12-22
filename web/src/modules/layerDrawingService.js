@@ -178,6 +178,13 @@ function populateStatisticsSelect(statsSelect, data) {
     }
 }
 
+/**
+ * Adds municipality layers to the map with dynamic coloring based on statistics.
+ * @param {Object} map - The Mapbox map instance
+ * @param {Object} geoJsonData - GeoJSON data containing municipality features
+ * @param {Object} municipalityPopulations - Population data for municipalities
+ * @param {String} statisticKey - The statistic to use for coloring (e.g. 'aantalInwoners')
+ */
 export function addMapLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners') {
     // Clean up existing layers and sources first
     const layersToRemove = ['municipality-borders', 'municipalities'];
@@ -254,6 +261,12 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations, statisti
     }, firstSymbolId);
 }
 
+/**
+ * Adds election reporting unit markers to the map.
+ * @param {Object} map - The Mapbox map instance
+ * @param {Object} geoJsonData - GeoJSON data containing reporting unit locations
+ * @param {Boolean} showElectionData - Whether election data should be displayed
+ */
 export function addReportingUnits(map, geoJsonData, showElectionData = false) {
     if (!showElectionData || !geoJsonData) {
         return;
@@ -300,6 +313,11 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
     setupReportingUnitPopupHandlers(map);
 }
 
+/**
+ * Removes all reporting unit layers and sources from the map.
+ * Used when switching views or cleaning up old election data.
+ * @param {Object} map - The Mapbox map instance
+ */
 export function cleanupReportingUnits(map) {
     // Check if map exists and is loaded
     if (!map || !map.loaded()) {
@@ -325,7 +343,12 @@ export function cleanupReportingUnits(map) {
     }
 }
 
-// Update feature name box event handlers
+/**
+ * Sets up the feature name box that displays municipality/neighborhood names and statistics.
+ * Handles hover states and updates the display when moving between features.
+ * @param {Object} map - The Mapbox map instance
+ * @param {Object} municipalityPopulations - Population data for municipalities
+ */
 export function setupFeatureNameBox(map, municipalityPopulations) {
     let hoveredFeatureId = null;
     let featureNameBox = document.querySelector('.feature-name-box');
