@@ -30,7 +30,7 @@ function fetchGemeente($code, $force = false, $progress = null) {
         'typeName' => 'wijkenbuurten:buurten',
         'outputFormat' => 'json',
         'srsName' => 'EPSG:4326',
-        'filter' => '<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentecode</ogc:PropertyName><ogc:Literal>' . $code . '</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
+        'filter' => '<ogc:Filter><ogc:And><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentecode</ogc:PropertyName><ogc:Literal>' . $code . '</ogc:Literal></ogc:PropertyIsEqualTo><ogc:PropertyIsNotEqualTo><ogc:PropertyName>water</ogc:PropertyName><ogc:Literal>JA</ogc:Literal></ogc:PropertyIsNotEqualTo></ogc:And></ogc:Filter>'
     ];
 
     $url = $baseUrl . '?' . http_build_query($params);

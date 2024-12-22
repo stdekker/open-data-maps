@@ -21,6 +21,7 @@ let featureNameBox;
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 
+// Initialize map but don't add layers yet
 const map = new mapboxgl.Map({
     container: 'map',
     style: MAP_STYLE,
@@ -30,28 +31,77 @@ const map = new mapboxgl.Map({
     dragRotate: false,
 });
 
-// Wait for map to load before doing anything
+// Wait for both map and data to load before proceeding
 map.on('load', async () => {
-    // Initialize election service
-    await initializeElectionService();
-    
-    const data = await loadOverviewData();
-    const searchInput = document.getElementById('searchInput');
-    const autocompleteList = document.getElementById('autocompleteList');
+    try {
+        // Process URL parameters first
+        const params = getUrlParams();
+        const data = await loadOverviewData();
+        
+        // Clear any existing layers before proceeding
+        cleanupReportingUnits(map);
+        if (map.getLayer('municipalities')) {
+            map.removeLayer('municipalities');
+        }
+        if (map.getLayer('municipality-borders')) {
+            map.removeLayer('municipality-borders');
+        }
+        if (map.getSource('municipalities')) {
+            map.removeSource('municipalities');
+        }
 
-    setupSearch(searchInput, autocompleteList, data);
-    initialMunicipalitySelection(data);
+        let municipality = null;
 
-    // Initialize featureNameContent and featureNameBox after the DOM is ready
-    featureNameContent = document.querySelector('.feature-name-content');
-    featureNameBox = document.querySelector('.feature-name-box');
+        if (params.gemeente) {
+            municipality = data.gemeenten.find(m => 
+                m.naam.toLowerCase() === params.gemeente.toLowerCase()
+            );
+            
+            // If URL parameter is invalid, clear it
+            if (!municipality) {
+                updateUrlParams(null);
+            }
+        }
 
-    // Check if featureNameContent and featureNameBox are initialized
-    if (featureNameContent && featureNameBox) {
-        // Initial call to update the feature name box
-        updateFeatureNameBox();
-    } else {
-        console.error('Feature name content or box element not found.');
+        if (!municipality) {
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality) {
+                municipality = JSON.parse(lastMunicipality);
+            } else {
+                municipality = data.gemeenten.find(m => 
+                    m.naam === DEFAULT_MUNICIPALITY
+                );
+            }
+        }
+
+        // Wait for population data to be loaded
+        await ensurePopulationData(municipalityPopulations);
+
+        if (municipality) {
+            await selectMunicipality(municipality);
+        } else {
+            // If no municipality is selected, show national view
+            await loadNationalGeoJson();
+        }
+
+        const searchInput = document.getElementById('searchInput');
+        const autocompleteList = document.getElementById('autocompleteList');
+
+        setupSearch(searchInput, autocompleteList, data);
+
+        // Initialize featureNameContent and featureNameBox after the DOM is ready
+        featureNameContent = document.querySelector('.feature-name-content');
+        featureNameBox = document.querySelector('.feature-name-box');
+
+        // Check if featureNameContent and featureNameBox are initialized
+        if (featureNameContent && featureNameBox) {
+            // Initial call to update the feature name box
+            updateFeatureNameBox();
+        } else {
+            console.error('Feature name content or box element not found.');
+        }
+    } catch (error) {
+        console.error('Error during map initialization:', error);
     }
 });
 
@@ -147,7 +197,7 @@ function initialMunicipalitySelection(data) {
  * Updates the UI, stores the selection, and loads municipality data.
  * @param {Object} municipality - The selected municipality object
  */
-function selectMunicipality(municipality) {
+async function selectMunicipality(municipality) {
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
     const searchError = document.querySelector('.search-error');
@@ -170,6 +220,12 @@ function selectMunicipality(municipality) {
 
     // Update the feature name box with the selected municipality
     updateFeatureNameBox();
+
+    // Wait for data loading to complete
+    await loadGeoJson(municipality.code);
+    if (showElectionData) {
+        await loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021');
+    }
 }
 
 // ===== GeoJSON Loading & Display =====
@@ -348,6 +404,7 @@ function activateView(viewType, municipalityCode = null) {
         // Load national view first, then clean up reporting units
         loadNationalGeoJson().then(() => {
             cleanupReportingUnits(map);
+            map.flyTo({ center: MAP_CENTER, zoom: MAP_ZOOM });
         });
     } else if (viewType === 'municipal') {
         statsView.style.display = showElectionData ? 'block' : 'none';
@@ -564,5 +621,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!featureNameContent || !featureNameBox) {
         console.error('Feature name elements not found in DOM');
+    }
+});
+
+// Add event listener for popstate to handle back/forward navigation
+window.addEventListener('popstate', async () => {
+    const params = getUrlParams();
+    if (params.gemeente) {
+        const data = await loadOverviewData();
+        const municipality = data.gemeenten.find(m => 
+            m.naam.toLowerCase() === params.gemeente.toLowerCase()
+        );
+        if (municipality) {
+            selectMunicipality(municipality);
+        }
     }
 });

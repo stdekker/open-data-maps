@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.2"; // Version number for cache busting
+    $version = "1.0.3"; // Version number for cache busting
 ?>
 <!DOCTYPE html>
 <html lang="en">
