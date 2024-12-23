@@ -362,7 +362,7 @@ body, html {
 }
 
 .party-result.others::after {
-    content: "â–¼";
+    content: "+";
     position: absolute;
     right: 0;
     top: 50%;
