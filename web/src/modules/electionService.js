@@ -74,7 +74,8 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         
         const data = await response.json();
         
-        // If the file is geocoded, dispatch an event with the reporting units
+        // Process geocoded reporting units
+        let geoJsonData = null;
         if (data['@attributes']?.geocoded) {
             const reportingUnits = data.Count.Election.Contests.Contest.ReportingUnitVotes;
             const unitsArray = Array.isArray(reportingUnits) ? reportingUnits : [reportingUnits];
@@ -114,15 +115,16 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                     };
                 });
             
-            const geoJsonData = {
+            geoJsonData = {
                 type: 'FeatureCollection',
                 features
             };
-
-            window.dispatchEvent(new CustomEvent('reportingUnitsLoaded', {
-                detail: { geoJsonData, electionId }
-            }));
         }
+        
+        // Dispatch event with geoJsonData (could be null)
+        window.dispatchEvent(new CustomEvent('reportingUnitsLoaded', {
+            detail: { geoJsonData, electionId }
+        }));
         
         // Get the total votes per party from the data
         const totalVotes = data.Count.Election.Contests.Contest.TotalVotes.Selection;

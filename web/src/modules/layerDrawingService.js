@@ -268,7 +268,10 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations, statisti
  * @param {Boolean} showElectionData - Whether election data should be displayed
  */
 export function addReportingUnits(map, geoJsonData, showElectionData = false) {
-    if (!showElectionData || !geoJsonData) {
+    // Clean up existing reporting units first
+    cleanupReportingUnits(map);
+
+    if (!showElectionData || !geoJsonData || !geoJsonData.features || !geoJsonData.features.length) {
         return;
     }
 
