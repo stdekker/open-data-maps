@@ -272,45 +272,43 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
         return;
     }
 
-    // Check if the layer already exists
-    if (map.getLayer('reporting-units')) {
-        return;
+    if (map.getSource('reporting-units')) {
+        // Update the data of the existing source
+        map.getSource('reporting-units').setData(geoJsonData);
+    } else {
+        // Add the reporting units source with original data
+        map.addSource('reporting-units', {
+            type: 'geojson',
+            data: geoJsonData
+        });
+
+        // Add reporting units layer with dynamic radius
+        map.addLayer({
+            'id': 'reporting-units',
+            'type': 'circle',
+            'source': 'reporting-units',
+            'paint': {
+                'circle-radius': [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'totalCounted'],
+                    0, 6,
+                    500, 8,
+                    2000, 12,
+                    5000, 16,
+                    10000, 22,
+                    20000, 30
+                ],
+                'circle-color': '#4CAF50',
+                'circle-opacity': 0.6,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        // Setup popup handlers
+        setupReportingUnitPopupHandlers(map);
     }
-
-    cleanupReportingUnits(map);
-
-    // Add the reporting units source with original data
-    map.addSource('reporting-units', {
-        type: 'geojson',
-        data: geoJsonData
-    });
-
-    // Add reporting units layer with dynamic radius
-    map.addLayer({
-        'id': 'reporting-units',
-        'type': 'circle',
-        'source': 'reporting-units',
-        'paint': {
-            'circle-radius': [
-                'interpolate',
-                ['linear'],
-                ['get', 'totalCounted'],
-                0, 6,
-                500, 8,
-                2000, 12,
-                5000, 16,
-                10000, 22,
-                20000, 30
-            ],
-            'circle-color': '#4CAF50',
-            'circle-opacity': 0.6,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#fff'
-        }
-    });
-
-    // Setup popup handlers
-    setupReportingUnitPopupHandlers(map);
 }
 
 /**
