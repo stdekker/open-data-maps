@@ -6,10 +6,17 @@
  * 1. Reads reporting unit data from election JSON files
  * 2. For each polling station that has a postcode:
  *    - Extracts the postcode from the reporting unit identifier
- *    - Geocodes the postcode using PDOK Locatieserver API
+ *    - Checks local cache for existing geocoding results
+ *    - If not in cache, geocodes using PDOK Locatieserver API and caches result
  *    - Adds latitude/longitude coordinates to the data
  * 3. Updates the JSON files with geocoded locations
  * 
+ * Options:
+ *   --election       Required. The election ID to process
+ *   --municipality   Optional. Process only this municipality code
+ *   --delay         Optional. Milliseconds to wait between API calls (default: 200)
+ *   --debug         Optional. Enable debug output
+ *   --force         Optional. Override existing geocodes
  */
 
 // Ensure this script is only run from command line
@@ -18,31 +25,51 @@ if (php_sapi_name() !== 'cli') {
 }
 
 // Parse command line arguments
-$options = getopt('', ['election:', 'municipality::', 'delay::', 'debug::']);
+$options = getopt('', ['election:', 'municipality::', 'delay::', 'debug::', 'force::']);
 if (!isset($options['election'])) {
     die("Usage: php geocode-reporting-units.php --election=ELECTION_ID [--municipality=GM0000] [--delay=MILLISECONDS] [--debug]\n");
 }
 
 $election = $options['election'];
 $targetMunicipality = isset($options['municipality']) ? $options['municipality'] : null;
-$delay = isset($options['delay']) ? (int)$options['delay'] : 200; // Default 200ms delay to respect API limits
+$delay = isset($options['delay']) ? (int)$options['delay'] : 200; // Default 200ms delay
 $debug = isset($options['debug']); // Debug mode flag
+$force = isset($options['force']); // Force override existing geocodes flag
 
-// Directory path
+// Directory paths
 $electionDir = __DIR__ . "/../web/data/elections/$election";
+$cacheFile = __DIR__ . "/../web/data/postcode-cache.json";
 
 if (!file_exists($electionDir)) {
     die("Election directory not found: $election\n");
 }
 
-function geocodePostcode($postcode, $debug) {
+// Load or create geocoding cache
+$geocodeCache = [];
+if (file_exists($cacheFile)) {
+    $geocodeCache = json_decode(file_get_contents($cacheFile), true) ?: [];
+}
+
+function saveCache($cache, $cacheFile) {
+    file_put_contents($cacheFile, json_encode($cache, JSON_PRETTY_PRINT));
+}
+
+function geocodePostcode($postcode, &$cache, $cacheFile, $debug) {
     if (empty($postcode)) {
         return null;
     }
 
     // Clean up postcode format (remove spaces)
-    $postcode = str_replace(' ', '', $postcode);
+    $postcode = str_replace(' ', '', strtoupper($postcode));
     
+    // Check cache first
+    if (isset($cache[$postcode])) {
+        if ($debug) {
+            echo "Cache hit for $postcode\n";
+        }
+        return ['coordinates' => $cache[$postcode], 'fromCache' => true];
+    }
+
     // PDOK Locatieserver API endpoint
     $url = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=" . urlencode($postcode) . "&fq=type:postcode";
     
@@ -74,12 +101,18 @@ function geocodePostcode($postcode, $debug) {
         return null;
     }
     
-    // The centroide_ll comes as a string like "POINT(4.89789 52.37403)"
+    // Parse coordinates from POINT string
     if (preg_match('/POINT\(([\d.]+)\s+([\d.]+)\)/', $result['centroide_ll'], $matches)) {
-        return [
+        $coordinates = [
             'lat' => (float)$matches[2], // Second value is latitude
             'lon' => (float)$matches[1]  // First value is longitude
         ];
+        
+        // Save to cache
+        $cache[$postcode] = $coordinates;
+        saveCache($cache, $cacheFile);
+        
+        return ['coordinates' => $coordinates, 'fromCache' => false];
     }
     
     echo "Warning: Could not parse centroid coordinates for postcode: $postcode\n";
@@ -89,9 +122,15 @@ function geocodePostcode($postcode, $debug) {
 $totalGeocoded = 0;
 $totalSkipped = 0;
 $totalFailed = 0;
+$cacheHits = 0;
 
 // Get all GM files
 $files = glob($electionDir . "/GM*.json");
+$totalMunicipalities = count($files);
+$processedMunicipalities = 0;
+
+echo "\nProcessing $totalMunicipalities municipalities...\n";
+
 foreach ($files as $file) {
     $municipalityCode = basename($file, '.json');
     
@@ -100,15 +139,16 @@ foreach ($files as $file) {
         continue;
     }
     
-    echo "\nProcessing $municipalityCode...\n";
+    $processedMunicipalities++;
+    echo "\nProcessing $municipalityCode ($processedMunicipalities/$totalMunicipalities)...\n";
     
     // Load municipality data
     $data = json_decode(file_get_contents($file), true);
     $modified = false;
     
     // Skip if file is already fully geocoded
-    if (isset($data['@attributes']['geocoded'])) {
-        echo "Skipping $municipalityCode - already fully geocoded\n";
+    if (isset($data['@attributes']['geocoded']) && !$force) {
+        echo "Skipping $municipalityCode - already fully geocoded (use --force to override)\n";
         $totalSkipped++;
         continue;
     }
@@ -126,8 +166,8 @@ foreach ($files as $file) {
             $unitId = $unit['ReportingUnitIdentifier'];
             
             // Skip if already has coordinates
-            if (isset($unit['GeoLocation'])) {
-                echo "Skipping {$unitId} - already geocoded\n";
+            if (isset($unit['GeoLocation']) && !$force) {
+                echo "Skipping {$unitId} - already geocoded (use --force to override)\n";
                 $totalSkipped++;
                 continue;
             }
@@ -137,10 +177,16 @@ foreach ($files as $file) {
                 $postcode = trim($matches[1]);
                 echo "Geocoding {$postcode}... ";
                 
-                $coordinates = geocodePostcode($postcode, $debug);
-                if ($coordinates) {
-                    $unit['GeoLocation'] = $coordinates;
-                    echo "Success! ({$coordinates['lat']}, {$coordinates['lon']})\n";
+                $result = geocodePostcode($postcode, $geocodeCache, $cacheFile, $debug);
+                if ($result) {
+                    $unit['GeoLocation'] = $result['coordinates'];
+                    if ($result['fromCache']) {
+                        echo "Success! (from cache)\n";
+                        $cacheHits++;
+                    } else {
+                        $coordinates = $result['coordinates'];
+                        echo "Success! ({$coordinates['lat']}, {$coordinates['lon']})\n";
+                    }
                     $totalGeocoded++;
                     $modified = true;
                 } else {
@@ -148,8 +194,10 @@ foreach ($files as $file) {
                     $totalFailed++;
                 }
                 
-                // Respect rate limit
-                usleep($delay * 1000);
+                // Only delay if we actually made an API call
+                if (!$result || !$result['fromCache']) {
+                    usleep($delay * 1000);
+                }
             } else {
                 echo "No postcode found in: $unitId\n";
                 $totalSkipped++;
@@ -172,6 +220,8 @@ foreach ($files as $file) {
 }
 
 echo "\nGeocoding complete!\n";
+echo "Municipalities processed: $processedMunicipalities/$totalMunicipalities\n";
 echo "Total geocoded: $totalGeocoded\n";
 echo "Total skipped: $totalSkipped\n";
-echo "Total failed: $totalFailed\n"; 
+echo "Total failed: $totalFailed\n";
+echo "Cache hits: $cacheHits\n"; 
