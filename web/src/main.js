@@ -38,6 +38,21 @@ map.on('load', async () => {
         const params = getUrlParams();
         const data = await loadOverviewData();
         
+        // Initialize election toggle based on URL parameter or localStorage
+        const electionToggle = document.getElementById('electionToggle');
+        const statsView = document.querySelector('.stats-view');
+        
+        // URL parameter takes precedence over localStorage
+        if (params.elections !== null) {
+            showElectionData = params.elections;
+            localStorage.setItem('showElectionData', showElectionData);
+        } else {
+            showElectionData = localStorage.getItem('showElectionData') === 'true';
+        }
+        
+        electionToggle.checked = showElectionData;
+        statsView.style.display = showElectionData ? 'block' : 'none';
+
         // Clear any existing layers before proceeding
         cleanupReportingUnits(map);
         if (map.getLayer('municipalities')) {
@@ -209,7 +224,7 @@ async function selectMunicipality(municipality) {
     searchError.classList.remove('visible');
     
     localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
-    updateUrlParams(municipality.naam);
+    updateUrlParams(municipality.naam, showElectionData);
 
     // Hide keyboard on mobile devices
     searchInput.blur();
@@ -342,8 +357,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const electionToggle = document.getElementById('electionToggle');
     const statsView = document.querySelector('.stats-view');
     
-    // Restore toggle state from localStorage
-    showElectionData = localStorage.getItem('showElectionData') === 'true';
+    // Restore toggle state from localStorage or URL parameter
+    const params = getUrlParams();
+    if (params.elections !== null) {
+        showElectionData = params.elections;
+        localStorage.setItem('showElectionData', showElectionData);
+    } else {
+        showElectionData = localStorage.getItem('showElectionData') === 'true';
+    }
     electionToggle.checked = showElectionData;
     statsView.style.display = showElectionData ? 'block' : 'none';
 
@@ -351,6 +372,15 @@ document.addEventListener('DOMContentLoaded', function() {
         showElectionData = this.checked;
         localStorage.setItem('showElectionData', showElectionData);
         statsView.style.display = showElectionData ? 'block' : 'none';
+        
+        // Update URL parameter
+        const lastMunicipality = localStorage.getItem('lastMunicipality');
+        if (lastMunicipality) {
+            const municipality = JSON.parse(lastMunicipality);
+            updateUrlParams(municipality.naam, showElectionData);
+        } else {
+            updateUrlParams(null, showElectionData);
+        }
         
         if (showElectionData) {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
