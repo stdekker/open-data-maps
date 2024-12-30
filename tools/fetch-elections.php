@@ -16,16 +16,22 @@ if (php_sapi_name() !== 'cli') {
 }
 
 $elections = [
+    /* 'GR2022' => [   
+        'https://data.overheid.nl/sites/default/files/dataset/08b04bec-3332-4c76-bb0c-68bfaeb5df43/resources/GR2022_2022-03-29T15.14.zip',  
+    ], */
+    'GR2018' => [
+        'https://data.overheid.nl/OpenDataSets/verkiezingen2018/GR2018.zip',
+    ],
     /* 'TK2021' => [
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_1.zip',
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_2.zip',
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_3.zip'
-    ], */
+    ], 
     'TK2023' => [
         'hhttps://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%201%29.zip',
         'https://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%202%29.zip',
         'https://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%203%29.zip'
-    ]
+    ], */
     // Add more elections if needed
 ];
 
@@ -90,8 +96,21 @@ foreach ($elections as $election => $urls) {
     $xmlFiles = [];
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($electionDir));
     foreach ($iterator as $file) {
-        if ($file->isFile() && preg_match("/Telling_{$election}_gemeente_.*\.eml\.xml$/", $file->getFilename())) {
-            $municipality = str_replace(['Telling_', $election . '_gemeente_', '.eml.xml'], '', basename($file));
+        if (!$file->isFile()) continue;
+        
+        $filename = $file->getFilename();
+        $municipality = null;
+        
+        // Match TK pattern: Telling_TK2021_gemeente_Eemsdelta.eml.xml
+        if (preg_match("/Telling_{$election}_gemeente_(.+)\.eml\.xml$/", $filename, $matches)) {
+            $municipality = $matches[1];
+        }
+        // Match GR pattern: Telling_GR2022_Groningen.eml.xml (updated pattern)
+        elseif (preg_match("/Telling_{$election}_(.+)\.eml\.xml$/", $filename, $matches)) {
+            $municipality = $matches[1];
+        }
+        
+        if ($municipality !== null) {
             if ($targetMunicipality === null || $targetMunicipality === $municipality) {
                 $xmlFiles[] = $file->getPathname();
             }
@@ -104,6 +123,13 @@ foreach ($elections as $election => $urls) {
             echo "No XML files found for municipality $targetMunicipality in $election\n";
         } else {
             echo "No XML files found for $election\n";
+        }
+        echo "Would you like to continue processing other elections? (y/n): ";
+        $handle = fopen("php://stdin", "r");
+        $line = fgets($handle);
+        if(trim(strtolower($line)) != 'y'){
+            echo "Aborting process...\n";
+            exit(1);
         }
         continue;
     }

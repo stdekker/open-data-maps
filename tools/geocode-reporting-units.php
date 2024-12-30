@@ -17,6 +17,7 @@
  *   --delay         Optional. Milliseconds to wait between API calls (default: 200)
  *   --debug         Optional. Enable debug output
  *   --force         Optional. Override existing geocodes
+ *   --match-election Optional. The election ID to match against
  */
 
 // Ensure this script is only run from command line
@@ -25,9 +26,9 @@ if (php_sapi_name() !== 'cli') {
 }
 
 // Parse command line arguments
-$options = getopt('', ['election:', 'municipality::', 'delay::', 'debug::', 'force::']);
+$options = getopt('', ['election:', 'municipality::', 'delay::', 'debug::', 'force::', 'match-election::']);
 if (!isset($options['election'])) {
-    die("Usage: php geocode-reporting-units.php --election=ELECTION_ID [--municipality=GM0000] [--delay=MILLISECONDS] [--debug]\n");
+    die("Usage: php geocode-reporting-units.php --election=ELECTION_ID [--municipality=GM0000] [--delay=MILLISECONDS] [--debug] [--match-election=OTHER_ELECTION_ID]\n");
 }
 
 $election = $options['election'];
@@ -35,6 +36,7 @@ $targetMunicipality = isset($options['municipality']) ? $options['municipality']
 $delay = isset($options['delay']) ? (int)$options['delay'] : 200; // Default 200ms delay
 $debug = isset($options['debug']); // Debug mode flag
 $force = isset($options['force']); // Force override existing geocodes flag
+$matchElection = isset($options['match-election']) ? $options['match-election'] : null;
 
 // Directory paths
 $electionDir = __DIR__ . "/../web/data/elections/$election";
@@ -108,9 +110,11 @@ function geocodePostcode($postcode, &$cache, $cacheFile, $debug) {
             'lon' => (float)$matches[1]  // First value is longitude
         ];
         
-        // Save to cache
-        $cache[$postcode] = $coordinates;
-        saveCache($cache, $cacheFile);
+        // Only save to cache if it's a new postcode
+        if (!isset($cache[$postcode])) {
+            $cache[$postcode] = $coordinates;
+            saveCache($cache, $cacheFile);
+        }
         
         return ['coordinates' => $coordinates, 'fromCache' => false];
     }
@@ -130,6 +134,72 @@ $totalMunicipalities = count($files);
 $processedMunicipalities = 0;
 
 echo "\nProcessing $totalMunicipalities municipalities...\n";
+
+// Function to normalize polling station names for comparison
+function normalizePollingStationName($name) {
+    // Remove common prefixes and clean up the name
+    $name = preg_replace('/^Stembureau\s+/i', '', $name);
+    $name = preg_replace('/\s*\(postcode:[^)]+\)/i', '', $name);
+    // Remove duplicate "Stembureau" words that sometimes appear
+    $name = preg_replace('/^Stembureau\s+/i', '', $name);
+    // Remove "de", "het", "the" articles
+    $name = preg_replace('/\b(de|het|the)\s+/i', '', $name);
+    // Remove any remaining parentheses and their contents
+    $name = preg_replace('/\s*\([^)]*\)/', '', $name);
+    // Convert to lowercase and trim
+    $name = trim(strtolower($name));
+    // Remove multiple spaces
+    $name = preg_replace('/\s+/', ' ', $name);
+    return $name;
+}
+
+// Function to find matching polling station from another election
+function findMatchingPollingStation($stationName, $otherElectionFile) {
+    if (!file_exists($otherElectionFile)) {
+        return null;
+    }
+
+    $otherData = json_decode(file_get_contents($otherElectionFile), true);
+    if (!$otherData) {
+        return null;
+    }
+
+    $normalizedName = normalizePollingStationName($stationName);
+    
+    // Find ReportingUnitVotes in the other election data
+    if (isset($otherData['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'])) {
+        $otherUnits = $otherData['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'];
+        
+        // Ensure units is an array of arrays
+        if (!isset($otherUnits[0])) {
+            $otherUnits = [$otherUnits];
+        }
+
+        // Find best match
+        $bestMatch = null;
+        $bestSimilarity = 0;
+        
+        foreach ($otherUnits as $unit) {
+            $otherName = normalizePollingStationName($unit['ReportingUnitIdentifier']);
+            
+            // Check for exact match first
+            if ($otherName === $normalizedName) {
+                return isset($unit['GeoLocation']) ? $unit['GeoLocation'] : null;
+            }
+            
+            // Calculate similarity
+            $similarity = similar_text($otherName, $normalizedName, $percent);
+            if ($percent > 80 && $percent > $bestSimilarity) {
+                $bestSimilarity = $percent;
+                $bestMatch = isset($unit['GeoLocation']) ? $unit['GeoLocation'] : null;
+            }
+        }
+        
+        return $bestMatch;
+    }
+    
+    return null;
+}
 
 foreach ($files as $file) {
     $municipalityCode = basename($file, '.json');
@@ -172,7 +242,7 @@ foreach ($files as $file) {
                 continue;
             }
             
-            // Extract postcode if available
+            // First try to extract postcode if available
             if (preg_match('/\(postcode:\s*([^)]+)\)/i', $unitId, $matches)) {
                 $postcode = trim($matches[1]);
                 echo "Geocoding {$postcode}... ";
@@ -189,18 +259,33 @@ foreach ($files as $file) {
                     }
                     $totalGeocoded++;
                     $modified = true;
+                    
+                    // Only delay if we actually made an API call
+                    if (!$result['fromCache']) {
+                        usleep($delay * 1000);
+                    }
+                    continue;
+                }
+            }
+            
+            // If no postcode or geocoding failed, try matching with other election
+            if ($matchElection) {
+                $otherElectionFile = __DIR__ . "/../web/data/elections/$matchElection/$municipalityCode.json";
+                echo "Trying to match {$unitId} with $matchElection... ";
+                
+                $matchedLocation = findMatchingPollingStation($unitId, $otherElectionFile);
+                if ($matchedLocation) {
+                    $unit['GeoLocation'] = $matchedLocation;
+                    echo "Success! Matched and copied coordinates\n";
+                    $totalGeocoded++;
+                    $modified = true;
                 } else {
-                    echo "Failed!\n";
+                    echo "No match found\n";
                     $totalFailed++;
                 }
-                
-                // Only delay if we actually made an API call
-                if (!$result || !$result['fromCache']) {
-                    usleep($delay * 1000);
-                }
             } else {
-                echo "No postcode found in: $unitId\n";
-                $totalSkipped++;
+                echo "No match election specified and no postcode found\n";
+                $totalFailed++;
             }
         }
     }
