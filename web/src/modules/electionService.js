@@ -76,49 +76,57 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         
         // Process geocoded reporting units
         let geoJsonData = null;
-        if (data['@attributes']?.geocoded) {
-            const reportingUnits = data.Count.Election.Contests.Contest.ReportingUnitVotes;
+        let totalStations = 0;
+        let geolocatedStations = 0;
+        
+        // Get reporting units if they exist
+        const reportingUnits = data.Count?.Election?.Contests?.Contest?.ReportingUnitVotes;
+        if (reportingUnits) {
             const unitsArray = Array.isArray(reportingUnits) ? reportingUnits : [reportingUnits];
+            totalStations = unitsArray.length;
+            geolocatedStations = unitsArray.filter(unit => unit.GeoLocation).length;
 
-            const features = unitsArray
-                .filter(unit => unit.GeoLocation)
-                .map((unit, index) => {
-                    const { lon, lat } = unit.GeoLocation;
-                    const { ReportingUnitIdentifier: name, Cast, TotalCounted, RejectedVotes, Selection } = unit;
+            if (data['@attributes']?.geocoded) {
+                const features = unitsArray
+                    .filter(unit => unit.GeoLocation)
+                    .map((unit, index) => {
+                        const { lon, lat } = unit.GeoLocation;
+                        const { ReportingUnitIdentifier: name, Cast, TotalCounted, RejectedVotes, Selection } = unit;
 
-                    const rejectedVotes = RejectedVotes 
-                        ? (Array.isArray(RejectedVotes) 
-                            ? RejectedVotes.reduce((total, votes) => total + parseInt(votes), 0)
-                            : parseInt(RejectedVotes))
-                        : 0;
+                        const rejectedVotes = RejectedVotes 
+                            ? (Array.isArray(RejectedVotes) 
+                                ? RejectedVotes.reduce((total, votes) => total + parseInt(votes), 0)
+                                : parseInt(RejectedVotes))
+                            : 0;
 
-                    const results = Selection.map(selection => ({
-                        party: selection.AffiliationIdentifier.RegisteredName || selection.AffiliationIdentifier.Name,
-                        votes: parseInt(selection.ValidVotes)
-                    })).sort((a, b) => b.votes - a.votes);
+                        const results = Selection.map(selection => ({
+                            party: selection.AffiliationIdentifier.RegisteredName || selection.AffiliationIdentifier.Name,
+                            votes: parseInt(selection.ValidVotes)
+                        })).sort((a, b) => b.votes - a.votes);
 
-                    return {
-                        type: 'Feature',
-                        id: index,
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [parseFloat(lon), parseFloat(lat)]
-                        },
-                        properties: {
-                            name,
-                            cast: parseInt(Cast) || 0,
-                            totalCounted: parseInt(TotalCounted) || 0,
-                            rejectedVotes,
-                            results: JSON.stringify(results), // Stringify for GeoJSON compatibility
-                            electionId // Add election ID to properties
-                        }
-                    };
-                });
-            
-            geoJsonData = {
-                type: 'FeatureCollection',
-                features
-            };
+                        return {
+                            type: 'Feature',
+                            id: index,
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [parseFloat(lon), parseFloat(lat)]
+                            },
+                            properties: {
+                                name,
+                                cast: parseInt(Cast) || 0,
+                                totalCounted: parseInt(TotalCounted) || 0,
+                                rejectedVotes,
+                                results: JSON.stringify(results), // Stringify for GeoJSON compatibility
+                                electionId // Add election ID to properties
+                            }
+                        };
+                    });
+                
+                geoJsonData = {
+                    type: 'FeatureCollection',
+                    features
+                };
+            }
         }
         
         // Dispatch event with geoJsonData (could be null)
@@ -149,6 +157,9 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                 <button class="nav-button next" ${AVAILABLE_ELECTIONS.indexOf(electionId) === 0 ? 'disabled' : ''}>
                     &#8250;
                 </button>
+            </div>
+            <div class="station-stats">
+                Stembureaus: ${geolocatedStations}/${totalStations} gelocaliseerd
             </div>
             <div class="total-votes">
                 Opgeroepen: ${totalCastVotes.toLocaleString('nl-NL')}<br>
@@ -246,6 +257,9 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                 <button class="nav-button prev" disabled>&#8249;</button>
                 <h2>${electionId}</h2>
                 <button class="nav-button next" disabled>&#8250;</button>
+            </div>
+            <div class="station-stats">
+                Stembureaus: 0/0 gelocaliseerd
             </div>
             <p class="error-message">Geen verkiezingsdata beschikbaar voor deze gemeente</p>
         `;

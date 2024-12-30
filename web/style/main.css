@@ -352,7 +352,19 @@ body, html {
     background: #f8f9fa;
     border-bottom: 1px solid #ddd;
     font-weight: bold;
+}
 
+.station-stats {
+    padding: 10px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    color: #666;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.station-stats:empty {
+    display: none;
 }
 
 .party-result.others {
