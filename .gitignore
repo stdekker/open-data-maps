@@ -9,3 +9,6 @@ process/*
 !web/data/gemeenten.json 
 
 /vendor/
+
+# Ignore production config
+web/config.prod.php

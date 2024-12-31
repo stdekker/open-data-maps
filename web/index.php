@@ -1,5 +1,12 @@
 <?php
-    $version = "1.0.3"; // Version number for cache busting
+    $version = "1.0.4"; // Version number for cache busting
+    
+    // Load production scripts if config exists
+    $PROD_SCRIPTS = [
+        'head' => [],
+        'body' => []
+    ];
+    @include __DIR__ . '/config.prod.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -8,6 +15,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>Open Data Maps</title>
+        <?php foreach ($PROD_SCRIPTS['head'] as $script) echo $script . "\n"; ?>
         <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
@@ -77,5 +85,6 @@
             </div>
         </div>
         <script type="module" src="src/main.js?v=<?php echo $version; ?>"></script>
+        <?php foreach ($PROD_SCRIPTS['body'] as $script) echo $script . "\n"; ?>
     </body>
 </html>
