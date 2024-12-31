@@ -3,7 +3,7 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { loadElectionData } from './modules/electionService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox } from './modules/layerDrawingService.js';
+import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox, updateToggleStates, cleanupPostcode6Layer } from './modules/layerDrawingService.js';
 import { initializeElectionService } from './modules/electionService.js';
 import { Modal } from './modules/modalService.js';
 import { ensurePopulationData, loadOverviewData, loadGeoJsonData } from './modules/dataService.js';
@@ -411,156 +411,177 @@ ensurePopulationData(municipalityPopulations);
  * @param {String} viewType - Either 'national' or 'municipal'
  * @param {String} municipalityCode - Optional municipality code for municipal view
  */
-function activateView(viewType, municipalityCode = null) {
-    // Update current view
-    currentView = viewType;
-
-    // Update menu item states
-    const viewItem = document.getElementById(`${viewType}-view`);
-    document.querySelectorAll('.menu-items li').forEach(item => {
-        item.classList.remove('active');
-        item.setAttribute('aria-selected', 'false');
-    });
-    viewItem.classList.add('active');
-    viewItem.setAttribute('aria-selected', 'true');
-
-    // Clear and hide stats view when switching to national view
-    const statsView = document.querySelector('.stats-view');
+async function activateView(viewType, municipalityCode = null) {
     if (viewType === 'national') {
-        statsView.innerHTML = '';
-        statsView.style.display = 'none';
-        updateUrlParams(null); // Remove gemeente parameter
-        
-        // Load national view first, then clean up reporting units
-        loadNationalGeoJson().then(() => {
+        try {
+            // Store current election state in localStorage before switching
+            localStorage.setItem('previousElectionState', showElectionData);
+            
+            // Only clean up postcode6 layer if it exists
+            if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-line')) {
+                cleanupPostcode6Layer(map);
+            }
+            
+            // Clean up reporting units
             cleanupReportingUnits(map);
-            map.flyTo({ center: MAP_CENTER, zoom: MAP_ZOOM });
+            
+            // Update toggle states and uncheck toggles
+            updateToggleStates(viewType);
+            
+            // Hide stats view
+            const statsView = document.querySelector('.stats-view');
+            statsView.innerHTML = '';
+            statsView.style.display = 'none';
+            
+            // Remove gemeente parameter from URL
+            updateUrlParams(null);
+            
+            // Load national view and update map
+            await loadNationalGeoJson();
+            
+            // Ensure map is centered correctly
+            map.flyTo({ 
+                center: MAP_CENTER, 
+                zoom: MAP_ZOOM,
+                duration: 1000 // 1 second animation
+            });
+
+            // Update current view after successful transition
+            currentView = viewType;
+
+            // Update menu item states
+            const viewItem = document.getElementById(`${viewType}-view`);
+            document.querySelectorAll('.menu-items li').forEach(item => {
+                item.classList.remove('active');
+                item.setAttribute('aria-selected', 'false');
+            });
+            viewItem.classList.add('active');
+            viewItem.setAttribute('aria-selected', 'true');
+
+            return; // Exit early after national view is set up
+        } catch (error) {
+            console.error('Error switching to national view:', error);
+        }
+    }
+
+    if (viewType === 'municipal') {
+        // Update current view
+        currentView = viewType;
+
+        // Update menu item states
+        const viewItem = document.getElementById(`${viewType}-view`);
+        document.querySelectorAll('.menu-items li').forEach(item => {
+            item.classList.remove('active');
+            item.setAttribute('aria-selected', 'false');
         });
-    } else if (viewType === 'municipal') {
+        viewItem.classList.add('active');
+        viewItem.setAttribute('aria-selected', 'true');
+
+        // Enable toggles for municipal view
+        updateToggleStates(viewType);
+        
+        // Restore election state
+        showElectionData = localStorage.getItem('previousElectionState') === 'true';
+        
+        // Show stats view if election toggle is checked
+        const statsView = document.querySelector('.stats-view');
         statsView.style.display = showElectionData ? 'block' : 'none';
-        ensurePopulationData(municipalityPopulations).then(() => {
-            if (municipalityCode) {
-                loadGeoJson(municipalityCode);
+        
+        await ensurePopulationData(municipalityPopulations);
+        if (municipalityCode) {
+            await loadGeoJson(municipalityCode);
+            if (showElectionData) {
+                await loadElectionData(municipalityCode, localStorage.getItem('lastElection') || 'TK2021');
+            }
+        } else {
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality) {
+                const municipality = JSON.parse(lastMunicipality);
+                await loadGeoJson(municipality.code);
                 if (showElectionData) {
-                    loadElectionData(municipalityCode, localStorage.getItem('lastElection') || 'TK2021');
-                }
-            } else {
-                const lastMunicipality = localStorage.getItem('lastMunicipality');
-                if (lastMunicipality) {
-                    const municipality = JSON.parse(lastMunicipality);
-                    loadGeoJson(municipality.code);
-                    if (showElectionData) {
-                        loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021');
-                    }
+                    await loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021');
                 }
             }
-        });
+        }
     }
 }
 
 // Modify the loadNationalGeoJson function
-function loadNationalGeoJson() {
-    // Check if map is loaded
-    if (!map.loaded()) {
-        return new Promise(resolve => {
-            map.on('load', () => {
-                loadNationalGeoJson().then(resolve);
-            });
-        });
-    }
-
-    // Remove any existing event listeners to prevent duplicates
-    map.off('dblclick', 'municipalities');
-
-    return fetch('data/gemeenten.json')
-        .then(response => response.json())
-        .then(data => {
-            // Store both population and household data
-            data.features.forEach(feature => {
-                municipalityPopulations[feature.properties.gemeentecode] = {
-                    aantalInwoners: feature.properties.aantalInwoners,
-                    aantalHuishoudens: feature.properties.aantalHuishoudens
-                };
-            });
-            
-            // Convert coordinates and add layers
-            const geoJsonData = {
-                ...data,
-                features: data.features.map((feature, index) => ({
-                    ...feature,
-                    id: index,
-                    geometry: {
-                        type: feature.geometry.type,
-                        coordinates: feature.geometry.coordinates
-                    }
-                }))
-            };
-
-            addMapLayers(map, geoJsonData, municipalityPopulations);
-            setupFeatureNameBox(map, municipalityPopulations);
-
-            // Remove previous double-click handler if it exists
+async function loadNationalGeoJson() {
+    try {
+        // Remove any existing event listeners to prevent duplicates
+        if (map.getLayer('municipalities')) {
             map.off('dblclick', 'municipalities');
+        }
 
-            // Add the double-click handler
-            map.on('dblclick', 'municipalities', (e) => {
-                // Only handle double-click if we're in national view
-                if (currentView !== 'national') {
-                    return;
+        const response = await fetch('data/gemeenten.json');
+        const data = await response.json();
+
+        // Store both population and household data
+        data.features.forEach(feature => {
+            municipalityPopulations[feature.properties.gemeentecode] = {
+                aantalInwoners: feature.properties.aantalInwoners,
+                aantalHuishoudens: feature.properties.aantalHuishoudens
+            };
+        });
+        
+        // Convert coordinates and add layers
+        const geoJsonData = {
+            ...data,
+            features: data.features.map((feature, index) => ({
+                ...feature,
+                id: index,
+                geometry: {
+                    type: feature.geometry.type,
+                    coordinates: feature.geometry.coordinates
                 }
+            }))
+        };
 
-                e.preventDefault();
-                
-                if (e.features && e.features.length > 0) {
-                    const feature = e.features[0];
-                    const municipality = {
-                        naam: feature.properties.gemeentenaam,
-                        code: feature.properties.gemeentecode
-                    };
-                    
-                    // Update menu state
-                    const municipalView = document.getElementById('municipal-view');
-                    document.querySelectorAll('.menu-items li').forEach(item => {
-                        item.classList.remove('active');
-                    });
-                    municipalView.classList.add('active');
+        // Remove existing layers if they exist
+        if (map.getLayer('municipalities')) {
+            map.removeLayer('municipalities');
+        }
+        if (map.getLayer('municipality-borders')) {
+            map.removeLayer('municipality-borders');
+        }
+        if (map.getSource('municipalities')) {
+            map.removeSource('municipalities');
+        }
 
-                    // Switch to municipal view
-                    localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
-                    activateView('municipal', municipality.code);
-                }
-            });
+        // Add new layers
+        addMapLayers(map, geoJsonData, municipalityPopulations);
+        setupFeatureNameBox(map, municipalityPopulations);
 
-            // When loading all municipalities, fit bounds to show all municipalities
-            try {
-                const bounds = new mapboxgl.LngLatBounds();
-                geoJsonData.features.forEach(feature => {
-                    if (feature.geometry.type === 'Polygon') {
-                        feature.geometry.coordinates[0].forEach(coord => {
-                            bounds.extend(coord);
-                        });
-                    } else if (feature.geometry.type === 'MultiPolygon') {
-                        feature.geometry.coordinates.forEach(polygon => {
-                            polygon[0].forEach(coord => {
-                                bounds.extend(coord);
-                            });
-                        });
-                    }
-                });
-
-                if (!bounds.isEmpty()) {
-                    map.fitBounds(bounds, { padding: 64 });
-                }
-            } catch (e) {
-                console.error('Error fitting bounds:', e);
+        // Add double-click handler for municipality selection
+        map.on('dblclick', 'municipalities', (e) => {
+            // Only handle double-click if we're in national view
+            if (currentView !== 'national') {
+                return;
             }
 
-            return data; // Return the data to indicate completion
-        })
-        .catch(error => {
-            console.error('Error loading gemeenten data:', error);
-            throw error;
+            e.preventDefault();
+            
+            if (e.features && e.features.length > 0) {
+                const feature = e.features[0];
+                const municipality = {
+                    naam: feature.properties.gemeentenaam,
+                    code: feature.properties.gemeentecode
+                };
+                
+                // Store selected municipality
+                localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+                
+                // Switch to municipal view
+                activateView('municipal', municipality.code);
+            }
         });
+
+        return data;
+    } catch (error) {
+        console.error('Error loading national GeoJSON:', error);
+        throw error;
+    }
 }
 
 // Update the event listener for reporting units

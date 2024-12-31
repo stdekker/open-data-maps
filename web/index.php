@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.4"; // Version number for cache busting
+    $version = "1.0.5"; // Version number for cache busting
     
     // Load production scripts if config exists
     $PROD_SCRIPTS = [
@@ -36,10 +36,32 @@
                     <div id="autocompleteList" class="autocomplete-items"></div>
                     <div class="search-error">Geen gemeente gevonden</div>
                 </div>
-                <ul class="menu-items" role="tablist">
-                    <li role="tab" id="municipal-view" tabindex="0" aria-selected="false">Gemeente</li>
-                    <li role="tab" id="national-view" tabindex="0" aria-selected="false">Nederland</li>
-                </ul>
+                <div class="menu">
+                    <ul class="menu-items" role="menubar">
+                        <li id="national-view" role="menuitem" tabindex="0">
+                            <i class="fas fa-globe-europe"></i>
+                            <span>Landelijk</span>
+                        </li>
+                        <li id="municipal-view" role="menuitem" tabindex="0">
+                            <i class="fas fa-city"></i>
+                            <span>Gemeente</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="layer-toggles">
+                    <div class="toggle-container">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="electionToggle">
+                            <span class="toggle-text">Verkiezingen</span>
+                        </label>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="postcode6Toggle">
+                            <span class="toggle-text">Postcodes</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="stats-view"></div>
             </div>
         </div>
@@ -58,16 +80,6 @@
                             <select id="statsSelect">
                                 <!-- Options will be populated dynamically -->
                             </select>
-                        </div>
-                    </div>
-                    <div class="settings-section">
-                        <h3>Layers</h3>
-                        <div class="toggle-container">
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="electionToggle" tabindex="0" aria-label="Toggle Verkiezingen">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">Verkiezingen</span>
-                            </label>
                         </div>
                     </div>
                 </div>
