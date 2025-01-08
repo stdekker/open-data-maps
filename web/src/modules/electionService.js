@@ -283,7 +283,7 @@ export function createReportingUnitPopup(feature) {
     let content = `
         <h3>${name}</h3>
         <div class="popup-content">
-            <p><strong>Uitgebracht:</strong> ${cast.toLocaleString('nl-NL')}</p>
+            <p><strong>Opgeroepen:</strong> ${cast.toLocaleString('nl-NL')}</p>
             <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
             ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
             <p><strong>Partijen:</strong></p>

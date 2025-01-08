@@ -1,31 +1,14 @@
 import { setupReportingUnitPopupHandlers } from './electionService.js';
-import { Modal } from './modalService.js';
 
-let currentPostcode4 = null;
 let municipalityPostcodes = new Set();
 
 const DB_NAME = 'postcodeDB';
 const STORE_NAME = 'postcodes';
 const DB_VERSION = 1;
 
-// Add a variable to store the election state
+// State variables 
 let previousElectionState = false;
-
-// Add this at the top of the file with other state variables
-let isLoadingPostcodes = false;
 let shouldCancelPostcodeLoading = false;
-
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 /**
  * Returns the min and max values for a given statistic from the features array.
@@ -295,7 +278,7 @@ export function addMapLayers(map, geoJsonData, municipalityPopulations, statisti
  * @param {Boolean} showElectionData - Whether election data should be displayed
  */
 export function addReportingUnits(map, geoJsonData, showElectionData = false) {
-    // Clean up existing reporting units first
+    // Clean up existing reporting units first, before adding new ones
     cleanupReportingUnits(map);
 
     if (!showElectionData || !geoJsonData || !geoJsonData.features || !geoJsonData.features.length) {
@@ -347,11 +330,6 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
  * @param {Object} map - The Mapbox map instance
  */
 export function cleanupReportingUnits(map) {
-    // Check if map exists and is loaded
-    if (!map || !map.loaded()) {
-        return;
-    }
-
     try {
         // Only remove layers if they exist
         if (map.getLayer('reporting-units')) {
@@ -482,7 +460,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
             ? statValue.toFixed(1) 
             : statValue;
         
-        return `<span class="population-text">(${formattedValue.toLocaleString('nl-NL')} ${label})</span>`;
+        return `<span class="statistic-text">(${formattedValue.toLocaleString('nl-NL')} ${label})</span>`;
     }
 
     // Update feature name box content
@@ -668,8 +646,6 @@ async function getStoredPostcodeData(postcode4) {
 
 // Modify the loadAllPostcode6Data function
 async function loadAllPostcode6Data(map) {
-    // Set loading flag and reset cancellation flag
-    isLoadingPostcodes = true;
     shouldCancelPostcodeLoading = false;
 
     // Define cancelHandler outside try block so it's accessible in finally
@@ -816,8 +792,6 @@ async function loadAllPostcode6Data(map) {
             postcode6Toggle.checked = false;
         }
     } finally {
-        // Clean up
-        isLoadingPostcodes = false;
         shouldCancelPostcodeLoading = false;
         if (postcode6Toggle) {
             postcode6Toggle.removeEventListener('change', cancelHandler);
