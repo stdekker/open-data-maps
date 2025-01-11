@@ -7,10 +7,6 @@
  *    - Fetches data from PDOK WFS service (Dutch public geodata)
  *    - Filters out water bodies using OGC filter
  *    - Saves raw GeoJSON response to gemeenten.json
- * 2. Processes the municipality data to create a simplified overview:
- *    - Extracts municipality names and codes
- *    - Sorts municipalities alphabetically
- *    - Saves simplified data to overview.json for use by the web application
  */
 
 // Ensure this script is only run from command line
@@ -41,38 +37,7 @@ if (!file_exists($gemeentenFile)) {
     
     // Save the fetched data
     file_put_contents($gemeentenFile, $gemeentenJson);
+    echo "Municipality data fetched and saved successfully!\n";
 } else {
-    $gemeentenJson = file_get_contents($gemeentenFile);
-}
-$gemeentenData = json_decode($gemeentenJson, true);
-
-// Initialize array to store overview data
-$overview = ['gemeenten' => []];
-
-// Extract gemeente names and codes
-foreach ($gemeentenData['features'] as $feature) {
-    if (isset($feature['properties']['gemeentecode']) && isset($feature['properties']['gemeentenaam'])) {
-        $overview['gemeenten'][] = [
-            'naam' => $feature['properties']['gemeentenaam'],
-            'code' => $feature['properties']['gemeentecode'],
-        ];
-    }
-}
-
-// Sort gemeenten by name
-usort($overview['gemeenten'], function($a, $b) {
-    return strcmp($a['naam'], $b['naam']);
-});
-
-// Save overview data
-$outputFile = __DIR__ . '/../web/data/overview.json';
-$outputDir = dirname($outputFile);
-
-// Create directory if it doesn't exist
-if (!is_dir($outputDir)) {
-    mkdir($outputDir, 0777, true);
-}
-
-file_put_contents($outputFile, json_encode($overview, JSON_PRETTY_PRINT));
-
-echo "Overview data generated successfully!\n"; 
+    echo "Municipality data already exists.\n";
+} 

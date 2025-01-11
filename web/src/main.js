@@ -50,7 +50,14 @@ async function initializeMapAndData() {
 
         // Process URL parameters
         const params = getUrlParams();
-        const data = await fetchData('data/overview.json');
+
+        // Create simplified data structure for search
+        const data = {
+            gemeenten: municipalityData.features.map(feature => ({
+                naam: feature.properties.gemeentenaam,
+                code: feature.properties.gemeentecode
+            })).sort((a, b) => a.naam.localeCompare(b.naam))
+        };
 
         // Initialize search functionality
         setupSearch(data);
@@ -509,12 +516,14 @@ window.addEventListener('reportingUnitsLoaded', (event) => {
 window.addEventListener('popstate', async (event) => {
     const params = getUrlParams();
     if (params.gemeente) {
-        const data = await fetchData('data/overview.json');
-        const municipality = data.gemeenten.find(m => 
-            m.naam.toLowerCase() === params.gemeente.toLowerCase()
+        const municipality = municipalityData.features.find(feature => 
+            feature.properties.gemeentenaam.toLowerCase() === params.gemeente.toLowerCase()
         );
         if (municipality) {
-            viewMunicipality(municipality);
+            viewMunicipality({
+                naam: municipality.properties.gemeentenaam,
+                code: municipality.properties.gemeentecode
+            });
         }
     } else {
         // If no gemeente parameter, view national without adding history entry
