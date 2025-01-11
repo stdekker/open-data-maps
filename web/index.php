@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.5"; // Version number for cache busting
+    $version = "1.0.6"; // Version number for cache busting
     
     // Load production scripts if config exists
     $PROD_SCRIPTS = [
@@ -24,7 +24,7 @@
     </head>
     <body>
         <div class="container">
-            <div class="feature-name-box">
+            <div class="feature-info-box">
                 <div class="feature-name-content"></div>
                 <button class="settings-button" aria-label="Settings">⋮</button>
             </div>

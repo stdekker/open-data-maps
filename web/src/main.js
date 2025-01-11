@@ -3,8 +3,9 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { loadElectionData } from './modules/electionService.js';
-import { addMapLayers, addReportingUnits, cleanupReportingUnits, setupFeatureNameBox, updateToggleStates, cleanupPostcode6Layer } 
+import { addMapLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer } 
     from './modules/layerService.js';
+import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { Modal } from './modules/modalService.js';
 import { fetchData } from './modules/dataService.js';
 
@@ -12,9 +13,8 @@ let showElectionData = false;
 let currentView = 'national';
 let settingsModal;
 let helpModal;
-let featureNameBox;
-let featureNameContent;
 let municipalityPopulations = {};
+let municipalityData = null;
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -28,10 +28,27 @@ const map = new mapboxgl.Map({
     animationDuration: 1500
 });
 
-// Map  and data need to be loaded before proceeding to add layers and interface elements
-map.on('load', async () => {
+// Load municipality data first, then proceed with map initialization
+async function initializeMapAndData() {
     try {
-        // Process URL parameters first
+        // Load municipality data first
+        const response = await fetch('data/gemeenten.json');
+        municipalityData = await response.json();
+
+        // Store both population and household data
+        municipalityData.features.forEach(feature => {
+            municipalityPopulations[feature.properties.gemeentecode] = {
+                aantalInwoners: feature.properties.aantalInwoners,
+                aantalHuishoudens: feature.properties.aantalHuishoudens,
+                ...feature.properties // Include all properties for comprehensive data access
+            };
+        });
+
+        // Make the data globally available
+        window.municipalityData = municipalityData;
+        window.municipalityPopulations = municipalityPopulations;
+
+        // Process URL parameters
         const params = getUrlParams();
         const data = await fetchData('data/overview.json');
 
@@ -64,7 +81,7 @@ map.on('load', async () => {
             updateUrlParams(null);
         }
 
-        // If no municipality is chosen trough the url or localStorage, 
+        // If no municipality is chosen through the url or localStorage, 
         // show the default municipality
         if (!municipality) {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
@@ -84,9 +101,12 @@ map.on('load', async () => {
             await viewNational();
         }
     } catch (error) {
-        console.error('Error during map initialization:', error);
+        console.error('Error during initialization:', error);
     }
-});
+}
+
+// Map and data need to be loaded before proceeding
+map.on('load', initializeMapAndData);
 
 /**
  * Sets up the search functionality for municipalities.
@@ -193,21 +213,10 @@ async function viewNational() {
             map.off('dblclick', 'municipalities');
         }
 
-        const response = await fetch('data/gemeenten.json');
-        const data = await response.json();
-
-        // Store both population and household data
-        data.features.forEach(feature => {
-            municipalityPopulations[feature.properties.gemeentecode] = {
-                aantalInwoners: feature.properties.aantalInwoners,
-                aantalHuishoudens: feature.properties.aantalHuishoudens
-            };
-        });
-        
-        // Convert coordinates and add layers
+        // Convert coordinates and add layers using the already loaded data
         const geoJsonData = {
-            ...data,
-            features: data.features.map((feature, index) => ({
+            ...municipalityData,
+            features: municipalityData.features.map((feature, index) => ({
                 ...feature,
                 id: index,
                 geometry: {
@@ -216,6 +225,7 @@ async function viewNational() {
                 }
             }))
         };
+
         // Add new layers
         addMapLayers(map, geoJsonData, municipalityPopulations);
         setupFeatureNameBox(map, municipalityPopulations);
@@ -244,9 +254,9 @@ async function viewNational() {
             }
         });
 
-        return data;
+        return municipalityData;
     } catch (error) {
-        console.error('Error loading national GeoJSON:', error);
+        console.error('Error loading national view:', error);
         throw error;
     }
 }
@@ -494,81 +504,6 @@ window.addEventListener('reportingUnitsLoaded', (event) => {
     const { geoJsonData } = event.detail;
     addReportingUnits(map, geoJsonData, showElectionData);
 });
-
-// Update the feature name box to include the total of the selected statistic
-function updateFeatureNameBox(feature = null) {
-    if (!featureNameContent || !featureNameBox) {
-        console.error('Feature name content or box element is not initialized.');
-        return;
-    }
-
-    const storedMunicipality = localStorage.getItem('lastMunicipality') 
-        ? JSON.parse(localStorage.getItem('lastMunicipality'))
-        : null;
-
-    // Get statsSelect and check if it exists
-    const statsSelect = document.getElementById('statsSelect');
-    if (!statsSelect) {
-        console.error('Stats select element not found.');
-        return;
-    }
-
-    const selectedStat = statsSelect.value;
-
-    const getNameWithStat = (name, properties) => {
-        const statValue = properties[selectedStat];
-        // Only format and show the value if it exists
-        if (statValue !== undefined && statValue !== null) {
-            let formattedValue;
-            if (typeof statValue === 'number') {
-                // Format numbers consistently
-                if (selectedStat.startsWith('percentage')) {
-                    // Format percentages with 1 decimal place
-                    formattedValue = statValue.toLocaleString('nl-NL', { 
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1 
-                    });
-                } else if (selectedStat === 'gemiddeldeHuishoudsgrootte') {
-                    // Format average household size with 1 decimal place
-                    formattedValue = statValue.toLocaleString('nl-NL', { 
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1 
-                    });
-                } else {
-                    // Format other numbers as integers
-                    formattedValue = statValue.toLocaleString('nl-NL', { 
-                        maximumFractionDigits: 0 
-                    });
-                }
-            } else {
-                formattedValue = statValue;
-            }
-            return `${name} (${formattedValue})`;
-        }
-        return name; // Return just the name if no statistic is available
-    };
-
-    let content = '';
-    if (storedMunicipality) {
-        const municipalityData = municipalityPopulations[storedMunicipality.code];
-        if (municipalityData) {
-            content = `<div>${getNameWithStat(storedMunicipality.naam, municipalityData)}</div>`;
-        }
-    }
-
-    if (feature) {
-        const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
-        if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-            content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
-        }
-        if (feature.properties?.buurtnaam) {
-            content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
-        }
-    }
-
-    featureNameContent.innerHTML = content;
-    featureNameBox.style.display = content ? 'block' : 'none';
-}
 
 // Add event listener for popstate to handle back/forward navigation
 window.addEventListener('popstate', async (event) => {

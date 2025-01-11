@@ -111,7 +111,7 @@ body, html {
     stroke: #666;
 }
 
-.feature-name-box {
+.feature-info-box {
     position: fixed;
     top: 20px;
     left: 20px;
@@ -140,7 +140,7 @@ body, html {
     font-size: 20px;
     color: #666;
     display: inline-block;
-    vertical-align: middle;
+    vertical-align: top;
     line-height: 1;
     font-weight: bold;
 }
@@ -294,7 +294,7 @@ body, html {
     .menu-items li {
         padding: 16px;
     }
-    .feature-name-box {
+    .feature-info-box {
         font-size: .9rem;
     }
 
@@ -579,7 +579,7 @@ body, html {
     background: #555;
 }
 
-.feature-name-box .hovered-name {
+.feature-info-box .hovered-name {
     margin-top: 5px;
     padding-top: 5px;
     border-top: 1px solid #eee;
