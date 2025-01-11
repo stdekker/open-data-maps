@@ -3,7 +3,7 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { loadElectionData } from './modules/electionService.js';
-import { addMapLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer } 
+import { addMapLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle } 
     from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { Modal } from './modules/modalService.js';
@@ -113,7 +113,7 @@ async function initializeMapAndData() {
 }
 
 // Map and data need to be loaded before proceeding
-map.on('load', initializeMapAndData);
+await map.on('load', initializeMapAndData);
 
 /**
  * Sets up the search functionality for municipalities.
@@ -328,6 +328,9 @@ document.addEventListener('DOMContentLoaded', function() {
     settingsModal = new Modal('settings-modal');
     window.settingsModal = settingsModal;
     helpModal = new Modal('help-modal');
+
+    // Initialize postcode6 toggle with map instance
+    initializePostcode6Toggle(map);
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');

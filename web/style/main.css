@@ -404,6 +404,9 @@ body, html {
 /* Layer toggles in sidebar */
 .layer-toggles {
     padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     background: #f0f0f0;
@@ -744,3 +747,13 @@ body, html {
     color: #999;
     cursor: not-allowed;
 }
+
+.progress-message {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    min-height: 1.2rem;
+    display: none;
+}
+
+.toggle-container {

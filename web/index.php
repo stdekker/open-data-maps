@@ -49,6 +49,7 @@
                     </ul>
                 </div>
                 <div class="layer-toggles">
+                    <div id="postcode-progress" class="progress-message"></div>
                     <div class="toggle-container">
                         <label class="toggle-label">
                             <input type="checkbox" id="electionToggle">
