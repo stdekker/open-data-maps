@@ -1,4 +1,4 @@
-import { getDynamicFillColorExpression, updateMapColors } from './layerService.js';
+import { updateMapColors } from './layerService.js';
 
 let hoveredFeatureId = null;
 let featureNameBox = document.querySelector('.feature-info-box');

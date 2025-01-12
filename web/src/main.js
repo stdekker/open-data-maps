@@ -3,7 +3,7 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { loadElectionData } from './modules/electionService.js';
-import { addMapLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle } 
+import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle } 
     from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { Modal } from './modules/modalService.js';
@@ -234,7 +234,7 @@ async function viewNational() {
         };
 
         // Add new layers
-        addMapLayers(map, geoJsonData, municipalityPopulations);
+        addMunicipalityLayers(map, geoJsonData, municipalityPopulations);
         setupFeatureNameBox(map, municipalityPopulations);
 
         // Add double-click handler for municipality selection
@@ -292,7 +292,7 @@ function loadGeoJson(code) {
                 id: index
             }))
         };
-        addMapLayers(map, geoJsonDataWithIds, municipalityPopulations);
+        addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
         setupFeatureNameBox(map, municipalityPopulations);
 
         // Fit bounds to the loaded GeoJSON
