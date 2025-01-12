@@ -9,16 +9,29 @@ use GuzzleHttp\Exception\RequestException;
 // Get postcode4 from query parameter
 $postcode4 = $_GET['postcode4'] ?? null;
 
-if (!$postcode4 || !preg_match('/^[0-9]{4}$/', $postcode4)) {
+if (!$postcode4) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid postcode4 format. Must be 4 digits']);
+    echo json_encode(['error' => 'No postcode4 provided']);
     exit;
 }
+
+if (!preg_match('/^[0-9]{4}$/', trim($postcode4))) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid postcode4 value. Must be 4 digits']);
+    exit;
+}
+
+$postcode4 = trim($postcode4);
 
 $client = new Client([
     'verify' => false,
     'timeout' => 30,
 ]);
+
+$filter = sprintf(
+    '<Filter xmlns="http://www.opengis.net/fes/2.0"><PropertyIsLike wildCard="*" singleChar="." escapeChar="\\"><PropertyName>postcode6</PropertyName><Literal>%s*</Literal></PropertyIsLike></Filter>',
+    $postcode4
+);
 
 $wfsUrl = 'https://service.pdok.nl/cbs/postcode6/2023/wfs/v1_0';
 $params = [
@@ -28,7 +41,7 @@ $params = [
     'typeName' => 'postcode6',
     'outputFormat' => 'application/json',
     'srsName' => 'EPSG:4326',
-    'filter' => sprintf('<Filter xmlns="http://www.opengis.net/fes/2.0"><PropertyIsLike wildCard="*" singleChar="." escapeChar="\\"><PropertyName>postcode6</PropertyName><Literal>%s*</Literal></PropertyIsLike></Filter>', $postcode4)
+    'filter' => $filter
 ];
 
 try {
@@ -50,7 +63,7 @@ try {
 
     if (empty($data['features'])) {
         http_response_code(404);
-        echo json_encode(['error' => 'No data found for postcode4: ' . $postcode4]);
+        echo json_encode(['error' => 'No data found for postcode(s): ' . implode(', ', $validPostcodes)]);
         exit;
     }
 

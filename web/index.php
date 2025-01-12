@@ -62,6 +62,12 @@
                             <span class="toggle-text">Postcodes</span>
                         </label>
                     </div>
+                    <div class="toggle-container">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="municipalityToggle" checked>
+                            <span class="toggle-text">Buurten</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="stats-view"></div>
             </div>

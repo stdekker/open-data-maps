@@ -11,6 +11,7 @@ import { fetchData } from './modules/dataService.js';
 
 let showElectionData = false;
 let currentView = 'national';
+window.currentView = currentView; // Expose currentView to window
 let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
@@ -425,6 +426,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Add municipality toggle handler
+    const municipalityToggle = document.getElementById('municipalityToggle');
+    municipalityToggle.addEventListener('change', function() {
+        const isVisible = this.checked;
+        if (map.getLayer('municipalities')) {
+            map.setLayoutProperty('municipalities', 'visibility', isVisible ? 'visible' : 'none');
+            map.setLayoutProperty('municipality-borders', 'visibility', isVisible ? 'visible' : 'none');
+        }
+        localStorage.setItem('showMunicipalityLayer', isVisible);
+    });
+
+    // Restore municipality layer visibility state
+    const showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false';
+    municipalityToggle.checked = showMunicipalityLayer;
+    if (map.getLayer('municipalities')) {
+        map.setLayoutProperty('municipalities', 'visibility', showMunicipalityLayer ? 'visible' : 'none');
+        map.setLayoutProperty('municipality-borders', 'visibility', showMunicipalityLayer ? 'visible' : 'none');
+    }
+
     // Initialize mobile handler
     initializeMobileHandler();
 });
@@ -436,7 +456,6 @@ document.addEventListener('DOMContentLoaded', function() {
  * @param {String} municipalityCode - Optional municipality code for municipal view
  */
 async function activateView(viewType, municipalityCode = null) {
-
     // Update menu item states
     const viewItem = document.getElementById(`${viewType}-view`);
     document.querySelectorAll('.menu-items li').forEach(item => {
@@ -449,6 +468,7 @@ async function activateView(viewType, municipalityCode = null) {
 
     // Update current view
     currentView = viewType;  
+    window.currentView = viewType; // Update window.currentView when view changes
 
     if (viewType === 'national') {
         try {
@@ -480,6 +500,9 @@ async function activateView(viewType, municipalityCode = null) {
 
             // Remove gemeente parameter from URL
             updateUrlParams(null);
+
+            // Update toggle states before returning
+            updateToggleStates(viewType);
 
             return; // Exit early after national view is set up
         } catch (error) {

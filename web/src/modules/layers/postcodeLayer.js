@@ -186,16 +186,21 @@ export async function loadAllPostcode6Data(map) {
         let featureId = 0;
         let loadedCount = 0;
 
-        for (const postcode4 of validPostcodes) {
+        // Process postcodes one at a time
+        for (let i = 0; i < validPostcodes.length; i++) {
             if (!postcode6Toggle.checked) {
                 updateProgressMessage('');
                 break;
             }
 
+            const postcode4 = validPostcodes[i];
             try {
                 updateProgressMessage(`Laden van postcodegebied ${postcode4}... (${loadedCount}/${validPostcodes.length})`);
+                
+                // Try to get cached data first
                 let data = await getStoredPostcodeData(postcode4);
                 
+                // If not in cache, fetch it
                 if (!data) {
                     const response = await fetch(`api/postcode6.php?postcode4=${postcode4}`);
                     if (!response.ok) {
@@ -205,10 +210,11 @@ export async function loadAllPostcode6Data(map) {
                     data = await response.json();
                     
                     if (!data || !data.features) {
-                        console.warn(`Invalid data received for postcode4 ${postcode4}`);
+                        console.warn(`Invalid data received for postcode ${postcode4}`);
                         continue;
                     }
-                    
+
+                    // Store the fetched data
                     await storePostcodeData(postcode4, data);
                 }
 
@@ -217,12 +223,15 @@ export async function loadAllPostcode6Data(map) {
                     break;
                 }
 
-                data.features.forEach(feature => {
-                    feature.id = featureId++;
-                    allFeatures.push(feature);
-                });
+                // Process features
+                if (data.features) {
+                    data.features.forEach(feature => {
+                        feature.id = featureId++;
+                        allFeatures.push(feature);
+                    });
+                    loadedCount++;
+                }
 
-                loadedCount++;
                 updateProgressMessage(`Laden van postcodegebieden... (${loadedCount}/${validPostcodes.length})`);
 
                 if (map.getSource('postcode6') && postcode6Toggle.checked) {
@@ -232,7 +241,7 @@ export async function loadAllPostcode6Data(map) {
                     });
                 }
             } catch (error) {
-                console.error(`Error processing postcode6 data for ${postcode4}:`, error);
+                console.error(`Error processing postcode6 ${postcode4}:`, error);
                 continue;
             }
         }
@@ -333,7 +342,15 @@ export function initializePostcode6Toggle(mapInstance) {
         loadAllPostcode6Data(mapInstance);
     }
 
-    postcode6Toggle.addEventListener('change', async () => {
+    postcode6Toggle.addEventListener('change', async (event) => {
+        // If we're in national view, prevent the toggle from being changed
+        if (window.currentView === 'national') {
+            event.preventDefault();
+            postcode6Toggle.checked = false;
+            postcode6Toggle.disabled = true;
+            return;
+        }
+
         if (postcode6Toggle.checked) {
             await loadAllPostcode6Data(mapInstance);
         } else {
