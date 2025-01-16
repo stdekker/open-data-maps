@@ -80,13 +80,18 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         let geolocatedStations = 0;
         
         // Get reporting units if they exist
-        const reportingUnits = data.Count?.Election?.Contests?.Contest?.ReportingUnitVotes;
+        const reportingUnits = data.Contests?.Contest?.ReportingUnitVotes;
         if (reportingUnits) {
             const unitsArray = Array.isArray(reportingUnits) ? reportingUnits : [reportingUnits];
             totalStations = unitsArray.length;
             geolocatedStations = unitsArray.filter(unit => unit.GeoLocation).length;
 
             if (data['@attributes']?.geocoded) {
+                const affiliations = data.Contests.Contest.Affiliations.reduce((acc, aff) => {
+                    acc[aff.Id] = aff.Name;
+                    return acc;
+                }, {});
+
                 const features = unitsArray
                     .filter(unit => unit.GeoLocation)
                     .map((unit, index) => {
@@ -100,7 +105,7 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                             : 0;
 
                         const results = Selection.map(selection => ({
-                            party: selection.AffiliationIdentifier.RegisteredName || selection.AffiliationIdentifier.Name,
+                            party: affiliations[selection.AffiliationId],
                             votes: parseInt(selection.ValidVotes)
                         })).sort((a, b) => b.votes - a.votes);
 
@@ -116,8 +121,8 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                                 cast: parseInt(Cast) || 0,
                                 totalCounted: parseInt(TotalCounted) || 0,
                                 rejectedVotes,
-                                results: JSON.stringify(results), // Stringify for GeoJSON compatibility
-                                electionId // Add election ID to properties
+                                results: JSON.stringify(results),
+                                electionId
                             }
                         };
                     });
@@ -134,16 +139,20 @@ export async function loadElectionData(municipalityCode, electionId = null) {
             detail: { geoJsonData, electionId }
         }));
         
-        // Get the total votes per party from the data
-        const totalVotes = data.Count.Election.Contests.Contest.TotalVotes.Selection;
+        // Get the total votes per party from the data and affiliations lookup
+        const totalVotes = data.Contests.Contest.TotalVotes.Selection;
+        const affiliations = data.Contests.Contest.Affiliations.reduce((acc, aff) => {
+            acc[aff.Id] = aff.Name;
+            return acc;
+        }, {});
         
         // Sort parties by number of votes (descending)
         totalVotes.sort((a, b) => parseInt(b.ValidVotes) - parseInt(a.ValidVotes));
         
         // Calculate total valid votes and total cast votes
         const totalValidVotes = totalVotes.reduce((sum, party) => sum + parseInt(party.ValidVotes), 0);
-        const totalCastVotes = parseInt(data.Count.Election.Contests.Contest.TotalVotes.Cast) || 
-                             parseInt(data.Count.Election.Contests.Contest.TotalVotes.TotalCounted);
+        const totalCastVotes = parseInt(data.Contests.Contest.TotalVotes.Cast) || 
+                             parseInt(data.Contests.Contest.TotalVotes.TotalCounted);
         
         // Create HTML for the stats view
         const statsView = document.querySelector('.stats-view');
@@ -177,7 +186,7 @@ export async function loadElectionData(municipalityCode, electionId = null) {
             if (percentage >= 1) { 
                 html += `
                     <div class="party-result">
-                        <span class="party-name">${party.AffiliationIdentifier.Name}</span>
+                        <span class="party-name">${affiliations[party.AffiliationId]}</span>
                         <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
                     </div>
                 `;
@@ -204,7 +213,7 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                 const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
                 html += `
                     <div class="party-result">
-                        <span class="party-name">${party.AffiliationIdentifier.Name}</span>
+                        <span class="party-name">${affiliations[party.AffiliationId]}</span>
                         <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
                     </div>
                 `;

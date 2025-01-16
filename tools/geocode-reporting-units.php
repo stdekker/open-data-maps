@@ -167,8 +167,8 @@ function findMatchingPollingStation($stationName, $otherElectionFile) {
     $normalizedName = normalizePollingStationName($stationName);
     
     // Find ReportingUnitVotes in the other election data
-    if (isset($otherData['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'])) {
-        $otherUnits = $otherData['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'];
+    if (isset($otherData['Contests']['Contest']['ReportingUnitVotes'])) {
+        $otherUnits = $otherData['Contests']['Contest']['ReportingUnitVotes'];
         
         // Ensure units is an array of arrays
         if (!isset($otherUnits[0])) {
@@ -224,8 +224,8 @@ foreach ($files as $file) {
     }
     
     // Find ReportingUnitVotes in the data structure
-    if (isset($data['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'])) {
-        $units = &$data['Count']['Election']['Contests']['Contest']['ReportingUnitVotes'];
+    if (isset($data['Contests']['Contest']['ReportingUnitVotes'])) {
+        $units = &$data['Contests']['Contest']['ReportingUnitVotes'];
         
         // Ensure units is an array of arrays
         if (!isset($units[0])) {

@@ -16,13 +16,13 @@ if (php_sapi_name() !== 'cli') {
 }
 
 $elections = [
-    /* 'GR2022' => [   
+    'GR2022' => [   
         'https://data.overheid.nl/sites/default/files/dataset/08b04bec-3332-4c76-bb0c-68bfaeb5df43/resources/GR2022_2022-03-29T15.14.zip',  
-    ], */
+    ],
     'GR2018' => [
         'https://data.overheid.nl/OpenDataSets/verkiezingen2018/GR2018.zip',
     ],
-    /* 'TK2021' => [
+    'TK2021' => [
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_1.zip',
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_2.zip',
         'https://data.overheid.nl/sites/default/files/dataset/39e9bad4-4667-453f-ba6a-4733a956f6f8/resources/EML_bestanden_TK2021_deel_3.zip'
@@ -31,19 +31,39 @@ $elections = [
         'hhttps://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%201%29.zip',
         'https://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%202%29.zip',
         'https://data.overheid.nl/sites/default/files/dataset/e3fe6e42-06ab-4559-a466-a32b04247f68/resources/Verkiezingsuitslag%20Tweede%20Kamer%202023%20%28Deel%203%29.zip'
-    ], */
+    ],
     // Add more elections if needed
 ];
 
 // Command line options
-// Do a full output for debugging
-$simplifyOutput = !isset($argv[1]) || $argv[1] !== '--full';
-
 // Set target municipality
 $targetMunicipality = null;
+$targetMunicipalityCode = null;
+
+// Load gemeenten.json for municipality code lookup
+$gemeentenJson = file_get_contents(__DIR__ . '/../web/data/gemeenten.json');
+if ($gemeentenJson === false) {
+    die("Error: Could not read gemeenten.json file\n");
+}
+$gemeenten = json_decode($gemeentenJson, true);
+if ($gemeenten === null) {
+    die("Error: Could not parse gemeenten.json file\n");
+}
+
 foreach ($argv as $arg) {
     if (strpos($arg, '--m=') === 0) {
-        $targetMunicipality = substr($arg, 14);
+        $targetMunicipality = substr($arg, 4);
+        // Look up municipality code
+        foreach ($gemeenten['features'] as $feature) {
+            if (strcasecmp($feature['properties']['gemeentenaam'], $targetMunicipality) === 0) {
+                $targetMunicipalityCode = substr($feature['properties']['gemeentecode'], 2); // Remove 'GM' prefix
+                echo "Found municipality code for $targetMunicipality: $targetMunicipalityCode\n";
+                break;
+            }
+        }
+        if ($targetMunicipalityCode === null) {
+            die("Error: Municipality '$targetMunicipality' not found in gemeenten.json\n");
+        }
         break;
     }
 }
@@ -111,8 +131,15 @@ foreach ($elections as $election => $urls) {
         }
         
         if ($municipality !== null) {
-            if ($targetMunicipality === null || $targetMunicipality === $municipality) {
-                $xmlFiles[] = $file->getPathname();
+            // Load XML to check municipality code
+            $xml = simplexml_load_file($file->getPathname());
+            if ($xml !== false) {
+                $authorityId = (string)$xml->ManagingAuthority->AuthorityIdentifier['Id'];
+                if (!empty($authorityId)) {
+                    if ($targetMunicipalityCode === null || $authorityId === $targetMunicipalityCode) {
+                        $xmlFiles[] = $file->getPathname();
+                    }
+                }
             }
         }
     }
@@ -151,11 +178,16 @@ foreach ($elections as $election => $urls) {
             continue;
         }
 
+        // Skip if not the target municipality
+        if ($targetMunicipalityCode !== null && $authorityId !== $targetMunicipalityCode) {
+            continue;
+        }
+
         // Create output filename using GM prefix and authority ID
         $jsonFile = __DIR__ . "/../web/data/elections/$election/GM{$authorityId}.json";
         
-        // Use simplified or full data based on configuration
-        $data = $simplifyOutput ? simplifyElectionData($xml) : $xml;
+        // Always use simplified data
+        $data = simplifyElectionData($xml);
 
         if (file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT)) === false) {
             echo "Failed to write JSON file: $jsonFile\n";
@@ -171,7 +203,50 @@ echo "All elections processed!\n";
 
 // Helper function to simplify the election data
 function simplifyElectionData($xml) {
-    $data = json_decode(json_encode($xml), true); // Convert SimpleXML to array    
+    $data = json_decode(json_encode($xml), true); // Convert SimpleXML to array
+    
+    // Extract the Election element
+    if (isset($data['Count']['Election'])) {
+        $data = $data['Count']['Election'];
+    }
+    
+    // Extract affiliations from the first set of selections
+    if (isset($data['Contests']['Contest']['TotalVotes']['Selection'])) {
+        $affiliations = [];
+        foreach ($data['Contests']['Contest']['TotalVotes']['Selection'] as $selection) {
+            if (isset($selection['AffiliationIdentifier'])) {
+                $id = $selection['AffiliationIdentifier']['@attributes']['Id'];
+                $affiliations[$id] = [
+                    'Id' => $id,
+                    'Name' => $selection['AffiliationIdentifier']['RegisteredName'] ?? null
+                ];
+            }
+        }
+        
+        // Add affiliations list to Contest
+        $data['Contests']['Contest']['Affiliations'] = array_values($affiliations);
+        
+        // Replace full AffiliationIdentifier objects with just the ID reference
+        $replaceAffiliationWithId = function(&$selection) {
+            if (isset($selection['AffiliationIdentifier'])) {
+                $selection['AffiliationId'] = $selection['AffiliationIdentifier']['@attributes']['Id'];
+                unset($selection['AffiliationIdentifier']);
+            }
+        };
+        
+        // Process TotalVotes selections
+        array_walk($data['Contests']['Contest']['TotalVotes']['Selection'], $replaceAffiliationWithId);
+        
+        // Process ReportingUnitVotes selections
+        if (isset($data['Contests']['Contest']['ReportingUnitVotes'])) {
+            foreach ($data['Contests']['Contest']['ReportingUnitVotes'] as &$unit) {
+                if (isset($unit['Selection'])) {
+                    array_walk($unit['Selection'], $replaceAffiliationWithId);
+                }
+            }
+        }
+    }
+    
     removeCandidateData($data); // We do not use any candidate data
     return $data;
 }
@@ -183,7 +258,7 @@ function removeCandidateData(&$array) {
     }
     
     // Simplify identifier structures
-    $identifierKeys = ['ContestIdentifier', 'ElectionIdentifier', 'AffiliationIdentifier'];
+    $identifierKeys = ['ContestIdentifier', 'ElectionIdentifier'];
     foreach ($identifierKeys as $key) {
         if (isset($array[$key])) {
             $simplified = [
