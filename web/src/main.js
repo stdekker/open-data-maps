@@ -29,6 +29,9 @@ const map = new mapboxgl.Map({
     animationDuration: 1500
 });
 
+// Expose map globally
+window.map = map;
+
 // Load municipality data first, then proceed with map initialization
 async function initializeMapAndData() {
     try {

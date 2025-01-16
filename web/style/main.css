@@ -327,8 +327,16 @@ body, html {
 .party-result {
     display: flex;
     justify-content: space-between;
-    padding: 4px 0;
+    padding: 2px 0;
     border-bottom: 1px solid #eee;
+    font-size: .7rem;
+    cursor: pointer;
+}
+.party-result:hover {
+    background-color: #f5f5f5;
+}
+.party-result.active {
+    color: #4caf50;
 }
 
 .party-name {
@@ -755,5 +763,3 @@ body, html {
     min-height: 1.2rem;
     display: none;
 }
-
-.toggle-container {

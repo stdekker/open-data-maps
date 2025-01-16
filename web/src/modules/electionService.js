@@ -1,5 +1,8 @@
 let AVAILABLE_ELECTIONS = [];
 let isInitialized = false;
+let activeParty = null;
+
+import { showPartyVotes, hidePartyVotes } from './layers/electionsLayer.js';
 
 /**
  * Initializes the election service by fetching available elections and sorting them.
@@ -131,6 +134,25 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                     type: 'FeatureCollection',
                     features
                 };
+
+                // Process the reporting units to add party vote counts to GeoJSON
+                geoJsonData.features.forEach(feature => {
+                    try {
+                        const results = JSON.parse(feature.properties.results);
+                        if (!Array.isArray(results)) {
+                            console.warn('Invalid results format:', results);
+                            return;
+                        }
+                        results.forEach(result => {
+                            if (result && result.party && typeof result.party === 'string' && result.votes !== undefined) {
+                                const safePropertyName = createSafePropertyName(result.party);
+                                feature.properties[safePropertyName] = parseInt(result.votes) || 0;
+                            }
+                        });
+                    } catch (error) {
+                        console.warn('Error processing results for feature:', error);
+                    }
+                });
             }
         }
         
@@ -182,11 +204,12 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         totalVotes.forEach(party => {
             const votes = parseInt(party.ValidVotes);
             const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
-            // Only directly show parties with 1% or more of the votes, the rest are grouped under 'overigen'
+            const partyName = affiliations[party.AffiliationId];
+            // Only directly show parties with 1% or more of the votes
             if (percentage >= 1) { 
                 html += `
-                    <div class="party-result">
-                        <span class="party-name">${affiliations[party.AffiliationId]}</span>
+                    <div class="party-result" data-party="${partyName}">
+                        <span class="party-name">${partyName}</span>
                         <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
                     </div>
                 `;
@@ -194,7 +217,7 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                 otherParties.push(party);
             }
         });
-        
+
         if (otherParties.length > 0) {
             // Calculate total votes for other parties
             const otherVotes = otherParties.reduce((sum, party) => sum + parseInt(party.ValidVotes), 0);
@@ -212,7 +235,7 @@ export async function loadElectionData(municipalityCode, electionId = null) {
                 const votes = parseInt(party.ValidVotes);
                 const percentage = ((votes / totalValidVotes) * 100).toFixed(1);
                 html += `
-                    <div class="party-result">
+                    <div class="party-result" data-party="${affiliations[party.AffiliationId]}">
                         <span class="party-name">${affiliations[party.AffiliationId]}</span>
                         <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
                     </div>
@@ -258,6 +281,48 @@ export async function loadElectionData(municipalityCode, electionId = null) {
             }
         });
         
+        // Add click handlers for party results
+        const partyElements = statsView.querySelectorAll('.party-result:not(.others)');
+        const otherPartyElements = statsView.querySelectorAll('.other-parties .party-result');
+        const allPartyElements = [...partyElements, ...otherPartyElements];
+
+        allPartyElements.forEach(element => {
+            element.addEventListener('click', () => {
+                const partyName = element.dataset.party;
+                if (!partyName) return;  // Skip if no party name is set
+                
+                const safePropertyName = createSafePropertyName(partyName);
+                
+                // Remove active class from all elements
+                allPartyElements.forEach(el => el.classList.remove('active'));
+                
+                // Only proceed if map exists and is loaded
+                if (!window.map || !window.map.loaded()) {
+                    console.warn('Map not ready');
+                    return;
+                }
+
+                // Check if we have valid GeoJSON data with features
+                if (!geoJsonData || !geoJsonData.features || geoJsonData.features.length === 0) {
+                    console.warn('No polling stations available to visualize');
+                    return;
+                }
+
+                const { minVotes, maxVotes } = calculateMinMaxVotes(geoJsonData.features, safePropertyName);
+
+                if (activeParty === partyName) {
+                    // If clicking the same party, hide its visualization
+                    hidePartyVotes(window.map);
+                    setActiveParty(null);
+                } else {
+                    // Show the new party's visualization
+                    element.classList.add('active');
+                    showPartyVotes(window.map, safePropertyName, minVotes, maxVotes);
+                    setActiveParty(partyName);
+                }
+            });
+        });
+        
     } catch (error) {
         console.error('Error loading election data:', error);
         const statsView = document.querySelector('.stats-view');
@@ -280,6 +345,10 @@ export async function loadElectionData(municipalityCode, electionId = null) {
     }
 }
 
+export function setActiveParty(partyName) {
+    activeParty = partyName;
+}
+
 /**
  * Creates HTML content for a popup showing reporting unit election results.
  * @param {Object} feature - The GeoJSON feature containing reporting unit data
@@ -295,21 +364,41 @@ export function createReportingUnitPopup(feature) {
             <p><strong>Opgeroepen:</strong> ${cast.toLocaleString('nl-NL')}</p>
             <p><strong>Geteld:</strong> ${totalCounted.toLocaleString('nl-NL')}</p>
             ${rejectedVotes ? `<p><strong>Ongeldig:</strong> ${rejectedVotes.toLocaleString('nl-NL')}</p>` : ''}
-            <p><strong>Partijen:</strong></p>
-            <div class="popup-results">
     `;
 
-    // Add all parties
     const allParties = JSON.parse(results);
-    allParties.forEach(party => {
-        const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
+    
+    if (activeParty) {
+        // Show only the active party
+        const party = allParties.find(p => p.party === activeParty);
+        if (party) {
+            const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
+            content += `
+                <p><strong>Partij:</strong></p>
+                <div class="popup-results">
+                    <div class="popup-party">
+                        <span class="popup-party-name">${party.party}</span>
+                        <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        // Show all parties
         content += `
-            <div class="popup-party">
-                <span class="popup-party-name">${party.party}</span>
-                <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
-            </div>
+            <p><strong>Partijen:</strong></p>
+            <div class="popup-results">
         `;
-    });
+        allParties.forEach(party => {
+            const percentage = ((party.votes / totalCounted) * 100).toFixed(1);
+            content += `
+                <div class="popup-party">
+                    <span class="popup-party-name">${party.party}</span>
+                    <span class="popup-party-votes">${party.votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                </div>
+            `;
+        });
+    }
 
     content += '</div></div>';
     return content;
@@ -343,4 +432,38 @@ export function setupReportingUnitPopupHandlers(map) {
     map.on('mouseleave', 'reporting-units', () => {
         map.getCanvas().style.cursor = '';
     });
+}
+
+/**
+ * Creates a safe property name from a party name
+ * @param {String} partyName - The original party name
+ * @returns {String} A safe property name
+ */
+function createSafePropertyName(partyName) {
+    if (!partyName || typeof partyName !== 'string') {
+        console.warn('Invalid party name:', partyName);
+        return 'party_votes_unknown';
+    }
+    return `party_votes_${partyName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+}
+
+/**
+ * Calculates the minimum and maximum votes for a given party across all features
+ * @param {Array} features - The GeoJSON features array
+ * @param {String} partyName - The name of the party
+ * @returns {Object} An object containing min and max votes
+ */
+function calculateMinMaxVotes(features, partyName) {
+    let minVotes = Infinity;
+    let maxVotes = -Infinity;
+
+    features.forEach(feature => {
+        const votes = feature.properties[partyName];
+        if (votes !== undefined) {
+            minVotes = Math.min(minVotes, votes);
+            maxVotes = Math.max(maxVotes, votes);
+        }
+    });
+
+    return { minVotes, maxVotes };
 }
