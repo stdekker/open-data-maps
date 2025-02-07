@@ -66,18 +66,46 @@ try {
         ]
     ]);
 
-    $body = (string)$response->getBody();
-    $data = json_decode($body, true);
+    // Check if response is JSON
+    $contentType = $response->getHeaderLine('Content-Type');
+    if (!str_contains($contentType, 'application/json')) {
+        http_response_code(500);
+        echo json_encode([
+            'error' => 'Invalid response type from PDOK service',
+            'content_type' => $contentType
+        ]);
+        exit;
+    }
 
+    $body = (string)$response->getBody();
+    
+    // Try to decode JSON and validate structure
+    $data = json_decode($body, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         http_response_code(500);
-        echo json_encode(['error' => 'Error decoding JSON response']);
+        echo json_encode([
+            'error' => 'Error decoding JSON response',
+            'details' => json_last_error_msg()
+        ]);
+        exit;
+    }
+
+    // Validate GeoJSON structure
+    if (!isset($data['type']) || $data['type'] !== 'FeatureCollection' || !isset($data['features'])) {
+        http_response_code(500);
+        echo json_encode([
+            'error' => 'Invalid GeoJSON response from PDOK service'
+        ]);
         exit;
     }
 
     if (empty($data['features'])) {
         http_response_code(404);
-        echo json_encode(['error' => 'No data found for postcode(s): ' . $postcode4]);
+        echo json_encode([
+            'error' => 'No data found for postcode(s): ' . $postcode4,
+            'type' => 'FeatureCollection',
+            'features' => []
+        ]);
         exit;
     }
 
@@ -87,14 +115,24 @@ try {
     }
     file_put_contents($cacheFile, $body);
 
-    echo json_encode($data);
+    echo $body;
 
 } catch (RequestException $e) {
+    $error = ['error' => $e->getMessage()];
+    
+    if ($e->hasResponse()) {
+        $error['response'] = (string)$e->getResponse()->getBody();
+        $error['status'] = $e->getResponse()->getStatusCode();
+    }
+    
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode($error);
     exit;
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode([
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
     exit;
 } 

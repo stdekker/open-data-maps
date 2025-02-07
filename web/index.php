@@ -39,11 +39,9 @@
                 <div class="menu">
                     <ul class="menu-items" role="menubar">
                         <li id="national-view" role="menuitem" tabindex="0">
-                            <i class="fas fa-globe-europe"></i>
                             <span>Landelijk</span>
                         </li>
                         <li id="municipal-view" role="menuitem" tabindex="0">
-                            <i class="fas fa-city"></i>
                             <span>Gemeente</span>
                         </li>
                     </ul>
@@ -61,6 +59,12 @@
                             <input type="checkbox" id="postcode6Toggle">
                             <span class="toggle-text">Postcodes</span>
                         </label>
+                    </div>
+                    <div id="postcode-stats-selector" class="stats-selector" style="display: none;">
+                        <label for="postcodeStatsSelect">Statistiek</label>
+                        <select id="postcodeStatsSelect">
+                            <!-- Options will be populated dynamically -->
+                        </select>
                     </div>
                     <div class="toggle-container">
                         <label class="toggle-label">

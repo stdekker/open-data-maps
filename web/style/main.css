@@ -163,23 +163,26 @@ body, html {
     z-index: 1001;
 }
 
-.stats-selector {
-    margin: 0;
-}
-
 .stats-selector label {
     display: block;
     margin-bottom: 5px;
-    font-size: 0.9em;
+    font-size: 14px;
     color: #666;
 }
 
 .stats-selector select {
     width: 100%;
-    padding: 6px;
+    padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: white;
+    font-size: 14px;
+}
+
+.stats-selector select:focus {
+    outline: none;
+    border-color: #4682b4;
+    box-shadow: 0 0 0 2px rgba(70, 130, 180, 0.2);
 }
 
 /* Show popup when active */
@@ -762,4 +765,21 @@ body, html {
     margin-bottom: 0.5rem;
     min-height: 1.2rem;
     display: none;
+}
+
+.postcode-popup .mapboxgl-popup-content {
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.postcode-popup .popup-content {
+    text-align: center;
+}
+
+.postcode-popup .popup-content strong {
+    color: #333;
+    font-size: 14px;
 }

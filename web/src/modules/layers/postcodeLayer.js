@@ -1,4 +1,4 @@
-import { cleanupLayers, findFirstSymbolLayer } from '../layerService.js';
+import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression } from '../layerService.js';
 
 const DB_NAME = 'postcodeDB';
 const STORE_NAME = 'postcodes';
@@ -7,6 +7,36 @@ const DB_VERSION = 1;
 let municipalityPostcodes = new Set();
 let shouldCancelPostcodeLoading = false;
 let progressMessageElement = null;
+
+const INVALID_VALUES = [-99995, -99997];
+let currentStatistic = 'aantalInwoners';
+
+let hoveredPostcodeId = null;
+let postcodePopup = null;
+
+function getStatisticText(properties, statType) {
+    if (!properties || !statType) return '';
+    
+    const value = properties[statType];
+    // Convert invalid values to 0
+    const effectiveValue = (typeof value === 'number' && !isNaN(value) && value !== null)
+        ? (INVALID_VALUES.includes(value) ? 0 : value)
+        : 0;
+    
+    let formattedValue;
+    if (statType.startsWith('percentage') || statType === 'gemiddeldeHuishoudsgrootte') {
+        formattedValue = effectiveValue.toLocaleString('nl-NL', { 
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1 
+        });
+    } else {
+        formattedValue = effectiveValue.toLocaleString('nl-NL', { 
+            maximumFractionDigits: 0 
+        });
+    }
+    
+    return formattedValue;
+}
 
 // Initialize IndexedDB
 function initDB() {
@@ -87,6 +117,11 @@ export function cleanupPostcode6Layer(map) {
             ['postcode6-line', 'postcode6-fill'],
             ['postcode6']
         );
+
+        const postcodeStatsSelector = document.getElementById('postcode-stats-selector');
+        if (postcodeStatsSelector) {
+            postcodeStatsSelector.style.display = 'none';
+        }
     } catch (error) {
         console.error('Error in cleanupPostcode6Layer:', error);
     }
@@ -98,152 +133,161 @@ export function cleanupPostcode6Layer(map) {
  */
 export async function loadAllPostcode6Data(map) {
     if (!map) {
-        console.error('Map instance is undefined');
+        console.error('Map instance is undefined in loadAllPostcode6Data');
         return;
     }
 
-    shouldCancelPostcodeLoading = false;
-    updateProgressMessage('Initialiseren postcode data...');
-
     const postcode6Toggle = document.getElementById('postcode6Toggle');
+    shouldCancelPostcodeLoading = false;
+
+    // Setup cancel handler
     const cancelHandler = () => {
-        if (!postcode6Toggle.checked) {
-            shouldCancelPostcodeLoading = true;
-            updateProgressMessage('');
-            cleanupPostcode6Layer(map);
-        }
+        shouldCancelPostcodeLoading = true;
+        cleanupPostcode6Layer(map);
     };
 
-    try {
-        if (!map.loaded()) {
-            await new Promise(resolve => {
-                if (map.loaded()) {
-                    resolve();
-                } else {
-                    map.once('load', resolve);
-                }
-            });
-        }
-
+    if (postcode6Toggle) {
         postcode6Toggle.addEventListener('change', cancelHandler);
+    }
 
+    try {
+        // Clean up any existing layers first
         cleanupPostcode6Layer(map);
 
-        const validPostcodes = Array.from(municipalityPostcodes).filter(code => 
-            code && code.length === 4 && /^\d{4}$/.test(code)
-        );
+        // Create a new source and layer for postcode6 data
+        map.addSource('postcode6', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: []
+            }
+        });
 
-        if (validPostcodes.length === 0 || !postcode6Toggle.checked) {
-            updateProgressMessage('');
+        const firstSymbolLayer = findFirstSymbolLayer(map);
+
+        map.addLayer({
+            id: 'postcode6-fill',
+            type: 'fill',
+            source: 'postcode6',
+            paint: {
+                'fill-color': '#627BC1', // Default color, will be updated when data is loaded
+                'fill-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    0.8,
+                    0.6
+                ],
+                'fill-outline-color': '#00509e'
+            }
+        }, firstSymbolLayer);
+
+        map.addLayer({
+            id: 'postcode6-line',
+            type: 'line',
+            source: 'postcode6',
+            paint: {
+                'line-color': '#666',
+                'line-width': 1
+            }
+        }, firstSymbolLayer);
+
+        // Load data for each postcode in the municipality
+        const validPostcodes = Array.from(municipalityPostcodes)
+            .filter(code => code && code.length === 4 && /^\d{4}$/.test(code));
+
+        if (validPostcodes.length === 0) {
+            console.warn('No valid postcodes found in municipality');
+            updateProgressMessage('Geen geldige postcodes gevonden');
+            if (postcode6Toggle) {
+                postcode6Toggle.checked = false;
+            }
             return;
         }
 
-        updateProgressMessage('Laden van postcode gebieden...');
-
-        if (!map.getSource('postcode6') && postcode6Toggle.checked) {
-            map.addSource('postcode6', {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: []
-                }
-            });
-        }
-
-        const beforeLayerId = findFirstSymbolLayer(map);
-
-        if (!map.getLayer('postcode6-fill')) {
-            map.addLayer({
-                'id': 'postcode6-fill',
-                'type': 'fill',
-                'source': 'postcode6',
-                'paint': {
-                    'fill-color': '#627BC1',
-                    'fill-opacity': [
-                        'case',
-                        ['boolean', ['feature-state', 'hover'], false],
-                        0.5,
-                        0.3
-                    ]
-                }
-            }, beforeLayerId);
-        }
-
-        if (!map.getLayer('postcode6-line')) {
-            map.addLayer({
-                'id': 'postcode6-line',
-                'type': 'line',
-                'source': 'postcode6',
-                'paint': {
-                    'line-color': '#627BC1',
-                    'line-width': 1,
-                    'line-opacity': 0.3
-                }
-            }, beforeLayerId);
-        }
-
-        let allFeatures = [];
-        let featureId = 0;
         let loadedCount = 0;
+        let allFeatures = [];
+        let featureId = 0; // Counter for unique feature IDs
 
-        // Process postcodes one at a time
-        for (let i = 0; i < validPostcodes.length; i++) {
-            if (!postcode6Toggle.checked) {
-                updateProgressMessage('');
-                break;
+        for (const postcode4 of validPostcodes) {
+            if (shouldCancelPostcodeLoading) {
+                console.log('Postcode loading cancelled');
+                return;
             }
 
-            const postcode4 = validPostcodes[i];
             try {
-                updateProgressMessage(`Laden van postcodegebied ${postcode4}... (${loadedCount}/${validPostcodes.length})`);
-                
-                // Try to get cached data first
-                let data = await getStoredPostcodeData(postcode4);
-                
-                // If not in cache, fetch it
-                if (!data) {
-                    const response = await fetch(`api/postcode6.php?postcode4=${postcode4}`);
-                    if (!response.ok) {
-                        console.warn(`Failed to fetch postcode6 data for ${postcode4}: ${response.status}`);
-                        continue;
-                    }
-                    data = await response.json();
+                // Try to get data from IndexedDB first
+                let postcodeData = await getStoredPostcodeData(postcode4);
+
+                if (!postcodeData) {
+                    // If not in IndexedDB, fetch from server
+                    const response = await fetch(`/api/postcode6.php?postcode4=${postcode4}`);
+                    const contentType = response.headers.get('content-type');
                     
-                    if (!data || !data.features) {
-                        console.warn(`Invalid data received for postcode ${postcode4}`);
+                    if (!contentType || !contentType.includes('application/json')) {
+                        console.error(`Invalid content type for postcode6 ${postcode4}: ${contentType}`);
                         continue;
                     }
 
-                    // Store the fetched data
-                    await storePostcodeData(postcode4, data);
+                    const responseData = await response.json();
+                    
+                    if (!response.ok) {
+                        console.error(`Failed to fetch postcode6 data for ${postcode4}:`, responseData.error);
+                        continue;
+                    }
+
+                    if (!responseData.type || responseData.type !== 'FeatureCollection' || !Array.isArray(responseData.features)) {
+                        console.error(`Invalid GeoJSON structure for postcode6 ${postcode4}`);
+                        continue;
+                    }
+
+                    postcodeData = responseData;
+                    // Store in IndexedDB for future use
+                    await storePostcodeData(postcode4, postcodeData);
                 }
 
-                if (!postcode6Toggle.checked) {
-                    updateProgressMessage('');
-                    break;
+                // Validate the data structure before using it
+                if (!postcodeData || !postcodeData.features || !Array.isArray(postcodeData.features)) {
+                    console.error(`Invalid data structure for postcode6 ${postcode4}`);
+                    continue;
                 }
 
-                // Process features
-                if (data.features) {
-                    data.features.forEach(feature => {
-                        feature.id = featureId++;
+                // Add features to our collection with unique IDs
+                if (postcodeData && postcodeData.features) {
+                    postcodeData.features.forEach(feature => {
+                        feature.id = featureId++; // Assign unique ID to each feature
                         allFeatures.push(feature);
                     });
-                    loadedCount++;
                 }
 
-                updateProgressMessage(`Laden van postcodegebieden... (${loadedCount}/${validPostcodes.length})`);
+                loadedCount++;
+                updateProgressMessage(`Laden postcode gebieden: ${loadedCount}/${validPostcodes.length}`);
 
-                if (map.getSource('postcode6') && postcode6Toggle.checked) {
-                    map.getSource('postcode6').setData({
-                        type: 'FeatureCollection',
-                        features: allFeatures
-                    });
+                // Update the source data periodically to show progress
+                if (loadedCount % 5 === 0 || loadedCount === validPostcodes.length) {
+                    const source = map.getSource('postcode6');
+                    if (source) {
+                        source.setData({
+                            type: 'FeatureCollection',
+                            features: allFeatures
+                        });
+                    }
                 }
+
             } catch (error) {
                 console.error(`Error processing postcode6 ${postcode4}:`, error);
                 continue;
             }
+        }
+
+        // Final update with all features
+        const finalData = {
+            type: 'FeatureCollection',
+            features: allFeatures
+        };
+        
+        const source = map.getSource('postcode6');
+        if (source) {
+            source.setData(finalData);
         }
 
         if (postcode6Toggle.checked && loadedCount === validPostcodes.length) {
@@ -254,6 +298,90 @@ export async function loadAllPostcode6Data(map) {
                 }
             }, 2000);
         }
+
+        const postcodeStatsSelector = document.getElementById('postcode-stats-selector');
+        if (postcodeStatsSelector && allFeatures.length > 0) {
+            postcodeStatsSelector.style.display = 'block';
+            populateStatisticsDropdown(allFeatures);
+            updatePostcodeColors(map);
+        }
+
+        // Add hover effect for visual feedback only
+        map.on('mouseenter', 'postcode6-fill', (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            
+            if (hoveredPostcodeId !== null) {
+                try {
+                    map.setFeatureState(
+                        { source: 'postcode6', id: hoveredPostcodeId },
+                        { hover: false }
+                    );
+                } catch (error) {
+                    console.warn('Could not reset hover state:', error);
+                }
+            }
+
+            if (e.features.length > 0) {
+                const feature = e.features[0];
+                if (feature.id !== undefined) {
+                    hoveredPostcodeId = feature.id;
+                    try {
+                        map.setFeatureState(
+                            { source: 'postcode6', id: hoveredPostcodeId },
+                            { hover: true }
+                        );
+                    } catch (error) {
+                        console.warn('Could not set hover state:', error);
+                    }
+                }
+            }
+        });
+
+        map.on('mouseleave', 'postcode6-fill', () => {
+            map.getCanvas().style.cursor = '';
+            
+            if (hoveredPostcodeId !== null) {
+                try {
+                    map.setFeatureState(
+                        { source: 'postcode6', id: hoveredPostcodeId },
+                        { hover: false }
+                    );
+                } catch (error) {
+                    console.warn('Could not reset hover state:', error);
+                }
+            }
+            hoveredPostcodeId = null;
+        });
+
+        // Add click handler for popup
+        map.on('click', 'postcode6-fill', (e) => {
+            if (e.features.length > 0) {
+                const feature = e.features[0];
+                const statValue = getStatisticText(feature.properties, currentStatistic);
+                
+                if (statValue) {
+                    if (!postcodePopup) {
+                        postcodePopup = new mapboxgl.Popup({
+                            closeButton: true,
+                            className: 'postcode-popup'
+                        });
+                    }
+
+                    const html = `
+                        <div class="popup-content">
+                            <strong>${feature.properties.postcode6}</strong>
+                            <br>
+                            ${statValue}
+                        </div>
+                    `;
+                    
+                    postcodePopup
+                        .setLngLat(e.lngLat)
+                        .setHTML(html)
+                        .addTo(map);
+                }
+            }
+        });
 
     } catch (error) {
         console.error('Error in loadAllPostcode6Data:', error);
@@ -322,7 +450,10 @@ export function setMunicipalityPostcodes(geoJsonData) {
     geoJsonData.features.forEach(feature => {
         if (feature.properties.meestVoorkomendePostcode) {
             const postcode4 = feature.properties.meestVoorkomendePostcode.substring(0, 4);
-            municipalityPostcodes.add(postcode4);
+            // Only add valid 4-digit postcodes
+            if (postcode4 && postcode4.length === 4 && /^\d{4}$/.test(postcode4)) {
+                municipalityPostcodes.add(postcode4);
+            }
         }
     });
 }
@@ -357,4 +488,75 @@ export function initializePostcode6Toggle(mapInstance) {
             cleanupPostcode6Layer(mapInstance);
         }
     });
+}
+
+function getValidStatistics(features) {
+    const stats = new Map(); // Use Map to track which statistics have valid values
+    
+    features.forEach(feature => {
+        Object.entries(feature.properties).forEach(([key, value]) => {
+            // If we haven't seen a valid value for this stat yet, check this feature
+            if (!stats.has(key) && typeof value === 'number' && !INVALID_VALUES.includes(value)) {
+                stats.set(key, true);
+            }
+        });
+    });
+    
+    return Array.from(stats.keys());
+}
+
+function populateStatisticsDropdown(features) {
+    const statsSelect = document.getElementById('postcodeStatsSelect');
+    if (!statsSelect) return;
+
+    // Get all valid statistics from all features
+    const validStats = getValidStatistics(features);
+    
+    if (validStats.length === 0) {
+        console.warn('No valid statistics found in postcode data');
+        return;
+    }
+    
+    // Clear existing options
+    statsSelect.innerHTML = '';
+    
+    // Sort statistics alphabetically
+    validStats.sort();
+    
+    // Add options for each valid statistic
+    validStats.forEach(stat => {
+        const option = document.createElement('option');
+        option.value = stat;
+        option.textContent = stat;
+        statsSelect.appendChild(option);
+    });
+    
+    // Set default value if it exists in valid stats, otherwise use first available
+    if (validStats.includes(currentStatistic)) {
+        statsSelect.value = currentStatistic;
+    } else {
+        currentStatistic = validStats[0];
+        statsSelect.value = currentStatistic;
+    }
+    
+    // Remove old event listeners before adding new one
+    const newStatsSelect = statsSelect.cloneNode(true);
+    statsSelect.parentNode.replaceChild(newStatsSelect, statsSelect);
+    
+    // Add change handler
+    newStatsSelect.addEventListener('change', (event) => {
+        currentStatistic = event.target.value;
+        updatePostcodeColors(map);
+    });
+}
+
+function updatePostcodeColors(map) {
+    if (!map.getLayer('postcode6-fill')) return;
+    
+    const source = map.getSource('postcode6');
+    if (source) {
+        const data = source._data;
+        const paintProperty = getDynamicFillColorExpression(data, currentStatistic);
+        map.setPaintProperty('postcode6-fill', 'fill-color', paintProperty);
+    }
 } 

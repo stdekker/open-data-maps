@@ -24,7 +24,7 @@ $client = new Client([
     'debug' => false     // Enable debug output
 ]);
 
-$wfsUrl = 'https://service.pdok.nl/cbs/postcode6/2023/wfs/v1_0';
+$wfsUrl = 'https://service.pdok.nl/cbs/postcode6/2022/wfs/v1_0';
 $params = [
     'service' => 'WFS',
     'version' => '2.0.0',
