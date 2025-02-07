@@ -1,17 +1,15 @@
 // Import configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
+import { Modal } from './modules/modalService.js';
+import { fetchData } from './modules/dataService.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { loadElectionData } from './modules/electionService.js';
 import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle } 
     from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
-import { Modal } from './modules/modalService.js';
-import { fetchData } from './modules/dataService.js';
+import { loadElectionData } from './modules/electionService.js';
 
 let showElectionData = false;
-let currentView = 'national';
-window.currentView = currentView; // Expose currentView to window
 let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
@@ -29,8 +27,9 @@ const map = new mapboxgl.Map({
     animationDuration: 1500
 });
 
-// Expose map globally
+// Global variables
 window.map = map;
+window.currentView = 'national';
 
 // Load municipality data first, then proceed with map initialization
 async function initializeMapAndData() {
