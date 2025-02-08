@@ -170,14 +170,21 @@ export async function loadAllPostcode6Data(map) {
             type: 'fill',
             source: 'postcode6',
             paint: {
-                'fill-color': '#627BC1', // Default color, will be updated when data is loaded
+                'fill-color': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    '#8aa0d1', // Hover color
+                    '#627BC1'  // Default color
+                ],
                 'fill-opacity': [
                     'case',
                     ['boolean', ['feature-state', 'hover'], false],
                     0.8,
                     0.6
                 ],
-                'fill-outline-color': '#00509e'
+                'fill-outline-color': '#00509e',
+                'fill-color-transition': { duration: 0 },
+                'fill-opacity-transition': { duration: 0 }
             }
         }, firstSymbolLayer);
 
@@ -220,7 +227,7 @@ export async function loadAllPostcode6Data(map) {
 
                 if (!postcodeData) {
                     // If not in IndexedDB, fetch from server
-                    const response = await fetch(`/api/postcode6.php?postcode4=${postcode4}`);
+                    const response = await fetch(`api/postcode6.php?postcode4=${postcode4}`);
                     const contentType = response.headers.get('content-type');
                     
                     if (!contentType || !contentType.includes('application/json')) {
@@ -306,46 +313,34 @@ export async function loadAllPostcode6Data(map) {
             updatePostcodeColors(map);
         }
 
-        // Add hover effect for visual feedback only
-        map.on('mouseenter', 'postcode6-fill', (e) => {
+        // Add hover effect for visual feedback using mousemove for dynamic updates
+        map.on('mousemove', 'postcode6-fill', (e) => {
             map.getCanvas().style.cursor = 'pointer';
-            
-            if (hoveredPostcodeId !== null) {
+            if (!e.features.length) {
+                return;
+            }
+            const newHoverId = e.features[0].id;
+            if (hoveredPostcodeId !== null && hoveredPostcodeId !== newHoverId) {
+                // Unset previous hover state
                 try {
-                    map.setFeatureState(
-                        { source: 'postcode6', id: hoveredPostcodeId },
-                        { hover: false }
-                    );
+                    map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
                 } catch (error) {
                     console.warn('Could not reset hover state:', error);
                 }
             }
-
-            if (e.features.length > 0) {
-                const feature = e.features[0];
-                if (feature.id !== undefined) {
-                    hoveredPostcodeId = feature.id;
-                    try {
-                        map.setFeatureState(
-                            { source: 'postcode6', id: hoveredPostcodeId },
-                            { hover: true }
-                        );
-                    } catch (error) {
-                        console.warn('Could not set hover state:', error);
-                    }
-                }
+            hoveredPostcodeId = newHoverId;
+            try {
+                map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: true });
+            } catch (error) {
+                console.warn('Could not set hover state:', error);
             }
         });
 
         map.on('mouseleave', 'postcode6-fill', () => {
             map.getCanvas().style.cursor = '';
-            
             if (hoveredPostcodeId !== null) {
                 try {
-                    map.setFeatureState(
-                        { source: 'postcode6', id: hoveredPostcodeId },
-                        { hover: false }
-                    );
+                    map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
                 } catch (error) {
                     console.warn('Could not reset hover state:', error);
                 }

@@ -464,14 +464,14 @@ async function activateView(viewType, municipalityCode = null) {
         item.classList.remove('active');
         item.setAttribute('aria-selected', 'false');
     });
-
+    
     viewItem.classList.add('active');
     viewItem.setAttribute('aria-selected', 'true');
-
+    
     // Update current view
     currentView = viewType;  
-    window.currentView = viewType; // Update window.currentView when view changes
-
+    window.currentView = viewType; // Update global view
+    
     if (viewType === 'national') {
         try {
             // Store current election state in localStorage before switching
@@ -499,19 +499,30 @@ async function activateView(viewType, municipalityCode = null) {
                 zoom: MAP_ZOOM,
                 duration: 1500 // 1 second animation
             });
-
+    
             // Remove gemeente parameter from URL
             updateUrlParams(null);
-
-            // Update toggle states before returning
+    
+            // --- Update sidebar toggles for national view ---
+            const electionToggle = document.getElementById('electionToggle');
+            const municipalityToggle = document.getElementById('municipalityToggle');
+            if (electionToggle) {
+                electionToggle.disabled = true;
+                electionToggle.checked = false; // No election data in national view
+            }
+            if (municipalityToggle) {
+                municipalityToggle.disabled = true;
+                municipalityToggle.checked = true; // National view always shows municipalities
+            }
+            // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
-
+    
             return; // Exit early after national view is set up
         } catch (error) {
             console.error('Error switching to national view:', error);
         }
     }
-
+    
     if (viewType === 'municipal') {      
         // Restore election state
         showElectionData = localStorage.getItem('previousElectionState') === 'true';
@@ -522,15 +533,33 @@ async function activateView(viewType, municipalityCode = null) {
             if (showElectionData) {
                 await loadElectionData(code, localStorage.getItem('lastElection') || 'TK2023');
             }
+            // Force the municipality layers to be visible
+            if (map.getLayer('municipalities')) {
+                map.setLayoutProperty('municipalities', 'visibility', 'visible');
+                map.setLayoutProperty('municipality-borders', 'visibility', 'visible');
+            }
+            // Override any stored state so that buurten toggle is always on
+            localStorage.setItem('showMunicipalityLayer','true');
         }
-
+    
         // Show stats view if election toggle is checked
         const statsView = document.querySelector('.stats-view');
         statsView.style.display = showElectionData ? 'block' : 'none';
-
+        
+        // --- Update sidebar toggles for municipal view ---
+        const electionToggle = document.getElementById('electionToggle');
+        const municipalityToggle = document.getElementById('municipalityToggle');
+        if (electionToggle) {
+            electionToggle.disabled = false;
+            electionToggle.checked = !!showElectionData;
+        }
+        if (municipalityToggle) {
+            municipalityToggle.disabled = false;
+            municipalityToggle.checked = true;
+        }
     }
-
-    // Update toggle states and uncheck toggles
+    
+    // Update additional toggles (e.g., postcode6) based on the view type
     updateToggleStates(viewType);
 }
 

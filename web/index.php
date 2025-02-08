@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.6"; // Version number for cache busting
+    $version = "1.0.7"; // Version number for cache busting
     
     // Load production scripts if config exists
     $PROD_SCRIPTS = [
@@ -68,7 +68,7 @@
                     </div>
                     <div class="toggle-container">
                         <label class="toggle-label">
-                            <input type="checkbox" id="municipalityToggle" checked>
+                            <input type="checkbox" id="municipalityToggle">
                             <span class="toggle-text">Buurten</span>
                         </label>
                     </div>
