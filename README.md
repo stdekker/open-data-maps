@@ -1,6 +1,6 @@
 # Open Data Maps
 
-ODM is a web-based interactive mapping platform that visualizes demographic and electoral data for Dutch municipalities. It combines detailed statistical information with an intuitive map interface, allowing users to explore population demographics, household statistics, and election results across different regions of the Netherlands. The platform is designed to be user-friendly and accessible, providing valuable insights through dynamic visualizations and interactive features.
+ODM is a web-based geographic data visualization tool that gives insights into demographic and electoral data for Dutch municipalities. It combines detailed statistical information with an simple map navigation interface. 
 
 ## Architecture
 
@@ -27,13 +27,14 @@ This project uses DDEV to make local development easier. DDEV is a tool for crea
 
 ## Atrtribution  
 
-This project is based on an original project that was created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](www.bvvlt.nl). Although this code is completely rebuilt from scratch, with a lot of AI assistance, I have borrowed many concepts from the original project.
+This app is based on an original project that was created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](www.bvvlt.nl). Although this code is completely rebuilt from scratch, with a lot of AI assistance, I have borrowed many concepts from their original project.
 
 ## License
 
 This code is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ### Data attribution
+
 
 All data used in this project is provided by the Dutch government and is available under the [Open Data License](https://www.pdok.nl/nl/over-pdok/open-data/open-data-licenties/open-data-licentie-gemeenten-wijken-buurten-2022).
 

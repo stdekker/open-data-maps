@@ -6,7 +6,7 @@ The aim for this application is to be easy to deploy on shared hosting webserver
 
 The application is organized into the following main directories:
 
-- `web/`: Contains the frontend application and PHP backend
+- `web/`: Contains the frontend application and PHP data api
 - `tools/`: Contains PHP scripts for data processing
 - `process/`: Contains additional processing scripts
 - `vendor/`: Composer dependencies
