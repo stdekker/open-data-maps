@@ -30,7 +30,7 @@
             </div>
             <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="sidebar">
-                <header><h1>Maps<sup title="Open Data">OD</sup></h1></header>
+                <header><h1><sup title="Open Data">OD</sup>Maps</h1></header>
                 <div class="search-container">
                     <input type="text" id="searchInput" placeholder="Zoek een gemeente..." aria-label="Zoek een gemeente">
                     <div id="autocompleteList" class="autocomplete-items"></div>

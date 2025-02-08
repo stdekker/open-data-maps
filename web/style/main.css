@@ -30,8 +30,9 @@ body, html {
 }
 
 .sidebar h1 sup {
-    font-size: .5em;
+    font-size: 0.8em;
     font-family: monospace;
+    color: gray;
 }
 .search-container {
     margin-bottom: 20px;
