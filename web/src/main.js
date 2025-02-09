@@ -210,9 +210,6 @@ async function viewMunicipality(municipality) {
 
     // Wait for data loading to complete
     await loadGeoJson(municipality.code);
-    if (showElectionData) {
-        await loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021');
-    }
 }
 
 // Modify the viewNational function
@@ -278,51 +275,105 @@ async function viewNational() {
  * @param {String} code - The municipality/region code to load
  */
 function loadGeoJson(code) {
-    if (!map.loaded()) {
-        map.on('load', () => loadGeoJson(code));
-        return;
-    }
+    return new Promise((resolve, reject) => {
+        if (!map.loaded()) {
+            map.on('load', () => {
+                Promise.all([
+                    fetchData(`api/municipality.php?code=${code}`),
+                    loadElectionData(code)
+                ])
+                .then(([geoJsonData]) => {
+                    const geoJsonDataWithIds = {
+                        ...geoJsonData,
+                        features: geoJsonData.features.map((feature, index) => ({
+                            ...feature,
+                            id: index
+                        }))
+                    };
+                    addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
+                    setupFeatureNameBox(map, municipalityPopulations);
 
-    Promise.all([
-        fetchData(`api/municipality.php?code=${code}`),
-        loadElectionData(code)
-    ])
-    .then(([geoJsonData]) => {
-        const geoJsonDataWithIds = {
-            ...geoJsonData,
-            features: geoJsonData.features.map((feature, index) => ({
-                ...feature,
-                id: index
-            }))
-        };
-        addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
-        setupFeatureNameBox(map, municipalityPopulations);
+                    // Fit bounds to the loaded GeoJSON
+                    try {
+                        const bounds = new mapboxgl.LngLatBounds();
+                        geoJsonDataWithIds.features.forEach(feature => {
+                            if (feature.geometry.type === 'Polygon') {
+                                feature.geometry.coordinates[0].forEach(coord => {
+                                    bounds.extend(coord);
+                                });
+                            } else if (feature.geometry.type === 'MultiPolygon') {
+                                feature.geometry.coordinates.forEach(polygon => {
+                                    polygon[0].forEach(coord => {
+                                        bounds.extend(coord);
+                                    });
+                                });
+                            }
+                        });
+                        
+                        if (!bounds.isEmpty()) {
+                            map.fitBounds(bounds, { padding: 64 });
+                        }
+                    } catch (e) {
+                        console.error('Error fitting bounds:', e);
+                    }
 
-        // Fit bounds to the loaded GeoJSON
-        try {
-            const bounds = new mapboxgl.LngLatBounds();
-            geoJsonDataWithIds.features.forEach(feature => {
-                if (feature.geometry.type === 'Polygon') {
-                    feature.geometry.coordinates[0].forEach(coord => {
-                        bounds.extend(coord);
-                    });
-                } else if (feature.geometry.type === 'MultiPolygon') {
-                    feature.geometry.coordinates.forEach(polygon => {
-                        polygon[0].forEach(coord => {
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error loading data:', error);
+                    reject(error);
+                });
+            });
+            return;
+        }
+
+        // If map IS already loaded, do the same fetch/add, and resolve
+        Promise.all([
+            fetchData(`api/municipality.php?code=${code}`),
+            loadElectionData(code)
+        ])
+        .then(([geoJsonData]) => {
+            const geoJsonDataWithIds = {
+                ...geoJsonData,
+                features: geoJsonData.features.map((feature, index) => ({
+                    ...feature,
+                    id: index
+                }))
+            };
+            addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
+            setupFeatureNameBox(map, municipalityPopulations);
+
+            // Fit bounds to the loaded GeoJSON
+            try {
+                const bounds = new mapboxgl.LngLatBounds();
+                geoJsonDataWithIds.features.forEach(feature => {
+                    if (feature.geometry.type === 'Polygon') {
+                        feature.geometry.coordinates[0].forEach(coord => {
                             bounds.extend(coord);
                         });
-                    });
+                    } else if (feature.geometry.type === 'MultiPolygon') {
+                        feature.geometry.coordinates.forEach(polygon => {
+                            polygon[0].forEach(coord => {
+                                bounds.extend(coord);
+                            });
+                        });
+                    }
+                });
+                
+                if (!bounds.isEmpty()) {
+                    map.fitBounds(bounds, { padding: 64 });
                 }
-            });
-            
-            if (!bounds.isEmpty()) {
-                map.fitBounds(bounds, { padding: 64 });
+            } catch (e) {
+                console.error('Error fitting bounds:', e);
             }
-        } catch (e) {
-            console.error('Error fitting bounds:', e);
-        }
-    })
-    .catch(error => console.error('Error loading data:', error));
+
+            resolve();
+        })
+        .catch(error => {
+            console.error('Error loading data:', error);
+            reject(error);
+        });
+    });
 }
 
 // Add click handlers for menu items
@@ -524,9 +575,13 @@ async function activateView(viewType, municipalityCode = null) {
     }
     
     if (viewType === 'municipal') {      
-        // Restore election state
-        showElectionData = localStorage.getItem('previousElectionState') === 'true';
-        
+        // Restore election state from localStorage
+        showElectionData = localStorage.getItem('showElectionData') === 'true'; // ALWAYS from localStorage
+        const electionToggle = document.getElementById('electionToggle'); // Get the toggle
+        if (electionToggle) {
+            electionToggle.checked = showElectionData; // Sync the toggle
+        }
+
         const code = municipalityCode || (JSON.parse(localStorage.getItem('lastMunicipality'))?.code);
         if (code) {
             await loadGeoJson(code);
@@ -547,15 +602,30 @@ async function activateView(viewType, municipalityCode = null) {
         statsView.style.display = showElectionData ? 'block' : 'none';
         
         // --- Update sidebar toggles for municipal view ---
-        const electionToggle = document.getElementById('electionToggle');
+        //const electionToggle = document.getElementById('electionToggle'); // ALREADY DEFINED ABOVE
         const municipalityToggle = document.getElementById('municipalityToggle');
         if (electionToggle) {
             electionToggle.disabled = false;
-            electionToggle.checked = !!showElectionData;
+            //electionToggle.checked = !!showElectionData; // ALREADY DONE ABOVE
         }
         if (municipalityToggle) {
             municipalityToggle.disabled = false;
             municipalityToggle.checked = true;
+        }
+
+        // Explicitly add or remove reporting units based on showElectionData
+        if (showElectionData) {
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality) {
+                const municipality = JSON.parse(lastMunicipality);
+                // Re-fetch the election data to get the geoJsonData
+                loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021')
+                .then(() => {
+                    // The 'reportingUnitsLoaded' event will trigger addReportingUnits
+                });
+            }
+        } else {
+            cleanupReportingUnits(map);
         }
     }
     
@@ -569,21 +639,84 @@ window.addEventListener('reportingUnitsLoaded', (event) => {
     addReportingUnits(map, geoJsonData, showElectionData);
 });
 
+/**
+ * Loads a municipality by name, handling both initial load and URL parameter changes.
+ * @param {string} municipalityName - The name of the municipality to load.
+ */
+async function loadMunicipalityByName(municipalityName) {
+    if (!municipalityData) {
+        // If municipalityData isn't loaded yet, wait for it.
+        await initializeMapAndData();
+    }
+
+    const municipality = municipalityData.features.find(feature =>
+        feature.properties.gemeentenaam.toLowerCase() === municipalityName.toLowerCase()
+    );
+
+    if (municipality) {
+        await viewMunicipality({
+            naam: municipality.properties.gemeentenaam,
+            code: municipality.properties.gemeentecode
+        });
+    } else {
+        console.warn(`Municipality not found: ${municipalityName}`);
+        // Optionally, you could show an error message to the user here.
+        viewNational(); // Fallback to national view
+    }
+}
+
 // Add event listener for popstate to handle back/forward navigation
 window.addEventListener('popstate', async (event) => {
     const params = getUrlParams();
-    if (params.gemeente) {
-        const municipality = municipalityData.features.find(feature => 
-            feature.properties.gemeentenaam.toLowerCase() === params.gemeente.toLowerCase()
-        );
-        if (municipality) {
-            viewMunicipality({
-                naam: municipality.properties.gemeentenaam,
-                code: municipality.properties.gemeentecode
-            });
+
+    // Handle elections parameter
+    if (params.elections !== null) {
+        showElectionData = params.elections;
+        localStorage.setItem('showElectionData', showElectionData);
+
+        const electionToggle = document.getElementById('electionToggle');
+        if (electionToggle) {
+            electionToggle.checked = showElectionData;
         }
+
+        const statsView = document.querySelector('.stats-view');
+        if (statsView) {
+            statsView.style.display = showElectionData ? 'block' : 'none';
+        }
+    }
+
+    if (params.gemeente) {
+        // Simulate search input
+        const searchInput = document.getElementById('searchInput');
+        searchInput.value = params.gemeente; // Set the value
+
+        // Create and dispatch an 'input' event.  This is the key.
+        const inputEvent = new Event('input', {
+            bubbles: true,  //  Important:  Allow the event to bubble up
+            cancelable: true, //  Important: Allow the event to be cancelled
+        });
+        searchInput.dispatchEvent(inputEvent);
+
+        // Trigger Enter keyup event to simulate search
+        const keyupEvent = new KeyboardEvent('keyup', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true,
+        });
+        searchInput.dispatchEvent(keyupEvent);
+
     } else {
-        // If no gemeente parameter, view national without adding history entry
-        viewNational(true); 
+        // If no gemeente parameter, view national
+        viewNational(true);
+    }
+
+    // Load election data if needed
+    if (showElectionData && currentView === 'municipal') {
+        const lastMunicipality = localStorage.getItem('lastMunicipality');
+        if (lastMunicipality) {
+            const municipality = JSON.parse(lastMunicipality);
+            const currentElection = localStorage.getItem('lastElection') || 'TK2021';
+            loadElectionData(municipality.code, currentElection);
+        }
     }
 });
