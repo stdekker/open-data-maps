@@ -15,7 +15,7 @@ body, html {
     height: 100%;
 }
 .sidebar {
-    width: 250px;
+    width: 296px;
     background-color: #f8f9fa;
     padding: 20px;
     box-shadow: -2px 0 5px rgba(0,0,0,0.1);
@@ -437,7 +437,8 @@ body, html {
 
 .toggle-text {
     margin-left: 0.5rem;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
+    /* font-weight:  bold; */
 }
 
 /* Style the checkbox to look like a toggle switch */
@@ -487,7 +488,7 @@ body, html {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px;
+    padding: 4px;
     background: #f5f5f5;
     border-bottom: 1px solid #ddd;
 }
@@ -499,6 +500,7 @@ body, html {
     border: none;
     flex: 1;
     text-align: center;
+    font-size: 1rem;
 }
 
 .nav-button {
@@ -722,7 +724,7 @@ body, html {
 }
 
 .stats-selector {
-    margin-bottom: 15px;
+    /* margin-bottom: 0px; */
 }
 
 .stats-selector label {
@@ -733,10 +735,11 @@ body, html {
 
 .stats-selector select {
     width: 100%;
-    padding: 8px;
+    padding: 4px;
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: white;
+    font-size: .8em;
 }
 
 /* Remove the stats-popup styles since we're not using it anymore */

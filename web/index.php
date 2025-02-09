@@ -47,11 +47,11 @@
                     </ul>
                 </div>
                 <div class="layer-toggles">
-                    <div id="postcode-progress" class="progress-message"></div>
+                <div id="postcode-progress" class="progress-message"></div>
                     <div class="toggle-container">
                         <label class="toggle-label">
-                            <input type="checkbox" id="electionToggle">
-                            <span class="toggle-text">Verkiezingen</span>
+                            <input type="checkbox" id="municipalityToggle">
+                            <span class="toggle-text">Buurten</span>
                         </label>
                     </div>
                     <div class="toggle-container">
@@ -68,8 +68,8 @@
                     </div>
                     <div class="toggle-container">
                         <label class="toggle-label">
-                            <input type="checkbox" id="municipalityToggle">
-                            <span class="toggle-text">Buurten</span>
+                            <input type="checkbox" id="electionToggle">
+                            <span class="toggle-text">Verkiezingen</span>
                         </label>
                     </div>
                 </div>
