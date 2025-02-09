@@ -1,4 +1,5 @@
 import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression } from '../layerService.js';
+import { Modal } from '../modalService.js';
 
 const DB_NAME = 'postcodeDB';
 const STORE_NAME = 'postcodes';
@@ -13,6 +14,8 @@ let currentStatistic = 'aantalInwoners';
 
 let hoveredPostcodeId = null;
 let postcodePopup = null;
+let postcodeStatsModal;
+let modalHtmlAdded = false;
 
 function getStatisticText(properties, statType) {
     if (!properties || !statType) return '';
@@ -151,6 +154,9 @@ export async function loadAllPostcode6Data(map) {
     }
 
     try {
+        // Ensure modal HTML exists at layer initialization
+        ensureModalHtmlExists();
+
         // Clean up any existing layers first
         cleanupPostcode6Layer(map);
 
@@ -362,11 +368,14 @@ export async function loadAllPostcode6Data(map) {
                         });
                     }
 
+                    // Create popup content with clickable title
                     const html = `
                         <div class="popup-content">
                             <strong>${feature.properties.postcode6}</strong>
                             <br>
                             ${statValue}
+                            <br>
+                            <a href="#" class="postcode-more-link">meer...</a>
                         </div>
                     `;
                     
@@ -374,6 +383,29 @@ export async function loadAllPostcode6Data(map) {
                         .setLngLat(e.lngLat)
                         .setHTML(html)
                         .addTo(map);
+
+                    // Ensure modal HTML exists before creating Modal instance
+                    ensureModalHtmlExists();
+
+                    // Initialize modal if not already done
+                    if (!postcodeStatsModal) {
+                        postcodeStatsModal = new Modal('postcode-stats-modal');
+                    }
+
+                    // Add click handler for the title link after a short delay to ensure DOM is updated
+                    setTimeout(() => {
+                        const popup = document.querySelector('.postcode-popup');
+                        if (popup) {
+                            const moreLink = popup.querySelector('.postcode-more-link');
+                            if (moreLink) {
+                                moreLink.addEventListener('click', (event) => {
+                                    event.preventDefault();
+                                    const content = createPostcodeStatsContent(feature);
+                                    postcodeStatsModal.open(`Postcode ${feature.properties.postcode6}`, content);
+                                });
+                            }
+                        }
+                    }, 0);
                 }
             }
         });
@@ -554,4 +586,41 @@ function updatePostcodeColors(map) {
         const paintProperty = getDynamicFillColorExpression(data, currentStatistic);
         map.setPaintProperty('postcode6-fill', 'fill-color', paintProperty);
     }
+}
+
+// Update the createPostcodeStatsContent function to remove the duplicate title
+function createPostcodeStatsContent(feature) {
+    if (!feature || !feature.properties) return '';
+    
+    const validStats = Object.entries(feature.properties)
+        .filter(([key, value]) => 
+            typeof value === 'number' && 
+            !isNaN(value) && 
+            !INVALID_VALUES.includes(value) &&
+            !key.startsWith('party_votes_') // Exclude party vote properties
+        );
+
+    if (validStats.length === 0) return '<p>Geen statistieken beschikbaar</p>';
+
+    return `
+        <div class="postcode-stats-detail">
+            <div class="stats-grid">
+                ${validStats.map(([key, value]) => `
+                    <div class="stat-item">
+                        <span class="stat-label">${key}:</span>
+                        <span class="stat-value">${getStatisticText(feature.properties, key)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Add this new function to create and add the modal HTML
+function ensureModalHtmlExists() {
+    if (modalHtmlAdded) return;
+    
+    // The modal HTML structure already exists in index.php, 
+    // we just need to track that we've initialized
+    modalHtmlAdded = true;
 } 

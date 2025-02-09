@@ -107,6 +107,15 @@
                 </div>
             </div>
         </div>
+        <div class="modal-overlay" id="postcode-stats-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 class="modal-title"></h2>
+                    <button class="modal-close" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="modal-content"></div>
+            </div>
+        </div>
         <script type="module" src="src/main.js?v=<?php echo $version; ?>"></script>
         <?php foreach ($PROD_SCRIPTS['body'] as $script) echo $script . "\n"; ?>
     </body>

@@ -784,3 +784,59 @@ body, html {
     color: #333;
     font-size: 14px;
 }
+
+/* Postcode Statistics Modal Styles */
+.postcode-stats-detail {
+    padding: 1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-label {
+    font-weight: bold;
+    margin-right: 1rem;
+}
+
+.postcode-title {
+    color: #00509e;
+    text-decoration: none;
+}
+
+.postcode-title:hover {
+    text-decoration: underline;
+}
+
+/* Ensure the postcode stats modal has good mobile layout */
+@media screen and (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-item {
+        font-size: 0.9rem;
+    }
+}
+
+.postcode-more-link {
+    color: #00509e;
+    text-decoration: none;
+    font-size: 0.9em;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+.postcode-more-link:hover {
+    text-decoration: underline;
+}

@@ -7,7 +7,6 @@ header('Content-Type: text/html; charset=utf-8');
     <li>Via het icoon met de drie puntjes pas je de statistische instellingen van de kaart aan.</li>
     <li>Dubbelklik op een gemeente in de landelijke weergave om in te zoomen</li>
     <li>Hover over buurten voor meer informatie.</li>
-    <li>
 </ul>
 
 
