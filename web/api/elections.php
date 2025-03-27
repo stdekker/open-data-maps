@@ -1,6 +1,71 @@
 <?php
 header('Content-Type: application/json');
 
+// Common constants
+const REASON_CODES = [
+    'geldige stempassen',
+    'geldige volmachtbewijzen',
+    'geldige kiezerspassen',
+    'toegelaten kiezers',
+    'meer getelde stembiljetten',
+    'minder getelde stembiljetten',
+    'meegenomen stembiljetten',
+    'te weinig uitgereikte stembiljetten',
+    'te veel uitgereikte stembiljetten',
+    'geen verklaring',
+    'andere verklaring'
+];
+
+function validateElectionPath($election) {
+    $electionDir = __DIR__ . "/../data/elections/{$election}";
+    if (!is_dir($electionDir)) {
+        throw new Exception("Election {$election} not found");
+    }
+    return $electionDir;
+}
+
+function mapUncountedVotes($uncountedVotes) {
+    $mappedUncounted = [];
+    foreach ($uncountedVotes as $index => $value) {
+        if (isset(REASON_CODES[$index])) {
+            $mappedUncounted[REASON_CODES[$index]] = intval($value);
+        }
+    }
+    return $mappedUncounted;
+}
+
+function processVoteStatistics($totalVotes) {
+    $stats = [
+        'cast' => isset($totalVotes['Cast']) ? intval($totalVotes['Cast']) : 0,
+        'totalCounted' => isset($totalVotes['TotalCounted']) ? intval($totalVotes['TotalCounted']) : 0,
+        'rejectedVotes' => [
+            'ongeldig' => isset($totalVotes['RejectedVotes'][0]) ? intval($totalVotes['RejectedVotes'][0]) : 0,
+            'blanco' => isset($totalVotes['RejectedVotes'][1]) ? intval($totalVotes['RejectedVotes'][1]) : 0
+        ],
+        'totalValidVotes' => 0,
+        'uncountedVotes' => isset($totalVotes['UncountedVotes']) ? mapUncountedVotes($totalVotes['UncountedVotes']) : []
+    ];
+    
+    return $stats;
+}
+
+function processPartyVotes($selections) {
+    $voteSummary = [];
+    $sumValidVotes = 0;
+    
+    foreach ($selections as $selection) {
+        $votes = intval($selection['ValidVotes']);
+        $sumValidVotes += $votes;
+        $voteSummary[] = [
+            'party' => $selection['AffiliationIdentifier']['Id'],
+            'name' => $selection['AffiliationIdentifier']['Name'],
+            'votes' => $votes
+        ];
+    }
+    
+    return ['summary' => $voteSummary, 'total' => $sumValidVotes];
+}
+
 function getAvailableElections() {
     $electionsDir = __DIR__ . '/../data/elections';
     $elections = array_filter(scandir($electionsDir), function($dir) use ($electionsDir) {
@@ -34,79 +99,23 @@ function getMunicipalityVotes($election, $municipalityCode) {
         throw new Exception("Failed to parse election data");
     }
     
-    // Extract vote totals from the data
-    $voteSummary = [];
-    $sumValidVotes = 0;
-    
-    if (isset($data['Count']['Election']['Contests']['Contest']['TotalVotes'])) {
-        $totalVotes = $data['Count']['Election']['Contests']['Contest']['TotalVotes'];
-        
-        if (isset($totalVotes['Selection'])) {
-            foreach ($totalVotes['Selection'] as $selection) {
-                $votes = intval($selection['ValidVotes']);
-                $sumValidVotes += $votes;
-                $voteSummary[] = [
-                    'party' => $selection['AffiliationIdentifier']['Id'],
-                    'name' => $selection['AffiliationIdentifier']['Name'],
-                    'votes' => $votes
-                ];
-            }
-        }
-    }
-    
-    // Get additional statistics
     $contest = $data['Count']['Election']['Contests']['Contest'];
     $totalVotes = $contest['TotalVotes'];
     
-    $totalCounted = isset($totalVotes['TotalCounted']) ? intval($totalVotes['TotalCounted']) : 0;
-    $rejectedVotes = [
-        'ongeldig' => isset($totalVotes['RejectedVotes'][0]) ? intval($totalVotes['RejectedVotes'][0]) : 0,
-        'blanco' => isset($totalVotes['RejectedVotes'][1]) ? intval($totalVotes['RejectedVotes'][1]) : 0
-    ];
-    
-    // Map uncounted votes to their reason codes
-    $reasonCodes = [
-        'geldige stempassen',
-        'geldige volmachtbewijzen',
-        'geldige kiezerspassen',
-        'toegelaten kiezers',
-        'meer getelde stembiljetten',
-        'minder getelde stembiljetten',
-        'meegenomen stembiljetten',
-        'te weinig uitgereikte stembiljetten',
-        'te veel uitgereikte stembiljetten',
-        'geen verklaring',
-        'andere verklaring'
-    ];
-    
-    $uncountedVotes = [];
-    if (isset($totalVotes['UncountedVotes'])) {
-        foreach ($totalVotes['UncountedVotes'] as $index => $value) {
-            if (isset($reasonCodes[$index])) {
-                $uncountedVotes[$reasonCodes[$index]] = intval($value);
-            }
-        }
-    }
+    $stats = processVoteStatistics($totalVotes);
+    $partyResults = processPartyVotes($totalVotes['Selection'] ?? []);
+    $stats['totalValidVotes'] = $partyResults['total'];
     
     return [
         'election' => $election,
         'municipality' => $municipalityCode,
-        'statistics' => [
-            'cast' => isset($totalVotes['Cast']) ? intval($totalVotes['Cast']) : null,
-            'totalCounted' => $totalCounted,
-            'rejectedVotes' => $rejectedVotes,
-            'totalValidVotes' => $sumValidVotes,
-            'uncountedVotes' => $uncountedVotes
-        ],
-        'results' => $voteSummary
+        'statistics' => $stats,
+        'results' => $partyResults['summary']
     ];
 }
 
 function getTotalVotes($election) {
-    $electionDir = __DIR__ . "/../data/elections/{$election}";
-    if (!is_dir($electionDir)) {
-        throw new Exception("Election {$election} not found");
-    }
+    $electionDir = validateElectionPath($election);
     
     $files = glob($electionDir . "/GM*.json");
     if (empty($files)) {
@@ -116,10 +125,7 @@ function getTotalVotes($election) {
     $totalStats = [
         'cast' => 0,
         'totalCounted' => 0,
-        'rejectedVotes' => [
-            'ongeldig' => 0,
-            'blanco' => 0
-        ],
+        'rejectedVotes' => ['ongeldig' => 0, 'blanco' => 0],
         'totalValidVotes' => 0,
         'uncountedVotes' => []
     ];
@@ -134,62 +140,35 @@ function getTotalVotes($election) {
         $totalVotes = $contest['TotalVotes'];
         
         // Add up main statistics
-        $totalStats['cast'] += isset($totalVotes['Cast']) ? intval($totalVotes['Cast']) : 0;
-        $totalStats['totalCounted'] += isset($totalVotes['TotalCounted']) ? intval($totalVotes['TotalCounted']) : 0;
-        $totalStats['rejectedVotes']['ongeldig'] += isset($totalVotes['RejectedVotes'][0]) ? intval($totalVotes['RejectedVotes'][0]) : 0;
-        $totalStats['rejectedVotes']['blanco'] += isset($totalVotes['RejectedVotes'][1]) ? intval($totalVotes['RejectedVotes'][1]) : 0;
+        $stats = processVoteStatistics($totalVotes);
+        $totalStats['cast'] += $stats['cast'];
+        $totalStats['totalCounted'] += $stats['totalCounted'];
+        $totalStats['rejectedVotes']['ongeldig'] += $stats['rejectedVotes']['ongeldig'];
+        $totalStats['rejectedVotes']['blanco'] += $stats['rejectedVotes']['blanco'];
         
-        // Add up uncounted votes
-        if (isset($totalVotes['UncountedVotes'])) {
-            foreach ($totalVotes['UncountedVotes'] as $index => $value) {
-                if (!isset($totalStats['uncountedVotes'][$index])) {
-                    $totalStats['uncountedVotes'][$index] = 0;
-                }
-                $totalStats['uncountedVotes'][$index] += intval($value);
+        // Aggregate uncounted votes
+        foreach ($stats['uncountedVotes'] as $reason => $count) {
+            if (!isset($totalStats['uncountedVotes'][$reason])) {
+                $totalStats['uncountedVotes'][$reason] = 0;
             }
+            $totalStats['uncountedVotes'][$reason] += $count;
         }
         
         // Add up party votes
         if (isset($totalVotes['Selection'])) {
-            foreach ($totalVotes['Selection'] as $selection) {
-                $partyId = $selection['AffiliationIdentifier']['Id'];
-                $votes = intval($selection['ValidVotes']);
-                $totalStats['totalValidVotes'] += $votes;
-                
+            $partyResults = processPartyVotes($totalVotes['Selection']);
+            $totalStats['totalValidVotes'] += $partyResults['total'];
+            
+            foreach ($partyResults['summary'] as $result) {
+                $partyId = $result['party'];
                 if (!isset($partyTotals[$partyId])) {
-                    $partyTotals[$partyId] = [
-                        'party' => $partyId,
-                        'name' => $selection['AffiliationIdentifier']['Name'],
-                        'votes' => 0
-                    ];
+                    $partyTotals[$partyId] = $result;
+                    $partyTotals[$partyId]['votes'] = 0;
                 }
-                $partyTotals[$partyId]['votes'] += $votes;
+                $partyTotals[$partyId]['votes'] += $result['votes'];
             }
         }
     }
-    
-    // Map the uncounted votes to reason codes
-    $reasonCodes = [
-        'geldige stempassen',
-        'geldige volmachtbewijzen',
-        'geldige kiezerspassen',
-        'toegelaten kiezers',
-        'meer getelde stembiljetten',
-        'minder getelde stembiljetten',
-        'meegenomen stembiljetten',
-        'te weinig uitgereikte stembiljetten',
-        'te veel uitgereikte stembiljetten',
-        'geen verklaring',
-        'andere verklaring'
-    ];
-    
-    $mappedUncounted = [];
-    foreach ($totalStats['uncountedVotes'] as $index => $value) {
-        if (isset($reasonCodes[$index])) {
-            $mappedUncounted[$reasonCodes[$index]] = $value;
-        }
-    }
-    $totalStats['uncountedVotes'] = $mappedUncounted;
     
     return [
         'election' => $election,
@@ -200,10 +179,7 @@ function getTotalVotes($election) {
 }
 
 function getAllMunicipalityVotes($election) {
-    $electionDir = __DIR__ . "/../data/elections/{$election}";
-    if (!is_dir($electionDir)) {
-        throw new Exception("Election {$election} not found");
-    }
+    $electionDir = validateElectionPath($election);
     
     $files = glob($electionDir . "/GM*.json");
     if (empty($files)) {
@@ -224,19 +200,16 @@ function getAllMunicipalityVotes($election) {
                 ];
             }, $result['results']);
             
-            // Remove redundant election info and restructure
             $municipalities[] = [
                 'municipality' => $result['municipality'],
                 'statistics' => $result['statistics'],
                 'results' => $simplifiedResults
             ];
         } catch (Exception $e) {
-            // Skip failed municipalities
             continue;
         }
     }
     
-    // Sort by municipality code for consistent ordering
     usort($municipalities, function($a, $b) {
         return strcmp($a['municipality'], $b['municipality']);
     });
