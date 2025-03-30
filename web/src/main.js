@@ -4,7 +4,7 @@ import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { Modal } from './modules/modalService.js';
 import { fetchData } from './modules/dataService.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle } 
+import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle, loadAllPostcode6Data } 
     from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { loadElectionData } from './modules/electionService.js';
@@ -14,6 +14,21 @@ let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
 let municipalityData = null;
+
+// Helper function to update toggle UI state
+function updateToggleUI(toggleElement, isActive, isDisabled = false) {
+    if (!toggleElement) return;
+    toggleElement.setAttribute('aria-pressed', isActive);
+    if (isDisabled) {
+        toggleElement.classList.add('disabled');
+        toggleElement.setAttribute('aria-disabled', 'true');
+        toggleElement.removeAttribute('tabindex'); // Remove from tab order when disabled
+    } else {
+        toggleElement.classList.remove('disabled');
+        toggleElement.setAttribute('aria-disabled', 'false');
+        toggleElement.setAttribute('tabindex', '0'); // Add back to tab order
+    }
+}
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -434,69 +449,102 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Add election toggle handler
-    const electionToggle = document.getElementById('electionToggle');
-    const statsView = document.querySelector('.stats-view');
-    
-    // Restore toggle state from localStorage or URL parameter
-    const params = getUrlParams();
-    if (params.elections !== null) {
-        showElectionData = params.elections;
-        localStorage.setItem('showElectionData', showElectionData);
-    } else {
-        showElectionData = localStorage.getItem('showElectionData') === 'true';
-    }
-    electionToggle.checked = showElectionData;
-    statsView.style.display = showElectionData ? 'block' : 'none';
+    // Add click/keydown handlers for layer toggles
+    const layerToggles = document.querySelectorAll('.layer-toggle-item');
+    layerToggles.forEach(toggle => {
+        toggle.addEventListener('click', handleToggleInteraction);
+        toggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); // Prevent space from scrolling
+                handleToggleInteraction.call(toggle, e); // Call handler with toggle as 'this'
+            }
+        });
+    });
 
-    electionToggle.addEventListener('change', function() {
-        showElectionData = this.checked;
+    // Common handler for toggle interaction (click or keydown)
+    function handleToggleInteraction(event) {
+        // 'this' refers to the toggle element
+        if (this.classList.contains('disabled')) {
+            return; // Do nothing if disabled
+        }
+
+        const layerType = this.dataset.layer;
+        const currentlyActive = this.getAttribute('aria-pressed') === 'true';
+        const shouldBeActive = !currentlyActive;
+
+        // Update UI immediately
+        updateToggleUI(this, shouldBeActive);
+
+        // Handle specific layer logic
+        switch (layerType) {
+            case 'municipality':
+                handleMunicipalityToggle(shouldBeActive);
+                break;
+            case 'postcode':
+                // Postcode toggle is handled by initializePostcode6Toggle in postcodeLayer.js
+                // We just trigger the state change here, the existing handler should pick it up if initialized correctly.
+                // The event listener in initializePostcode6Toggle needs adjustment.
+                if (shouldBeActive) {
+                    // Make sure mapInstance is accessible or passed correctly
+                    if (window.map) { 
+                        loadAllPostcode6Data(window.map); 
+                    } else {
+                        console.error("Map instance not available for postcode load.");
+                    }
+                } else {
+                    if (window.map) { 
+                        cleanupPostcode6Layer(window.map);
+                    } else {
+                        console.error("Map instance not available for postcode cleanup.");
+                    }
+                }
+                break;
+            case 'election':
+                handleElectionToggle(shouldBeActive);
+                break;
+        }
+    }
+
+    // Specific handler for municipality toggle
+    function handleMunicipalityToggle(isActive) {
+        if (map.getLayer('municipalities')) {
+            map.setLayoutProperty('municipalities', 'visibility', isActive ? 'visible' : 'none');
+            map.setLayoutProperty('municipality-borders', 'visibility', isActive ? 'visible' : 'none');
+        }
+        localStorage.setItem('showMunicipalityLayer', isActive);
+    }
+
+    // Specific handler for election toggle
+    function handleElectionToggle(isActive) {
+        showElectionData = isActive;
         localStorage.setItem('showElectionData', showElectionData);
         statsView.style.display = showElectionData ? 'block' : 'none';
-        
+
         // Update URL parameter
         const lastMunicipality = localStorage.getItem('lastMunicipality');
-        if (lastMunicipality) {
-            const municipality = JSON.parse(lastMunicipality);
-            updateUrlParams(municipality.naam, showElectionData);
+        const municipality = lastMunicipality ? JSON.parse(lastMunicipality) : null;
+        updateUrlParams(municipality?.naam || null, showElectionData);
+
+        if (showElectionData && currentView === 'municipal' && municipality) {
+            const currentElection = localStorage.getItem('lastElection') || 'TK2021';
+            loadElectionData(municipality.code, currentElection);
+            // Reporting units are added via the 'reportingUnitsLoaded' event listener
         } else {
-            updateUrlParams(null, showElectionData);
-        }
-        
-        if (showElectionData) {
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
-            if (lastMunicipality) {
-                const municipality = JSON.parse(lastMunicipality);
-                const currentElection = localStorage.getItem('lastElection') || 'TK2021';
-                // Only load election data if we're in municipal view
-                if (currentView === 'municipal') {
-                    loadElectionData(municipality.code, currentElection);
-                }
-            }
-        } else {
-            // Clean up reporting units when toggling off
             cleanupReportingUnits(map);
         }
-    });
-
-    // Add municipality toggle handler
-    const municipalityToggle = document.getElementById('municipalityToggle');
-    municipalityToggle.addEventListener('change', function() {
-        const isVisible = this.checked;
-        if (map.getLayer('municipalities')) {
-            map.setLayoutProperty('municipalities', 'visibility', isVisible ? 'visible' : 'none');
-            map.setLayoutProperty('municipality-borders', 'visibility', isVisible ? 'visible' : 'none');
-        }
-        localStorage.setItem('showMunicipalityLayer', isVisible);
-    });
-
-    // Restore municipality layer visibility state
-    const showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false';
-    municipalityToggle.checked = showMunicipalityLayer;
-    if (map.getLayer('municipalities')) {
-        map.setLayoutProperty('municipalities', 'visibility', showMunicipalityLayer ? 'visible' : 'none');
-        map.setLayoutProperty('municipality-borders', 'visibility', showMunicipalityLayer ? 'visible' : 'none');
     }
+
+    // Restore initial toggle states
+    const initialShowMunicipality = localStorage.getItem('showMunicipalityLayer') !== 'false';
+    const municipalityToggleElement = document.getElementById('municipalityToggle');
+    updateToggleUI(municipalityToggleElement, initialShowMunicipality);
+    // Initial map layer visibility is set within activateView
+
+    const initialShowElection = localStorage.getItem('showElectionData') === 'true';
+    const electionToggleElement = document.getElementById('electionToggle');
+    updateToggleUI(electionToggleElement, initialShowElection);
+    const statsView = document.querySelector('.stats-view'); // Ensure statsView is defined
+    statsView.style.display = initialShowElection ? 'block' : 'none';
 
     // Initialize mobile handler
     initializeMobileHandler();
@@ -557,14 +605,9 @@ async function activateView(viewType, municipalityCode = null) {
             // --- Update sidebar toggles for national view ---
             const electionToggle = document.getElementById('electionToggle');
             const municipalityToggle = document.getElementById('municipalityToggle');
-            if (electionToggle) {
-                electionToggle.disabled = true;
-                electionToggle.checked = false; // No election data in national view
-            }
-            if (municipalityToggle) {
-                municipalityToggle.disabled = true;
-                municipalityToggle.checked = true; // National view always shows municipalities
-            }
+            updateToggleUI(electionToggle, false, true); // Inactive, Disabled
+            updateToggleUI(municipalityToggle, true, true); // Active, Disabled (National view always shows municipalities)
+
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
     
@@ -578,9 +621,7 @@ async function activateView(viewType, municipalityCode = null) {
         // Restore election state from localStorage
         showElectionData = localStorage.getItem('showElectionData') === 'true'; // ALWAYS from localStorage
         const electionToggle = document.getElementById('electionToggle'); // Get the toggle
-        if (electionToggle) {
-            electionToggle.checked = showElectionData; // Sync the toggle
-        }
+        updateToggleUI(electionToggle, showElectionData, false); // Update UI, Not disabled
 
         const code = municipalityCode || (JSON.parse(localStorage.getItem('lastMunicipality'))?.code);
         if (code) {
@@ -604,14 +645,9 @@ async function activateView(viewType, municipalityCode = null) {
         // --- Update sidebar toggles for municipal view ---
         //const electionToggle = document.getElementById('electionToggle'); // ALREADY DEFINED ABOVE
         const municipalityToggle = document.getElementById('municipalityToggle');
-        if (electionToggle) {
-            electionToggle.disabled = false;
-            //electionToggle.checked = !!showElectionData; // ALREADY DONE ABOVE
-        }
-        if (municipalityToggle) {
-            municipalityToggle.disabled = false;
-            municipalityToggle.checked = true;
-        }
+        updateToggleUI(electionToggle, showElectionData, false); // Already updated above, ensure not disabled
+        const showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false'; // Restore state
+        updateToggleUI(municipalityToggle, showMunicipalityLayer, false); // Set state from storage, Not disabled
 
         // Explicitly add or remove reporting units based on showElectionData
         if (showElectionData) {
@@ -675,9 +711,7 @@ window.addEventListener('popstate', async (event) => {
         localStorage.setItem('showElectionData', showElectionData);
 
         const electionToggle = document.getElementById('electionToggle');
-        if (electionToggle) {
-            electionToggle.checked = showElectionData;
-        }
+        updateToggleUI(electionToggle, showElectionData);
 
         const statsView = document.querySelector('.stats-view');
         if (statsView) {

@@ -61,6 +61,7 @@ body, html {
     cursor: pointer;
     text-align: center;
     font-size: .8rem;
+    background: #fff;
 }
 .menu-items li.active {
     background-color: #4CAF50;
@@ -409,83 +410,56 @@ body, html {
     transform: translateY(-50%) rotate(180deg);
 }
 
-.toggle-container {
-    margin: 8px 0;
-}
-
-.toggle-container + .toggle-container {
-    margin-top: 4px;
-}
-
 /* Layer toggles in sidebar */
 .layer-toggles {
     padding: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     background: #f0f0f0;
 }
 
-.toggle-container {
-    margin: 0.5rem 0;
-}
-
-.toggle-label {
+.layer-toggle-item {
     display: flex;
     align-items: center;
     cursor: pointer;
-    color: #333;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.layer-toggle-item:hover {
+    background-color: #e0e0e0;
+}
+
+.layer-toggle-item:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+.toggle-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    transition: background-color 0.3s ease;
+    flex-shrink: 0;
+}
+
+.layer-toggle-item[aria-pressed="false"] .toggle-dot {
+    background-color: #aaa;
+}
+
+.layer-toggle-item[aria-pressed="true"] .toggle-dot {
+    background-color: #4CAF50;
 }
 
 .toggle-text {
-    margin-left: 0.5rem;
     font-size: 0.82rem;
-    /* font-weight:  bold; */
-}
-
-/* Style the checkbox to look like a toggle switch */
-.toggle-label input[type="checkbox"] {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    -webkit-appearance: none;
-    background: #ccc;
-    outline: none;
-    border-radius: 20px;
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
-    transition: 0.3s;
-    cursor: pointer;
-}
-
-.toggle-label input:checked[type="checkbox"] {
-    background: #4CAF50;
-}
-
-.toggle-label input[type="checkbox"]::before {
-    content: '';
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    background: #fff;
-    transform: scale(1.1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    transition: 0.3s;
-}
-
-.toggle-label input:checked[type="checkbox"]::before {
-    left: 22px;
-}
-
-/* Mobile adjustments */
-@media screen and (max-width: 768px) {
-    .layer-toggles {
-        background: rgba(240, 240, 240, 0.95);
-    }
+    color: #333;
+    user-select: none;
 }
 
 .election-header {
@@ -751,20 +725,14 @@ body, html {
     display: none;
 }
 
-/* Add these styles for disabled toggles */
-.toggle-label input[type="checkbox"]:disabled {
-    background: #e0e0e0;
+/* Add new disabled styles */
+.layer-toggle-item.disabled {
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
-.toggle-label input[type="checkbox"]:disabled::before {
-    background: #ccc;
-    cursor: not-allowed;
-}
-
-.toggle-label input[type="checkbox"]:disabled + .toggle-text {
-    color: #999;
-    cursor: not-allowed;
+.layer-toggle-item.disabled:hover {
+    background-color: transparent;
 }
 
 .progress-message {

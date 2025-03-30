@@ -44,40 +44,118 @@ export function getMinMaxFromGeoJson(geoJsonData, statisticKey) {
 }
 
 /**
+ * Creates stops for a more balanced color scale distribution for population data.
+ * Uses logarithmic or quantile-based distribution to prevent skewing by outliers.
+ *
+ * @param {Object} geoJsonData - The GeoJSON data
+ * @param {String} statisticKey - The property key (e.g., "aantalInwoners")
+ * @param {Number} numStops - Number of color stops to generate
+ * @param {Boolean} useLog - Whether to use logarithmic scale (true) or linear (false)
+ * @returns {Array} Array of [value, color] stops for Mapbox GL
+ */
+export function createBalancedColorStops(geoJsonData, statisticKey, numStops = 7, useLog = true) {
+    const INVALID_VALUES = [-99995, -99997];
+    
+    // Get valid values and sort them
+    const values = geoJsonData.features
+        .map(f => {
+            const val = f.properties[statisticKey];
+            return (typeof val === 'number' && !isNaN(val) && val !== null && !INVALID_VALUES.includes(val)) 
+                ? val 
+                : null;
+        })
+        .filter(val => val !== null)
+        .sort((a, b) => a - b);
+    
+    if (!values.length) {
+        return [[0, '#add8e6']];
+    }
+    
+    // Create color scale
+    const colorScale = chroma
+        .scale(['#dcecf2','#add8e6', '#4682b4', '#00008b'])
+        .mode('lab')
+        .colors(numStops);
+    
+    // Create stops array
+    const stops = [];
+    
+    if (useLog && values[0] > 0) { 
+        // Logarithmic scale for population-type values
+        // Find min and max values for log scale
+        const minVal = Math.max(1, values[0]); // Ensure we don't take log of 0 or negative
+        const maxVal = values[values.length - 1];
+        
+        // Calculate log range
+        const logMin = Math.log(minVal);
+        const logMax = Math.log(maxVal);
+        const logRange = logMax - logMin;
+        
+        // Create stops at logarithmically spaced intervals
+        for (let i = 0; i < numStops; i++) {
+            const logValue = logMin + (i / (numStops - 1)) * logRange;
+            const value = Math.round(Math.exp(logValue));
+            stops.push([value, colorScale[i]]);
+        }
+    } else {
+        // For more evenly distributed data or non-population statistics, use quantiles
+        const quantileInterval = 1 / (numStops - 1);
+        for (let i = 0; i < numStops; i++) {
+            const quantile = i * quantileInterval;
+            const index = Math.floor(quantile * (values.length - 1));
+            const value = values[index];
+            stops.push([value, colorScale[i]]);
+        }
+    }
+    
+    return stops;
+}
+
+/**
  * Builds a dynamic 'fill-color' expression for Mapbox GL
  * such that the smallest value is lightest and the largest is darkest.
+ * For population-type statistics, uses a more balanced distribution.
  *
- * @param {Object} geoJsonData     - The full GeoJSON data.
- * @param {String} statisticKey    - The property key to color by (e.g., "aantalInwoners").
+ * @param {Object} geoJsonData - The full GeoJSON data.
+ * @param {String} statisticKey - The property key to color by (e.g., "aantalInwoners").
  * @returns {Array} Mapbox GL Style expression for 'fill-color'.
  */
 export function getDynamicFillColorExpression(geoJsonData, statisticKey) {
     const INVALID_VALUES = [-99995, -99997];
-    const [minValue, maxValue] = getMinMaxFromGeoJson(geoJsonData, statisticKey);
-
-    // Create an inverse exponential color scale from lightest to darkest
-    const colorScale = chroma
-        .scale(['#add8e6', '#4682b4', '#00008b'])
-        .domain([minValue, maxValue])
-        .mode('lab');
-
-    return [
+    
+    // Check if this is a population-type statistic
+    const isPopulationStat = statisticKey === 'aantalInwoners' || 
+                            statisticKey === 'mannen' || 
+                            statisticKey === 'vrouwen';
+    
+    // For population statistics, use logarithmic scale to better handle outliers like Amsterdam
+    const colorStops = isPopulationStat 
+        ? createBalancedColorStops(geoJsonData, statisticKey, 7, true)  // logarithmic for population
+        : createBalancedColorStops(geoJsonData, statisticKey, 7, false); // linear for other stats
+    
+    // Build the expression
+    const expression = [
         'interpolate',
         ['linear'],
         [
             'case',
             ['any',
-                ['==', ['get', statisticKey], -99995],
-                ['==', ['get', statisticKey], -99997],
+                ['==', ['get', statisticKey], INVALID_VALUES[0]],
+                ['==', ['get', statisticKey], INVALID_VALUES[1]],
                 ['==', ['get', statisticKey], null],
                 ['==', ['typeof', ['get', statisticKey]], 'string']
             ],
             0,  // Convert invalid values to 0
             ['get', statisticKey]  // Use actual value for valid numbers
-        ],
-        minValue, colorScale(minValue).hex(),
-        maxValue, colorScale(maxValue).hex()
+        ]
     ];
+    
+    // Add all stops to the expression
+    colorStops.forEach(stop => {
+        expression.push(stop[0], stop[1]);
+    });
+    
+    return expression;
 }
 
 /**

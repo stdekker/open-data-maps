@@ -48,29 +48,23 @@
                 </div>
                 <div class="layer-toggles">
                 <div id="postcode-progress" class="progress-message"></div>
-                    <div class="toggle-container">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="municipalityToggle">
-                            <span class="toggle-text">Buurten</span>
-                        </label>
+                    <div class="layer-toggle-item" id="municipalityToggle" data-layer="municipality" role="button" tabindex="0" aria-pressed="false">
+                        <span class="toggle-dot"></span>
+                        <span class="toggle-text">Buurten</span>
                     </div>
-                    <div class="toggle-container">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="postcode6Toggle">
-                            <span class="toggle-text">Postcodes</span>
-                        </label>
+                    <div class="layer-toggle-item" id="postcode6Toggle" data-layer="postcode" role="button" tabindex="0" aria-pressed="false">
+                        <span class="toggle-dot"></span>
+                        <span class="toggle-text">Postcodes</span>
                     </div>
                     <div id="postcode-stats-selector" class="stats-selector" style="display: none;">
-                        <label for="postcodeStatsSelect">Statistiek</label>
+                        <label for="postcodeStatsSelect" class="visually-hidden">Statistiek</label>
                         <select id="postcodeStatsSelect">
                             <!-- Options will be populated dynamically -->
                         </select>
                     </div>
-                    <div class="toggle-container">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="electionToggle">
-                            <span class="toggle-text">Verkiezingen</span>
-                        </label>
+                    <div class="layer-toggle-item" id="electionToggle" data-layer="election" role="button" tabindex="0" aria-pressed="false">
+                        <span class="toggle-dot"></span>
+                        <span class="toggle-text">Verkiezingen</span>
                     </div>
                 </div>
                 <div class="stats-view"></div>
