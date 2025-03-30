@@ -70,6 +70,14 @@ export function createBalancedColorStops(geoJsonData, statisticKey, numStops = 7
     if (!values.length) {
         return [[0, '#add8e6']];
     }
+
+    // If all values are the same, return a simple two-stop gradient
+    if (values[0] === values[values.length - 1]) {
+        return [
+            [values[0], '#add8e6'],
+            [values[0] + 1, '#00008b']
+        ];
+    }
     
     // Create color scale
     const colorScale = chroma
@@ -80,7 +88,7 @@ export function createBalancedColorStops(geoJsonData, statisticKey, numStops = 7
     // Create stops array
     const stops = [];
     
-    if (useLog && values[0] > 0) { 
+    if (useLog && values[0] >= 0) { 
         // Logarithmic scale for population-type values
         // Find min and max values for log scale
         const minVal = Math.max(1, values[0]); // Ensure we don't take log of 0 or negative
@@ -92,18 +100,31 @@ export function createBalancedColorStops(geoJsonData, statisticKey, numStops = 7
         const logRange = logMax - logMin;
         
         // Create stops at logarithmically spaced intervals
+        let lastValue = -Infinity;
         for (let i = 0; i < numStops; i++) {
             const logValue = logMin + (i / (numStops - 1)) * logRange;
-            const value = Math.round(Math.exp(logValue));
+            let value = Math.round(Math.exp(logValue));
+            
+            // Ensure the value is greater than the last one
+            value = Math.max(value, lastValue + 1);
+            lastValue = value;
+            
             stops.push([value, colorScale[i]]);
         }
     } else {
         // For more evenly distributed data or non-population statistics, use quantiles
         const quantileInterval = 1 / (numStops - 1);
+        let lastValue = -Infinity;
+        
         for (let i = 0; i < numStops; i++) {
             const quantile = i * quantileInterval;
             const index = Math.floor(quantile * (values.length - 1));
-            const value = values[index];
+            let value = values[index];
+            
+            // Ensure the value is greater than the last one
+            value = Math.max(value, lastValue + 1);
+            lastValue = value;
+            
             stops.push([value, colorScale[i]]);
         }
     }
