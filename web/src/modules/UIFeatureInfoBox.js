@@ -177,7 +177,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         updateFeatureNameBox();
     }
 
-    map.on('mousemove', 'municipalities', (e) => {
+    map.on('mousemove', 'municipalities-fill', (e) => {
         if (e.features.length > 0) {
             if (hoveredFeatureId !== null) {
                 map.setFeatureState(
@@ -197,7 +197,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     });
 
     // Mouse leave event
-    map.on('mouseleave', 'municipalities', () => {
+    map.on('mouseleave', 'municipalities-fill', () => {
         if (hoveredFeatureId !== null) {
             map.setFeatureState(
                 { source: 'municipalities', id: hoveredFeatureId },

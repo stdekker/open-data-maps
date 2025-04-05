@@ -231,8 +231,8 @@ async function viewMunicipality(municipality) {
 async function viewNational() {
     try {
         // Remove any existing event listeners to prevent duplicates
-        if (map.getLayer('municipalities')) {
-            map.off('dblclick', 'municipalities');
+        if (map.getLayer('municipalities-fill')) {
+            map.off('dblclick', 'municipalities-fill');
         }
 
         // Convert coordinates and add layers using the already loaded data
@@ -253,7 +253,7 @@ async function viewNational() {
         setupFeatureNameBox(map, municipalityPopulations);
 
         // Add double-click handler for municipality selection
-        map.on('dblclick', 'municipalities', (e) => {
+        map.on('dblclick', 'municipalities-fill', (e) => {
             // Only handle double-click if we're in national view
             if (currentView !== 'national') {
                 return;
@@ -507,9 +507,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Specific handler for municipality toggle
     function handleMunicipalityToggle(isActive) {
-        if (map.getLayer('municipalities')) {
-            map.setLayoutProperty('municipalities', 'visibility', isActive ? 'visible' : 'none');
-            map.setLayoutProperty('municipality-borders', 'visibility', isActive ? 'visible' : 'none');
+        if (map.getLayer('municipalities-fill')) {
+            map.setLayoutProperty('municipalities-fill', 'visibility', isActive ? 'visible' : 'none');
+            map.setLayoutProperty('municipalities-borders', 'visibility', isActive ? 'visible' : 'none');
         }
         localStorage.setItem('showMunicipalityLayer', isActive);
     }
@@ -630,9 +630,9 @@ async function activateView(viewType, municipalityCode = null) {
                 await loadElectionData(code, localStorage.getItem('lastElection') || 'TK2023');
             }
             // Force the municipality layers to be visible
-            if (map.getLayer('municipalities')) {
-                map.setLayoutProperty('municipalities', 'visibility', 'visible');
-                map.setLayoutProperty('municipality-borders', 'visibility', 'visible');
+            if (map.getLayer('municipalities-fill')) {
+                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
             }
             // Override any stored state so that buurten toggle is always on
             localStorage.setItem('showMunicipalityLayer','true');

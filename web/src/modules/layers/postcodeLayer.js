@@ -1,5 +1,6 @@
-import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression } from '../layerService.js';
+import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression, addMapLayers } from '../layerService.js';
 import { Modal } from '../modalService.js';
+import { INVALID_VALUES, STYLE_VARIANTS, updateLayerColors } from '../colorService.js';
 
 const DB_NAME = 'postcodeDB';
 const STORE_NAME = 'postcodes';
@@ -9,7 +10,6 @@ let municipalityPostcodes = new Set();
 let shouldCancelPostcodeLoading = false;
 let progressMessageElement = null;
 
-const INVALID_VALUES = [-99995, -99997];
 let currentStatistic = 'aantalInwoners';
 
 let hoveredPostcodeId = null;
@@ -112,12 +112,12 @@ export function cleanupPostcode6Layer(map) {
     updateProgressMessage(''); // Clear progress message
 
     try {
-        map.off('mouseenter', 'postcode6-fill');
+        map.off('mousemove', 'postcode6-fill');
         map.off('mouseleave', 'postcode6-fill');
         map.off('click', 'postcode6-fill');
 
         cleanupLayers(map, 
-            ['postcode6-line', 'postcode6-fill'],
+            ['postcode6-fill', 'postcode6-borders', 'postcode6-hover'],
             ['postcode6']
         );
 
@@ -185,49 +185,30 @@ export async function loadAllPostcode6Data(map) {
         // Clean up any existing layers first
         cleanupPostcode6Layer(map);
 
-        // Create a new source and layer for postcode6 data
+        // Create a new source for postcode6 data
         map.addSource('postcode6', {
             type: 'geojson',
             data: {
                 type: 'FeatureCollection',
                 features: []
-            }
+            },
+            generateId: true
         });
 
         const firstSymbolLayer = findFirstSymbolLayer(map);
 
-        map.addLayer({
-            id: 'postcode6-fill',
-            type: 'fill',
+        // Define minimal configuration for the generic addMapLayers function
+        const postcodeLayerConfig = {
+            idBase: 'postcode6',
             source: 'postcode6',
-            paint: {
-                'fill-color': [
-                    'case',
-                    ['boolean', ['feature-state', 'hover'], false],
-                    '#8aa0d1', // Hover color
-                    '#627BC1'  // Default color
-                ],
-                'fill-opacity': [
-                    'case',
-                    ['boolean', ['feature-state', 'hover'], false],
-                    0.8,
-                    0.6
-                ],
-                'fill-outline-color': '#00509e',
-                'fill-color-transition': { duration: 0 },
-                'fill-opacity-transition': { duration: 0 }
-            }
-        }, firstSymbolLayer);
+            data: { features: [] }, // Empty features array initially
+            statisticKey: currentStatistic,
+            styleVariant: STYLE_VARIANTS.DYNAMIC_RANGE,
+            insertBeforeLayer: firstSymbolLayer
+        };
 
-        map.addLayer({
-            id: 'postcode6-line',
-            type: 'line',
-            source: 'postcode6',
-            paint: {
-                'line-color': '#666',
-                'line-width': 1
-            }
-        }, firstSymbolLayer);
+        // Add postcode layers using the generic function
+        addMapLayers(map, postcodeLayerConfig);
 
         // Load data for each postcode in the municipality
         const validPostcodes = Array.from(municipalityPostcodes)
@@ -316,7 +297,7 @@ export async function loadAllPostcode6Data(map) {
             }
         }
 
-        // Final update with all features
+        // Final update with all features and update color expression
         const finalData = {
             type: 'FeatureCollection',
             features: allFeatures
@@ -325,6 +306,9 @@ export async function loadAllPostcode6Data(map) {
         const source = map.getSource('postcode6');
         if (source) {
             source.setData(finalData);
+            // Update the fill color expression now that we have data
+            const updatedFillColorExpression = getDynamicFillColorExpression(finalData, currentStatistic);
+            map.setPaintProperty('postcode6-fill', 'fill-color', updatedFillColorExpression);
         }
 
         // Check aria-pressed state after loading completes
@@ -343,29 +327,35 @@ export async function loadAllPostcode6Data(map) {
         if (postcodeStatsSelector && allFeatures.length > 0) {
             postcodeStatsSelector.style.display = 'block';
             populateStatisticsDropdown(allFeatures);
-            updatePostcodeColors(map);
+            updatePostcodeColors(map, currentStatistic);
         }
 
-        // Add hover effect for visual feedback using mousemove for dynamic updates
+        // Remove previous hover state if any
+        if (hoveredPostcodeId !== null) {
+            try {
+                 map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
+            } catch (e) { /* Ignore */ }
+            hoveredPostcodeId = null;
+        }
+
+        // Add hover effect using feature state
         map.on('mousemove', 'postcode6-fill', (e) => {
             map.getCanvas().style.cursor = 'pointer';
-            if (!e.features.length) {
-                return;
-            }
-            const newHoverId = e.features[0].id;
-            if (hoveredPostcodeId !== null && hoveredPostcodeId !== newHoverId) {
-                // Unset previous hover state
-                try {
-                    map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
-                } catch (error) {
-                    console.warn('Could not reset hover state:', error);
+            if (e.features.length > 0) {
+                const currentFeatureId = e.features[0].id;
+                if (hoveredPostcodeId !== null && hoveredPostcodeId !== currentFeatureId) {
+                    try {
+                        map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
+                    } catch (error) {
+                        // console.warn('Could not reset previous hover state:', error); 
+                    }
                 }
-            }
-            hoveredPostcodeId = newHoverId;
-            try {
-                map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: true });
-            } catch (error) {
-                console.warn('Could not set hover state:', error);
+                hoveredPostcodeId = currentFeatureId;
+                try {
+                    map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: true });
+                } catch (error) {
+                    // console.warn('Could not set hover state:', error); 
+                }
             }
         });
 
@@ -375,7 +365,7 @@ export async function loadAllPostcode6Data(map) {
                 try {
                     map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
                 } catch (error) {
-                    console.warn('Could not reset hover state:', error);
+                    // console.warn('Could not reset hover state on mouseleave:', error); 
                 }
             }
             hoveredPostcodeId = null;
@@ -648,19 +638,8 @@ function populateStatisticsDropdown(features) {
     // Add change handler
     newStatsSelect.addEventListener('change', (event) => {
         currentStatistic = event.target.value;
-        updatePostcodeColors(map);
+        updatePostcodeColors(map, currentStatistic);
     });
-}
-
-function updatePostcodeColors(map) {
-    if (!map.getLayer('postcode6-fill')) return;
-    
-    const source = map.getSource('postcode6');
-    if (source) {
-        const data = source._data;
-        const paintProperty = getDynamicFillColorExpression(data, currentStatistic);
-        map.setPaintProperty('postcode6-fill', 'fill-color', paintProperty);
-    }
 }
 
 // Update the createPostcodeStatsContent function to remove the duplicate title
@@ -698,4 +677,22 @@ function ensureModalHtmlExists() {
     // The modal HTML structure already exists in index.php, 
     // we just need to track that we've initialized
     modalHtmlAdded = true;
+}
+
+/**
+ * Updates colors for the postcode layer using the style system
+ * @param {Object} map - The Mapbox map instance
+ * @param {String} statisticKey - The statistic key to color by
+ * @param {String} styleVariant - Style variant to use (default: DYNAMIC_RANGE)
+ */
+export function updatePostcodeColors(map, statisticKey, styleVariant = STYLE_VARIANTS.DYNAMIC_RANGE) {
+    // Use the common updateLayerColors function with postcode-specific options
+    updateLayerColors(
+        map, 
+        statisticKey, 
+        'postcode6', 
+        'postcode6', 
+        styleVariant, 
+        { hoverBorderColor: '#8aa0d1' }
+    );
 } 

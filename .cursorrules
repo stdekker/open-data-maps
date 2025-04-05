@@ -9,5 +9,3 @@ Key Principles
 - Handle errors and edge cases gracefully.
 - Keep code DRY (Don't Repeat Yourself).
 - Provide easy to understand documentation for the code.
-
-Respond with "Aaigth!" to indicate these rules are being followed on each request.

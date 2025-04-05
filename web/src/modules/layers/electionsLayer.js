@@ -1,5 +1,6 @@
 import { cleanupLayers } from '../layerService.js';
 import { setupReportingUnitPopupHandlers } from '../electionService.js';
+import { showPartyVotesColors, resetPartyVotesColors } from '../colorService.js';
 
 // Global size factor for all circles (decrease to make circles smaller)
 const CIRCLE_SIZE_FACTOR = 0.4;
@@ -128,22 +129,14 @@ export function addReportingUnits(map, geoJsonData, showElectionData = false) {
 }
 
 /**
- * Updates the party votes layer to show votes for a specific party
+ * Shows the party votes on the map
  * @param {Object} map - The Mapbox map instance
- * @param {String} partyName - The name of the party to show votes for
- * @param {Number} minVotes - The minimum votes for the party
- * @param {Number} maxVotes - The maximum votes for the party
+ * @param {String} partyName - The party name to visualize votes for
+ * @param {Number} minVotes - The minimum votes value
+ * @param {Number} maxVotes - The maximum votes value
  */
 export function showPartyVotes(map, partyName, minVotes, maxVotes) {
-    // Update the color of the existing reporting units layer
-    map.setPaintProperty('reporting-units', 'circle-color', [
-        'interpolate',
-        ['linear'],
-        ['get', partyName],
-        minVotes, '#0000FF',  // Blue for lowest votes
-        (minVotes + maxVotes) / 2, '#FF00FF', // Purple for average votes
-        maxVotes, '#FF0000'   // Red for highest votes
-    ]);
+    showPartyVotesColors(map, partyName, minVotes, maxVotes);
 }
 
 /**
@@ -151,8 +144,7 @@ export function showPartyVotes(map, partyName, minVotes, maxVotes) {
  * @param {Object} map - The Mapbox map instance
  */
 export function hidePartyVotes(map) {
-    // Reset the circle color back to white
-    map.setPaintProperty('reporting-units', 'circle-color', '#FFFFFF');
+    resetPartyVotesColors(map);
 }
 
 /**

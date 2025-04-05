@@ -1,3 +1,5 @@
+import { createStyleConfig, STYLE_VARIANTS } from './colorService.js';
+
 // Re-export functions from layer modules
 export { updateMapColors, addMunicipalityLayers } from './layers/municipalityLayer.js';
 export { addReportingUnits, cleanupReportingUnits } from './layers/electionsLayer.js';
@@ -10,174 +12,14 @@ export {
     initializePostcode6Toggle
 } from './layers/postcodeLayer.js';
 
-/**
- * Returns the min and max values for a given statistic from the features array.
- *
- * @param {Object} geoJsonData - The GeoJSON data.
- * @param {String} statisticKey - The property key to look for in features.
- * @returns {Array} [minValue, maxValue]
- */
-export function getMinMaxFromGeoJson(geoJsonData, statisticKey) {
-    const INVALID_VALUES = [-99995, -99997];
-    const values = geoJsonData.features
-        .map(f => {
-            const val = f.properties[statisticKey];
-            // Convert invalid values to 0
-            return (typeof val === 'number' && !isNaN(val) && val !== null)
-                ? (INVALID_VALUES.includes(val) ? 0 : val)
-                : 0;
-        });
-
-    if (!values.length) {
-        return [0, 0];
-    }
-
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
-
-    // If they are the same, create an artificial range to avoid domain errors
-    if (minValue === maxValue) {
-        return [minValue, minValue + 1];
-    }
-
-    return [minValue, maxValue];
-}
-
-/**
- * Creates stops for a more balanced color scale distribution for population data.
- * Uses logarithmic or quantile-based distribution to prevent skewing by outliers.
- *
- * @param {Object} geoJsonData - The GeoJSON data
- * @param {String} statisticKey - The property key (e.g., "aantalInwoners")
- * @param {Number} numStops - Number of color stops to generate
- * @param {Boolean} useLog - Whether to use logarithmic scale (true) or linear (false)
- * @returns {Array} Array of [value, color] stops for Mapbox GL
- */
-export function createBalancedColorStops(geoJsonData, statisticKey, numStops = 7, useLog = true) {
-    const INVALID_VALUES = [-99995, -99997];
-    
-    // Get valid values and sort them
-    const values = geoJsonData.features
-        .map(f => {
-            const val = f.properties[statisticKey];
-            return (typeof val === 'number' && !isNaN(val) && val !== null && !INVALID_VALUES.includes(val)) 
-                ? val 
-                : null;
-        })
-        .filter(val => val !== null)
-        .sort((a, b) => a - b);
-    
-    if (!values.length) {
-        return [[0, '#add8e6']];
-    }
-
-    // If all values are the same, return a simple two-stop gradient
-    if (values[0] === values[values.length - 1]) {
-        return [
-            [values[0], '#add8e6'],
-            [values[0] + 1, '#00008b']
-        ];
-    }
-    
-    // Create color scale
-    const colorScale = chroma
-        .scale(['#dcecf2','#add8e6', '#4682b4', '#00008b'])
-        .mode('lab')
-        .colors(numStops);
-    
-    // Create stops array
-    const stops = [];
-    
-    if (useLog && values[0] >= 0) { 
-        // Logarithmic scale for population-type values
-        // Find min and max values for log scale
-        const minVal = Math.max(1, values[0]); // Ensure we don't take log of 0 or negative
-        const maxVal = values[values.length - 1];
-        
-        // Calculate log range
-        const logMin = Math.log(minVal);
-        const logMax = Math.log(maxVal);
-        const logRange = logMax - logMin;
-        
-        // Create stops at logarithmically spaced intervals
-        let lastValue = -Infinity;
-        for (let i = 0; i < numStops; i++) {
-            const logValue = logMin + (i / (numStops - 1)) * logRange;
-            let value = Math.round(Math.exp(logValue));
-            
-            // Ensure the value is greater than the last one
-            value = Math.max(value, lastValue + 1);
-            lastValue = value;
-            
-            stops.push([value, colorScale[i]]);
-        }
-    } else {
-        // For more evenly distributed data or non-population statistics, use quantiles
-        const quantileInterval = 1 / (numStops - 1);
-        let lastValue = -Infinity;
-        
-        for (let i = 0; i < numStops; i++) {
-            const quantile = i * quantileInterval;
-            const index = Math.floor(quantile * (values.length - 1));
-            let value = values[index];
-            
-            // Ensure the value is greater than the last one
-            value = Math.max(value, lastValue + 1);
-            lastValue = value;
-            
-            stops.push([value, colorScale[i]]);
-        }
-    }
-    
-    return stops;
-}
-
-/**
- * Builds a dynamic 'fill-color' expression for Mapbox GL
- * such that the smallest value is lightest and the largest is darkest.
- * For population-type statistics, uses a more balanced distribution.
- *
- * @param {Object} geoJsonData - The full GeoJSON data.
- * @param {String} statisticKey - The property key to color by (e.g., "aantalInwoners").
- * @returns {Array} Mapbox GL Style expression for 'fill-color'.
- */
-export function getDynamicFillColorExpression(geoJsonData, statisticKey) {
-    const INVALID_VALUES = [-99995, -99997];
-    
-    // Check if this is a population-type statistic
-    const isPopulationStat = statisticKey === 'aantalInwoners' || 
-                            statisticKey === 'mannen' || 
-                            statisticKey === 'vrouwen';
-    
-    // For population statistics, use logarithmic scale to better handle outliers like Amsterdam
-    const colorStops = isPopulationStat 
-        ? createBalancedColorStops(geoJsonData, statisticKey, 7, true)  // logarithmic for population
-        : createBalancedColorStops(geoJsonData, statisticKey, 7, false); // linear for other stats
-    
-    // Build the expression
-    const expression = [
-        'interpolate',
-        ['linear'],
-        [
-            'case',
-            ['any',
-                ['==', ['get', statisticKey], INVALID_VALUES[0]],
-                ['==', ['get', statisticKey], INVALID_VALUES[1]],
-                ['==', ['get', statisticKey], null],
-                ['==', ['typeof', ['get', statisticKey]], 'string']
-            ],
-            0,  // Convert invalid values to 0
-            ['get', statisticKey]  // Use actual value for valid numbers
-        ]
-    ];
-    
-    // Add all stops to the expression
-    colorStops.forEach(stop => {
-        expression.push(stop[0], stop[1]);
-    });
-    
-    return expression;
-}
+// Export color-related functions from colorService.js
+export {
+    getMinMaxFromGeoJson,
+    createBalancedColorStops,
+    getDynamicFillColorExpression,
+    BORDER_COLOR,
+    updateLayerColors
+} from './colorService.js';
 
 /**
  * Helper function to find the first symbol layer in the map style
@@ -201,17 +43,139 @@ export function findFirstSymbolLayer(map) {
  * @param {Array} sourceIds - Array of source IDs to remove
  */
 export function cleanupLayers(map, layerIds, sourceIds) {
-    // Remove layers first
+    // Track which sources are in use by which layers
+    const sourcesInUse = new Map();
+    
+    // Get all layers in the map
+    const allLayers = map.getStyle().layers || [];
+    
+    // Build a mapping of sources and which layers use them
+    allLayers.forEach(layer => {
+        if (layer.source) {
+            if (!sourcesInUse.has(layer.source)) {
+                sourcesInUse.set(layer.source, []);
+            }
+            sourcesInUse.get(layer.source).push(layer.id);
+        }
+    });
+    
+    // Remove requested layers first
     layerIds.forEach(layerId => {
         if (map.getLayer(layerId)) {
             map.removeLayer(layerId);
         }
     });
-
-    // Then remove sources
+    
+    // Then try to remove sources, but only if no layers are using them anymore
     sourceIds.forEach(sourceId => {
         if (map.getSource(sourceId)) {
-            map.removeSource(sourceId);
+            // Get remaining layers using this source
+            const layersUsingSource = allLayers
+                .filter(layer => layer.source === sourceId && !layerIds.includes(layer.id))
+                .map(layer => layer.id);
+                
+            // Only remove the source if no layers are using it
+            if (layersUsingSource.length === 0) {
+                try {
+                    map.removeSource(sourceId);
+                } catch (error) {
+                    console.warn(`Could not remove source ${sourceId}:`, error.message);
+                }
+            } else {
+                console.warn(`Source ${sourceId} still in use by layers: ${layersUsingSource.join(', ')}`);
+            }
         }
     });
+}
+
+/**
+ * Adds a standard set of layers (fill, border, hover outline) to the map.
+ * Based on the pattern used in municipalityLayer.js.
+ *
+ * @param {Object} map - The Mapbox map instance.
+ * @param {Object} config - Configuration object for the layers.
+ * @param {string} config.idBase - Base name for layer IDs (e.g., 'municipalities').
+ * @param {string} config.source - Source ID for the layers.
+ * @param {Object} config.data - The GeoJSON data to style.
+ * @param {string} config.statisticKey - The statistic key to color by.
+ * @param {string} config.styleVariant - The style variant to use.
+ * @param {Object} config.styleOptions - Optional style overrides.
+ * @param {string|null} config.insertBeforeLayer - ID of the layer to insert before.
+ */
+export function addMapLayers(map, config) {
+    const { 
+        idBase, 
+        source, 
+        data, 
+        statisticKey,
+        styleVariant = STYLE_VARIANTS.DYNAMIC_RANGE,
+        styleOptions = {},
+        insertBeforeLayer = null 
+    } = config;
+
+    // Get style configuration from colorService
+    const styleConfig = createStyleConfig(
+        data, 
+        statisticKey, 
+        styleVariant, 
+        styleOptions
+    );
+    
+    // Apply style configuration to the layers
+    const { 
+        fillColor, 
+        baseFillOpacity, 
+        hoverFillOpacity, 
+        borderColor, 
+        borderWidth, 
+        borderOpacity, 
+        hoverBorderColor, 
+        hoverBorderWidth 
+    } = styleConfig;
+
+    // Add base fill layer
+    map.addLayer({
+        id: `${idBase}-fill`, // Consistent naming convention
+        type: 'fill',
+        source: source,
+        paint: {
+            'fill-color': fillColor,
+            'fill-opacity': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                hoverFillOpacity,
+                baseFillOpacity
+            ]
+        }
+    }, insertBeforeLayer);
+
+    // Add border layer
+    map.addLayer({
+        id: `${idBase}-borders`,
+        type: 'line',
+        source: source,
+        paint: {
+            'line-color': borderColor,
+            'line-width': borderWidth,
+            'line-opacity': borderOpacity
+        }
+    }, insertBeforeLayer);
+
+    // Add hover outline layer on top
+    map.addLayer({
+        id: `${idBase}-hover`,
+        type: 'line',
+        source: source,
+        paint: {
+            'line-color': hoverBorderColor,
+            'line-width': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                hoverBorderWidth,   // Use configured hover width
+                0    // Hide line when not hovered
+            ],
+            'line-opacity': 1 // Keep hover outline fully opaque
+        },
+        filter: ['!=', ['get', 'id'], ''] // Ensure filter is valid
+    }, insertBeforeLayer);
 } 

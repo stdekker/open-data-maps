@@ -1,4 +1,5 @@
-import { getDynamicFillColorExpression, findFirstSymbolLayer, cleanupLayers } from '../layerService.js';
+import { findFirstSymbolLayer, cleanupLayers, addMapLayers } from '../layerService.js';
+import { updateLayerColors, STYLE_VARIANTS } from '../colorService.js';
 import { populateStatisticsSelect } from '../UIFeatureInfoBox.js';
 import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle } from './postcodeLayer.js';
 
@@ -8,12 +9,7 @@ import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle }
  * @param {String} statisticKey - The statistic key to color by
  */
 export function updateMapColors(map, statisticKey) {
-    if (map.getSource('municipalities')) {
-        const source = map.getSource('municipalities');
-        const data = source._data; // Get current GeoJSON data
-        const fillColorExpression = getDynamicFillColorExpression(data, statisticKey);
-        map.setPaintProperty('municipalities', 'fill-color', fillColorExpression);
-    }
+    updateLayerColors(map, statisticKey, 'municipalities', 'municipalities', STYLE_VARIANTS.DYNAMIC_RANGE);
 }
 
 /**
@@ -22,13 +18,17 @@ export function updateMapColors(map, statisticKey) {
  * @param {Object} geoJsonData - GeoJSON data containing municipality features
  * @param {Object} municipalityPopulations - Population data for municipalities
  * @param {String} statisticKey - The statistic to use for coloring (e.g. 'aantalInwoners')
+ * @param {String} styleVariant - The style variant to use (default: 'dynamic_range')
  */
-export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners') {
+export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners', styleVariant = STYLE_VARIANTS.DYNAMIC_RANGE) {
     // Clean up existing layers and sources first
-    cleanupLayers(map, ['municipality-borders', 'municipalities'], ['municipalities']);
+    cleanupLayers(map, 
+        ['municipalities-fill', 'municipalities-borders', 'municipalities-hover'], 
+        ['municipalities']
+    );
 
     // Clean up postcode layer if it exists
-    if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-line') || map.getSource('postcode6')) {
+    if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6')) {
         console.log('Cleaning up existing postcode6 layers in addMunicipalityLayers...');
         cleanupPostcode6Layer(map);
     }
@@ -40,54 +40,34 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
     // Find the first symbol layer in the map style
     const firstSymbolId = findFirstSymbolLayer(map);
 
-    // Add the GeoJSON source immediately
-    map.addSource('municipalities', {
-        type: 'geojson',
-        data: geoJsonData,
-        generateId: true
-    });
+    // Check if the source already exists before adding it
+    if (!map.getSource('municipalities')) {
+        // Add the GeoJSON source
+        map.addSource('municipalities', {
+            type: 'geojson',
+            data: geoJsonData,
+            generateId: true
+        });
+    } else {
+        // Update the existing source data
+        map.getSource('municipalities').setData(geoJsonData);
+    }
 
     // Populate statistics select with available data
     const statsSelect = document.getElementById('statsSelect');
     populateStatisticsSelect(statsSelect, geoJsonData);
 
-    // Get a dynamic fill-color expression for this statisticKey
-    const fillColorExpression = getDynamicFillColorExpression(geoJsonData, statisticKey);
+    // Create simplified layer configuration that only specifies 
+    // the fundamental layer properties and the style variant
+    const layerConfig = {
+        idBase: 'municipalities',
+        source: 'municipalities',
+        data: geoJsonData,
+        statisticKey: statisticKey,
+        styleVariant: styleVariant,
+        insertBeforeLayer: firstSymbolId
+    };
 
-    // Add GeoJSON geometry layers before symbol layers
-    map.addLayer({
-        'id': 'municipalities',
-        'type': 'fill',
-        'source': 'municipalities',
-        'paint': {
-            'fill-color': fillColorExpression,
-            'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.8,
-                0.6
-            ],
-            'fill-outline-color': '#00509e'
-        }
-    }, firstSymbolId);
-
-    map.addLayer({
-        'id': 'municipality-borders',
-        'type': 'line',
-        'source': 'municipalities',
-        'paint': {
-            'line-color': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                '#99c2ff',
-                '#00509e'
-            ],
-            'line-width': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                2,
-                1
-            ]
-        }
-    }, firstSymbolId);
+    // Add layers using the generic function
+    addMapLayers(map, layerConfig);
 } 
