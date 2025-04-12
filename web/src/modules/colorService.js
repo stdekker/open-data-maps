@@ -17,7 +17,7 @@ const COLOR_RANGE = [
     '#74a9cf', // Light blue
     '#3690c0', // Medium blue
     '#0570b0', // Deep blue
-    '#034e7b'  // Darkest (navy blue)
+    '#161f40'  // Darkest (navy blue)
 ];
 
 // Style variants available in the application

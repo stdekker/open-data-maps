@@ -16,10 +16,10 @@
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>Open Data Maps</title>
         <?php foreach ($PROD_SCRIPTS['head'] as $script) echo $script . "\n"; ?>
-        <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+        <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
+        <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
-        <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
         <link rel="stylesheet" href="style/main.css?v=<?php echo $version; ?>">
     </head>
     <body>

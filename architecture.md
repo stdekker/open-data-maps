@@ -15,17 +15,17 @@ The application is organized into the following main directories:
 ### Web Directory Structure
 
 - `web/src/`: Frontend JavaScript source code
-- `web/content/`: Content files
-- `web/css/` and `web/style/`: Stylesheets
-- `web/api/`: Backend API endpoints
-- `web/data/`: Data files
+- `web/content/`: Content files, like the text in the help popup
+- `web/style/`: Stylesheets
+- `web/api/`: API enpoints to handle static files on the LAMP server
+- `web/data/`: Data files 
 
 ## Application Functionality
 
-The application is an interactive mapping platform for Dutch municipalities with the following key features:
+The application provides geodata visualisation or Dutch municipalities with the following key features:
 
 ### Map Visualization
-- Interactive map interface using Mapbox GL
+- Interactive map interface using Mapbox GL 3.11
 - Municipality boundary visualization
 - Dynamic color-coding based on selected statistics
 - Support for both national and municipal level views
@@ -62,10 +62,10 @@ The application is an interactive mapping platform for Dutch municipalities with
 
 ### Configuration
 
-- `.ddev/config.yaml`: DDEV configuration for local development environment
 - `web/config.prod.php`: Production configuration
 - `web/config.default.php`: Default configuration template
 - `web/src/config.js`: Frontend configuration constants
+- `.ddev/config.yaml`: DDEV configuration for local development environment
 
 ### Data Processing
 
@@ -79,27 +79,75 @@ The `tools/` directory contains PHP scripts for fetching and processing data:
 #### Entry Points
 
 - `web/index.php`: Main application entry point
-- `web/src/main.js`: Main JavaScript entry point
+- `web/src/main.js`: Main JavaScript entry point that orchestrates application initialization, handles view switching, and manages application state
 
 #### Core Modules
 
 The `web/src/modules/` directory contains the core functionality:
 
-1. **Layer Drawing Service** (`layerDrawingService.js`)
-   - Handles map layer management and visualization
-   - Manages feature highlighting and interaction
+1. **Layer Service** (`layerService.js`)
+   - Central service for managing map layers and sources
+   - Provides utilities for adding, removing, and styling map layers
+   - Handles layer cleanup and source management
+   - Supports dynamic color styling and layer ordering
 
 2. **Data Service** (`dataService.js`)
-   - Manages data fetching and processing
+   - Provides standardized data fetching with error handling
+   - Manages JSON data retrieval and parsing
+   - Implements retry logic and error reporting
 
-3. **Election Service** (`electionService.js`)
-   - Handles election-specific data and functionality
-
-4. **Modal Service** (`modalService.js`)
+3. **Modal Service** (`modalService.js`)
    - Manages modal dialogs and popups
+   - Controls modal visibility, content, and interaction
+   - Provides consistent UI for dialogs across the application
+
+4. **Color Service** (`colorService.js`)
+   - Manages color schemes and styling for map features
+   - Implements dynamic color scaling and balancing
+   - Handles color stops and gradients for data visualization
 
 5. **Mobile Handler** (`mobileHandler.js`)
-   - Handles mobile-specific functionality
+   - Manages responsive UI behavior for mobile devices
+   - Handles sidebar collapse/expand functionality
+   - Controls touch interactions and mobile-specific layouts
 
 6. **URL Parameters** (`urlParams.js`)
-   - Manages URL parameter handling and routing 
+   - Manages application state through URL parameters
+   - Handles parameter reading and updating
+   - Supports direct linking and state persistence
+
+7. **UI Feature Info Box** (`UIFeatureInfoBox.js`)
+   - Manages feature information display
+   - Handles statistics selection and population
+   - Controls feature data presentation
+
+8. **Election Service** (`electionService.js`)
+   - Manages election reporting unit visualization
+   - Handles election data popups and interactions
+   - Controls election data display and toggling
+
+#### Layer Modules
+
+The `web/src/modules/layers/` directory contains specialized layer implementations:
+
+1. **Municipality Layer** (`municipalityLayer.js`)
+   - Handles municipality boundary visualization
+   - Manages municipality-specific interactions and styling
+   - Controls municipality data display and filtering
+
+2. **Postcode Layer** (`postcodeLayer.js`)
+   - Manages postcode area visualization
+   - Handles postcode-specific data loading and caching
+   - Controls postcode boundary styling and interactions
+
+3. **Elections Layer** (`electionsLayer.js`)
+   - Manages election reporting unit visualization
+   - Handles election-specific data display and interactions
+   - Controls election data coloring and filtering
+
+#### Configuration
+
+- **Configuration** (`config.js`)
+   - Stores application-wide constants and settings
+   - Manages map configuration and defaults
+   - Controls API keys and environment settings
