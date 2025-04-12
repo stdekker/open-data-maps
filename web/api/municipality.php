@@ -1,8 +1,17 @@
 <?php
 require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/security.php';
+
+setSecurityHeaders();
+header('Content-Type: application/json');
+
+// Validate and sanitize input
+$code = $_GET['code'] ?? null;
+$validatedCode = validateInputRegex($code, '/^[a-zA-Z0-9]+$/', 'Invalid gemeente code');
+$sanitizedCode = sanitizePathComponent($validatedCode);
 
 // Function to fetch and save gemeente data
-function fetchGemeente($code, $force = false, $progress = null) {
+function fetchGemeente($code) {
     // Updated path to store CBS data in a dedicated directory
     $dataDir = __DIR__ . '/../data/cbs/2023';
     $gemeenteFile = $dataDir . '/' . $code . '.json';
@@ -12,17 +21,12 @@ function fetchGemeente($code, $force = false, $progress = null) {
         mkdir($dataDir, 0777, true);
     }
 
-    $progressStr = $progress ? " ({$progress['current']} of {$progress['total']})" : '';
-
-    // Skip if file exists and not forcing update
-    if (!$force && file_exists($gemeenteFile)) {
-        if (php_sapi_name() === 'cli') {
-            echo "Skipping {$code}{$progressStr} - file exists (use --force to override)\n";
-        }
+    // Skip if file exists
+    if (file_exists($gemeenteFile)) {
         return;
     }
 
-    $baseUrl = 'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0';
+    $baseUrl = 'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0';
     $params = [
         'service' => 'WFS',
         'request' => 'GetFeature',
@@ -37,7 +41,6 @@ function fetchGemeente($code, $force = false, $progress = null) {
     $response = file_get_contents($url);
     
     if ($response === false) {
-        echo "Failed to fetch data for gemeente {$code}{$progressStr}\n";
         return;
     }
 
@@ -53,41 +56,6 @@ function fetchGemeente($code, $force = false, $progress = null) {
 
     // Save the processed data
     file_put_contents($gemeenteFile, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    
-    if (php_sapi_name() === 'cli') {    
-        echo "Generated data file for gemeente {$code}{$progressStr}\n";
-    }
-}
-
-// Handle command line usage
-if (php_sapi_name() === 'cli') {
-    $options = getopt('', ['all', 'force', 'code:']);
-    $force = isset($options['force']);
-
-    if (isset($options['all'])) {
-        // Updated path to overview.json while maintaining backward compatibility
-        $overviewFile = __DIR__ . '/../data/overview.json';
-        if (!file_exists($overviewFile)) {
-            die("overview.json not found. Please run data-processor.php first.\n");
-        }
-        
-        $overview = json_decode(file_get_contents($overviewFile), true);
-        $total = count($overview['gemeenten']);
-        $current = 0;
-
-        foreach ($overview['gemeenten'] as $gemeente) {
-            $current++;
-            fetchGemeente($gemeente['code'], $force, ['current' => $current, 'total' => $total]);
-        }
-    } elseif (isset($options['code'])) {
-        fetchGemeente($options['code'], $force);
-    } else {
-        echo "Usage: php api/municipality.php [--all] [--force] [--code=GM0363]\n";
-        echo "  --all   : Fetch data for all gemeenten\n";
-        echo "  --force : Force update existing files\n";
-        echo "  --code  : Fetch specific gemeente by code\n";
-    }
-    exit;
 }
 
 // Handle web requests
@@ -99,8 +67,8 @@ if (!isset($_GET['code'])) {
 }
 
 // For web requests, always serve from cache if available
-$gemeenteFile = __DIR__ . '/../data/cbs/2023/' . $_GET['code'] . '.json';
-fetchGemeente($_GET['code']);
+$gemeenteFile = __DIR__ . '/../data/cbs/2023/' . $sanitizedCode . '.json';
+fetchGemeente($sanitizedCode);
 
 if (file_exists($gemeenteFile)) {
     header('Content-Type: application/json');
@@ -109,4 +77,4 @@ if (file_exists($gemeenteFile)) {
     header('Content-Type: application/json');
     http_response_code(404);
     echo json_encode(['error' => 'Gemeente data not found']);
-} 
+}

@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/security.php';
+
+setSecurityHeaders();
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -7,26 +10,14 @@ require_once __DIR__ . '/../config.prod.php';
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 
-// Get postcode4 from query parameter
+// Validate and sanitize input
 $postcode4 = $_GET['postcode4'] ?? null;
+$validatedPostcode4 = validateInputRegex($postcode4, '/^[0-9]{4}$/', 'Invalid postcode4 value. Must be 4 digits');
+$sanitizedPostcode4 = sanitizePathComponent($validatedPostcode4);
 
-if (!$postcode4) {
-    http_response_code(400);
-    echo json_encode(['error' => 'No postcode4 provided']);
-    exit;
-}
-
-if (!preg_match('/^[0-9]{4}$/', trim($postcode4))) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Invalid postcode4 value. Must be 4 digits']);
-    exit;
-}
-
-$postcode4 = trim($postcode4);
-
-// Define cache directory and cache file path
+// Define cache directory and cache file path using sanitized input
 $cacheDir  = __DIR__ . '/../data/pc6/';
-$cacheFile = $cacheDir . $postcode4 . '.json';
+$cacheFile = $cacheDir . $sanitizedPostcode4 . '.json';
 
 // Check if a valid cache exists
 if (file_exists($cacheFile) && (filemtime($cacheFile) + $CACHE_PC6_DURATION) > time()) {
@@ -44,7 +35,7 @@ $client = new Client([
 
 $filter = sprintf(
     '<Filter xmlns="http://www.opengis.net/fes/2.0"><PropertyIsLike wildCard="*" singleChar="." escapeChar="\\"><PropertyName>postcode6</PropertyName><Literal>%s*</Literal></PropertyIsLike></Filter>',
-    $postcode4
+    $validatedPostcode4
 );
 
 $wfsUrl = 'https://service.pdok.nl/cbs/postcode6/2023/wfs/v1_0';
@@ -102,7 +93,7 @@ try {
     if (empty($data['features'])) {
         http_response_code(404);
         echo json_encode([
-            'error' => 'No data found for postcode(s): ' . $postcode4,
+            'error' => 'No data found for postcode: ' . $validatedPostcode4,
             'type' => 'FeatureCollection',
             'features' => []
         ]);
@@ -111,17 +102,16 @@ try {
 
     // Write cached file on successful API response
     if (!is_dir($cacheDir)) {
-        mkdir($cacheDir, 0777, true);
+        mkdir($cacheDir, 0775, true);
     }
     file_put_contents($cacheFile, $body);
 
     echo $body;
 
 } catch (RequestException $e) {
-    $error = ['error' => $e->getMessage()];
+    $error = ['error' => 'PDOK service request failed'];
     
     if ($e->hasResponse()) {
-        $error['response'] = (string)$e->getResponse()->getBody();
         $error['status'] = $e->getResponse()->getStatusCode();
     }
     
@@ -131,8 +121,7 @@ try {
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
-        'error' => $e->getMessage(),
-        'trace' => $e->getTraceAsString()
+        'error' => 'An internal server error occurred'
     ]);
     exit;
 } 

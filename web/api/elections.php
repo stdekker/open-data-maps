@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/security.php';
+
+setSecurityHeaders();
 header('Content-Type: application/json');
 
 // Common constants
@@ -17,9 +20,11 @@ const REASON_CODES = [
 ];
 
 function validateElectionPath($election) {
-    $electionDir = __DIR__ . "/../data/elections/{$election}";
+    // Use sanitized path component
+    $sanitizedElection = sanitizePathComponent($election);
+    $electionDir = __DIR__ . "/../data/elections/{$sanitizedElection}";
     if (!is_dir($electionDir)) {
-        throw new Exception("Election {$election} not found");
+        throw new Exception("Election {$sanitizedElection} not found");
     }
     return $electionDir;
 }
@@ -89,9 +94,13 @@ function getAvailableElections() {
 }
 
 function getMunicipalityVotes($election, $municipalityCode) {
-    $filePath = __DIR__ . "/../data/elections/{$election}/{$municipalityCode}.json";
+    // Sanitize inputs
+    $sanitizedElection = sanitizePathComponent($election);
+    $sanitizedMunicipalityCode = sanitizePathComponent($municipalityCode);
+    
+    $filePath = __DIR__ . "/../data/elections/{$sanitizedElection}/{$sanitizedMunicipalityCode}.json";
     if (!file_exists($filePath)) {
-        throw new Exception("No data found for municipality {$municipalityCode} in election {$election}");
+        throw new Exception("No data found for municipality {$sanitizedMunicipalityCode} in election {$sanitizedElection}");
     }
     
     $data = json_decode(file_get_contents($filePath), true);
@@ -107,19 +116,21 @@ function getMunicipalityVotes($election, $municipalityCode) {
     $stats['totalValidVotes'] = $partyResults['total'];
     
     return [
-        'election' => $election,
-        'municipality' => $municipalityCode,
+        'election' => $sanitizedElection,
+        'municipality' => $sanitizedMunicipalityCode,
         'statistics' => $stats,
         'results' => $partyResults['summary']
     ];
 }
 
 function getTotalVotes($election) {
-    $electionDir = validateElectionPath($election);
+    // Sanitize election input
+    $sanitizedElection = sanitizePathComponent($election);
+    $electionDir = validateElectionPath($sanitizedElection);
     
     $files = glob($electionDir . "/GM*.json");
     if (empty($files)) {
-        throw new Exception("No municipality data found for election {$election}");
+        throw new Exception("No municipality data found for election {$sanitizedElection}");
     }
     
     $totalStats = [
@@ -171,7 +182,7 @@ function getTotalVotes($election) {
     }
     
     return [
-        'election' => $election,
+        'election' => $sanitizedElection,
         'municipality' => 'totals',
         'statistics' => $totalStats,
         'results' => array_values($partyTotals)
@@ -179,18 +190,22 @@ function getTotalVotes($election) {
 }
 
 function getAllMunicipalityVotes($election) {
-    $electionDir = validateElectionPath($election);
+    // Sanitize election input
+    $sanitizedElection = sanitizePathComponent($election);
+    $electionDir = validateElectionPath($sanitizedElection);
     
     $files = glob($electionDir . "/GM*.json");
     if (empty($files)) {
-        throw new Exception("No municipality data found for election {$election}");
+        throw new Exception("No municipality data found for election {$sanitizedElection}");
     }
     
     $municipalities = [];
     foreach ($files as $file) {
         $municipalityCode = basename($file, '.json');
         try {
-            $result = getMunicipalityVotes($election, $municipalityCode);
+            // Call getMunicipalityVotes with already sanitized election
+            // $municipalityCode comes from filesystem (basename), considered safe here
+            $result = getMunicipalityVotes($sanitizedElection, $municipalityCode);
             
             // Simplify party results by removing IDs
             $simplifiedResults = array_map(function($item) {
@@ -206,6 +221,8 @@ function getAllMunicipalityVotes($election) {
                 'results' => $simplifiedResults
             ];
         } catch (Exception $e) {
+            // Optional: Log exception
+            // error_log("Error processing $municipalityCode in $sanitizedElection: " . $e->getMessage());
             continue;
         }
     }
@@ -218,23 +235,42 @@ function getAllMunicipalityVotes($election) {
 }
 
 try {
-    if (isset($_GET['election'])) {
-        if (isset($_GET['municipality'])) {
-            if ($_GET['municipality'] === 'all') {
-                $data = getAllMunicipalityVotes($_GET['election']);
-            } else if ($_GET['municipality'] === 'totals') {
-                $data = getTotalVotes($_GET['election']);
+    $election = $_GET['election'] ?? null;
+    $municipality = $_GET['municipality'] ?? null;
+
+    if ($election) {
+        // Validate election format (e.g., alphanumeric, maybe year format like TK2023)
+        $validatedElection = validateInputRegex($election, '/^[a-zA-Z0-9]+$/', 'Invalid election format');
+
+        if ($municipality) {
+            // Allow specific strings or a GM code format
+            if (in_array($municipality, ['all', 'totals'], true)) {
+                $validatedMunicipality = $municipality;
             } else {
-                $data = getMunicipalityVotes($_GET['election'], $_GET['municipality']);
+                $validatedMunicipality = validateInputRegex($municipality, '/^GM[0-9]{4}$/', 'Invalid municipality format');
+            }
+
+            if ($validatedMunicipality === 'all') {
+                $data = getAllMunicipalityVotes($validatedElection);
+            } else if ($validatedMunicipality === 'totals') {
+                $data = getTotalVotes($validatedElection);
+            } else {
+                $data = getMunicipalityVotes($validatedElection, $validatedMunicipality);
             }
         } else {
-            $data = getAvailableElections();
+            // No municipality specified, just get available elections
+            $data = getAvailableElections(); // Does not require election param
         }
     } else {
+        // No election specified, get available elections
         $data = getAvailableElections();
     }
     echo json_encode($data);
 } catch (Exception $e) {
+    // Standardized error response
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    // Avoid leaking detailed exception messages in production
+    echo json_encode(['error' => 'An internal error occurred']); 
+    // Optional: Log the actual error
+    // error_log("API Error: " . $e->getMessage());
 } 
