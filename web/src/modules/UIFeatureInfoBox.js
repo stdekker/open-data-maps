@@ -288,7 +288,13 @@ export function updateFeatureNameBox(feature = null) {
         if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
             content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
         }
-        if (feature.properties?.buurtnaam) {
+        
+        // Check for wijknaam (district) when wijken view is active
+        if (feature.properties?.wijknaam) {
+            content += `<div class="hovered-name">${getNameWithStat(feature.properties.wijknaam, feature.properties)}</div>`;
+        }
+        // Check for buurtnaam (neighborhood) when buurten view is active
+        else if (feature.properties?.buurtnaam) {
             content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
         }
     }

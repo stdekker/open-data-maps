@@ -14,6 +14,7 @@ let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
 let municipalityData = null;
+let currentRegionType = 'buurten'; // Default region type
 
 // Helper function to update toggle UI state
 function updateToggleUI(toggleElement, isActive, isDisabled = false) {
@@ -224,7 +225,7 @@ async function viewMunicipality(municipality) {
     updateFeatureNameBox();
 
     // Wait for data loading to complete
-    await loadGeoJson(municipality.code);
+    await loadGeoJson(municipality.code, currentRegionType);
 }
 
 // Modify the viewNational function
@@ -288,13 +289,14 @@ async function viewNational() {
  * Loads and displays GeoJSON data for a municipality or region.
  * Sets up map layers and fits the view to the loaded data.
  * @param {String} code - The municipality/region code to load
+ * @param {String} regionType - The region type ('buurten' or 'wijken')
  */
-function loadGeoJson(code) {
+function loadGeoJson(code, regionType = 'buurten') {
     return new Promise((resolve, reject) => {
         if (!map.loaded()) {
             map.on('load', () => {
                 Promise.all([
-                    fetchData(`api/municipality.php?code=${code}`),
+                    fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
                     loadElectionData(code)
                 ])
                 .then(([geoJsonData]) => {
@@ -344,7 +346,7 @@ function loadGeoJson(code) {
 
         // If map IS already loaded, do the same fetch/add, and resolve
         Promise.all([
-            fetchData(`api/municipality.php?code=${code}`),
+            fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
             loadElectionData(code)
         ])
         .then(([geoJsonData]) => {
@@ -400,6 +402,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize postcode6 toggle with map instance
     initializePostcode6Toggle(map);
+
+    // Initialize region type toggles
+    initializeRegionTypeToggles();
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
@@ -538,6 +543,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialShowMunicipality = localStorage.getItem('showMunicipalityLayer') !== 'false';
     const municipalityToggleElement = document.getElementById('municipalityToggle');
     updateToggleUI(municipalityToggleElement, initialShowMunicipality);
+    
+    // Show the active region type 
+    updateRegionTypeUI();
+    
     // Initial map layer visibility is set within activateView
 
     const initialShowElection = localStorage.getItem('showElectionData') === 'true';
@@ -549,6 +558,148 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize mobile handler
     initializeMobileHandler();
 });
+
+/**
+ * Initializes the region type toggle functionality
+ */
+function initializeRegionTypeToggles() {
+    // Load from localStorage or use default
+    currentRegionType = localStorage.getItem('regionType') || 'buurten';
+    
+    // Get region type elements
+    const buurtToggle = document.getElementById('buurtToggle');
+    const wijkToggle = document.getElementById('wijkToggle');
+    
+    if (!buurtToggle || !wijkToggle) {
+        console.error('Region type toggle elements not found');
+        return;
+    }
+    
+    // Update UI to match current setting
+    updateRegionTypeUI();
+    
+    // Add click handlers to region type toggles
+    buurtToggle.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the parent toggle from being triggered
+        
+        // Update region type even if it's already 'buurten'
+        currentRegionType = 'buurten';
+        localStorage.setItem('regionType', currentRegionType);
+        updateRegionTypeUI();
+        
+        // Check if municipality toggle is off and turn it on
+        const municipalityToggle = document.getElementById('municipalityToggle');
+        const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
+        
+        if (!isMunicipalityActive && municipalityToggle) {
+            // Update the toggle UI
+            updateToggleUI(municipalityToggle, true);
+            
+            // Update localStorage
+            localStorage.setItem('showMunicipalityLayer', 'true');
+            
+            // Ensure the layer is visible if it exists
+            if (map.getLayer('municipalities-fill')) {
+                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+            }
+            
+            // Force reload of the municipality data to make sure it's displayed
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality && window.currentView === 'municipal') {
+                const municipality = JSON.parse(lastMunicipality);
+                loadGeoJson(municipality.code, currentRegionType);
+            }
+        } else {
+            reloadCurrentMunicipality();
+        }
+    });
+    
+    wijkToggle.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the parent toggle from being triggered
+        
+        // Update region type even if it's already 'wijken'
+        currentRegionType = 'wijken';
+        localStorage.setItem('regionType', currentRegionType);
+        updateRegionTypeUI();
+        
+        // Check if municipality toggle is off and turn it on
+        const municipalityToggle = document.getElementById('municipalityToggle');
+        const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
+        
+        if (!isMunicipalityActive && municipalityToggle) {
+            // Update the toggle UI
+            updateToggleUI(municipalityToggle, true);
+            
+            // Update localStorage
+            localStorage.setItem('showMunicipalityLayer', 'true');
+            
+            // Ensure the layer is visible if it exists
+            if (map.getLayer('municipalities-fill')) {
+                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+            }
+            
+            // Force reload of the municipality data to make sure it's displayed
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality && window.currentView === 'municipal') {
+                const municipality = JSON.parse(lastMunicipality);
+                loadGeoJson(municipality.code, currentRegionType);
+            }
+        } else {
+            reloadCurrentMunicipality();
+        }
+    });
+}
+
+/**
+ * Updates the UI to show the active region type
+ */
+function updateRegionTypeUI() {
+    const buurtToggle = document.getElementById('buurtToggle');
+    const wijkToggle = document.getElementById('wijkToggle');
+    
+    if (buurtToggle && wijkToggle) {
+        if (currentRegionType === 'buurten') {
+            buurtToggle.classList.add('active');
+            wijkToggle.classList.remove('active');
+        } else {
+            buurtToggle.classList.remove('active');
+            wijkToggle.classList.add('active');
+        }
+    }
+}
+
+/**
+ * Reloads the current municipality with the selected region type
+ */
+function reloadCurrentMunicipality() {
+    const lastMunicipality = localStorage.getItem('lastMunicipality');
+    if (lastMunicipality && window.currentView === 'municipal') {
+        const municipality = JSON.parse(lastMunicipality);
+        
+        // Check if postcode toggle is active before reloading
+        const postcode6Toggle = document.getElementById('postcode6Toggle');
+        const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
+        
+        // Clean up postcode layer if it exists to avoid stale data
+        if (isPostcodeActive && (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getSource('postcode6'))) {
+            cleanupPostcode6Layer(map);
+        }
+        
+        // Load new municipality data with current region type
+        loadGeoJson(municipality.code, currentRegionType)
+            .then(() => {
+                // If postcode toggle was active, reload postcode data with the new region type
+                if (isPostcodeActive) {
+                    // Small delay to ensure postcodes are properly set after loading municipality data
+                    setTimeout(() => {
+                        loadAllPostcode6Data(map);
+                    }, 500);
+                }
+            });
+    }
+}
 
 /**
  * Activates either the national or municipal view.
@@ -610,7 +761,7 @@ async function activateView(viewType, municipalityCode = null) {
 
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
-    
+            
             return; // Exit early after national view is set up
         } catch (error) {
             console.error('Error switching to national view:', error);
@@ -625,7 +776,7 @@ async function activateView(viewType, municipalityCode = null) {
 
         const code = municipalityCode || (JSON.parse(localStorage.getItem('lastMunicipality'))?.code);
         if (code) {
-            await loadGeoJson(code);
+            await loadGeoJson(code, currentRegionType);
             if (showElectionData) {
                 await loadElectionData(code, localStorage.getItem('lastElection') || 'TK2023');
             }

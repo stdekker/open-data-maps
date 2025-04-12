@@ -465,6 +465,35 @@ body, html {
     user-select: none;
 }
 
+/* Region type toggle styles */
+.region-type {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.region-type.active {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: 700;
+}
+
+/* Make active region type gray when municipality toggle is off */
+.layer-toggle-item[aria-pressed="false"] .region-type.active {
+    background-color: #aaa;
+    color: white;
+}
+
+.region-type:not(.active):hover {
+    background-color: #e0e0e0;
+}
+
+.region-separator {
+    margin: 0 3px;
+    color: #666;
+}
+
 .election-header {
     display: flex;
     align-items: center;
