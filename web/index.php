@@ -15,6 +15,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>Open Data Maps</title>
+        <link rel="icon" type="image/svg+xml" href="favicon.svg">
         <?php foreach ($PROD_SCRIPTS['head'] as $script) echo $script . "\n"; ?>
         <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
         <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
