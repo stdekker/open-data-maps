@@ -494,9 +494,6 @@ export function updateToggleStates(viewType) {
     if (isNational && postcode6Toggle) {
         // Ensure it's visually off in national view
         postcode6Toggle.setAttribute('aria-pressed', 'false');
-    } else if (!isNational && postcode6Toggle) {
-        // Ensure it starts off in municipal view
-        postcode6Toggle.setAttribute('aria-pressed', 'false');
     }
 
     // Note: The main.js activateView function handles enabling/disabling

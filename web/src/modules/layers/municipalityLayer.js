@@ -27,12 +27,20 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
         ['municipalities']
     );
 
-    // Clean up postcode layer if it exists
-    if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6')) {
+    // Check if the postcode toggle is active
+    const postcode6Toggle = document.getElementById('postcode6Toggle');
+    const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
+
+    // Only clean up postcode layer if the toggle is inactive
+    if (!isPostcodeActive && (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6'))) {
         console.log('Cleaning up existing postcode6 layers in addMunicipalityLayers...');
         cleanupPostcode6Layer(map);
     }
-    resetPostcode6Toggle();
+    
+    // Only reset the toggle if we're cleaning up the layer (toggle is inactive)
+    if (!isPostcodeActive) {
+        resetPostcode6Toggle();
+    }
 
     // Set municipality postcodes for postcode layer functionality
     setMunicipalityPostcodes(geoJsonData);

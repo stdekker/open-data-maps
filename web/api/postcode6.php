@@ -15,6 +15,12 @@ $postcode4 = $_GET['postcode4'] ?? null;
 $validatedPostcode4 = validateInputRegex($postcode4, '/^[0-9]{4}$/', 'Invalid postcode4 value. Must be 4 digits');
 $sanitizedPostcode4 = sanitizePathComponent($validatedPostcode4);
 
+// Check if CACHE_PC6_DURATION is defined
+if (!isset($CACHE_PC6_DURATION)) {
+    // Default to 1 day if not defined in config
+    $CACHE_PC6_DURATION = 86400;
+}
+
 // Define cache directory and cache file path using sanitized input
 $cacheDir  = __DIR__ . '/../data/pc6/';
 $cacheFile = $cacheDir . $sanitizedPostcode4 . '.json';
