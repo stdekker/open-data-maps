@@ -1,5 +1,5 @@
 <?php
-    $version = "1.0.7"; // Version number for cache busting
+    $version = "1.1"; // Version number for cache busting
     
     // Load production scripts if config exists
     $PROD_SCRIPTS = [
