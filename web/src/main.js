@@ -8,6 +8,7 @@ import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, update
     from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { loadElectionData } from './modules/electionService.js';
+import { setupSearch, findMunicipalityByName, createSearchData } from './modules/searchService.js';
 
 let showElectionData = false;
 let settingsModal;
@@ -71,15 +72,12 @@ async function initializeMapAndData() {
         const params = getUrlParams();
 
         // Create simplified data structure for search
-        const data = {
-            gemeenten: municipalityData.features.map(feature => ({
-                naam: feature.properties.gemeentenaam,
-                code: feature.properties.gemeentecode
-            })).sort((a, b) => a.naam.localeCompare(b.naam))
-        };
+        const searchData = createSearchData(municipalityData);
 
-        // Initialize search functionality
-        setupSearch(data);
+        // Initialize search functionality with callback
+        setupSearch(searchData, async (municipality) => {
+            await viewMunicipality(municipality);
+        });
         
         // Initialize election toggle based on URL parameter or localStorage
         const electionToggle = document.getElementById('electionToggle');
@@ -101,10 +99,11 @@ async function initializeMapAndData() {
         let municipality = null;
 
         // If URL parameter is not an existing or valid municipality, clear it
-        if (params.gemeente && !(municipality = data.gemeenten.find(m => 
-            m.naam.toLowerCase() === params.gemeente.toLowerCase()
-        ))) {
-            updateUrlParams(null);
+        if (params.gemeente) {
+            municipality = findMunicipalityByName(municipalityData, params.gemeente);
+            if (!municipality) {
+                updateUrlParams(null);
+            }
         }
 
         // If no municipality is chosen through the url or localStorage, 
@@ -114,9 +113,7 @@ async function initializeMapAndData() {
             if (lastMunicipality) {
                 municipality = JSON.parse(lastMunicipality);
             } else {
-                municipality = data.gemeenten.find(m => 
-                    m.naam === DEFAULT_MUNICIPALITY
-                );
+                municipality = findMunicipalityByName(municipalityData, DEFAULT_MUNICIPALITY);
             }
         }
 
@@ -133,67 +130,6 @@ async function initializeMapAndData() {
 
 // Map and data need to be loaded before proceeding
 await map.on('load', initializeMapAndData);
-
-/**
- * Sets up the search functionality for municipalities.
- * Handles autocomplete suggestions and municipality selection.
- * @param {Object} data - Municipality data for searching
- */
-function setupSearch(data) {
-    const searchInput = document.getElementById('searchInput');
-    const autocompleteList = document.getElementById('autocompleteList');
-    
-    searchInput.addEventListener('input', function() {
-        const value = this.value.trim().toLowerCase();
-        autocompleteList.innerHTML = '';
-        const searchError = document.querySelector('.search-error');
-        if (value.length < 2) {
-            searchError.classList.remove('visible');
-            return;
-        }
-
-        const matches = data.gemeenten.filter(municipality => 
-            municipality.naam.toLowerCase().includes(value)
-        );
-
-        if (matches.length === 0) {
-            searchError.classList.add('visible');
-        } else {
-            searchError.classList.remove('visible');
-        }
-
-        matches.forEach(municipality => {
-            const div = document.createElement('div');
-            div.textContent = municipality.naam;
-            div.addEventListener('click', () => {
-                viewMunicipality(municipality, searchInput, autocompleteList);
-            });
-            autocompleteList.appendChild(div);
-        });
-    });
-
-    searchInput.addEventListener('keyup', function(e) {
-        if (e.key === 'Enter') {
-            const value = this.value.trim().toLowerCase();
-            const matches = data.gemeenten.filter(municipality => 
-                municipality.naam.toLowerCase().includes(value)
-            );
-            
-            // First try to find an exact match
-            const exactMatch = data.gemeenten.find(municipality =>
-                municipality.naam.toLowerCase() === value
-            );
-
-            if (exactMatch) {
-                // If there's an exact match, use that
-                viewMunicipality(exactMatch, searchInput, document.getElementById('autocompleteList'));
-            } else if (matches.length === 1) {
-                // If there's only one partial match, use that
-                viewMunicipality(matches[0], searchInput, document.getElementById('autocompleteList'));
-            }
-        }
-    });
-}
 
 /**
  * Handles the display of the municipality View
@@ -852,7 +788,7 @@ async function loadMunicipalityByName(municipalityName) {
     }
 }
 
-// Add event listener for popstate to handle back/forward navigation
+// Update the event listener for popstate to use findMunicipalityByName
 window.addEventListener('popstate', async (event) => {
     const params = getUrlParams();
 
@@ -871,28 +807,15 @@ window.addEventListener('popstate', async (event) => {
     }
 
     if (params.gemeente) {
-        // Simulate search input
-        const searchInput = document.getElementById('searchInput');
-        searchInput.value = params.gemeente; // Set the value
-
-        // Create and dispatch an 'input' event.  This is the key.
-        const inputEvent = new Event('input', {
-            bubbles: true,  //  Important:  Allow the event to bubble up
-            cancelable: true, //  Important: Allow the event to be cancelled
-        });
-        searchInput.dispatchEvent(inputEvent);
-
-        // Trigger Enter keyup event to simulate search
-        const keyupEvent = new KeyboardEvent('keyup', {
-            key: 'Enter',
-            bubbles: true,
-            cancelable: true,
-        });
-        searchInput.dispatchEvent(keyupEvent);
-
+        const municipality = findMunicipalityByName(municipalityData, params.gemeente);
+        if (municipality) {
+            await viewMunicipality(municipality);
+        } else {
+            await viewNational();
+        }
     } else {
         // If no gemeente parameter, view national
-        viewNational(true);
+        await viewNational(true);
     }
 
     // Load election data if needed
