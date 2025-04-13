@@ -156,10 +156,10 @@ function getStatisticText(properties, statType) {
     let formattedValue;
 
     if (typeof statValue === 'number') {
-        if (statType.startsWith('percentage') || statType === 'gemiddeldeHuishoudsgrootte') {
-            // Format percentages and average household size with 1 decimal place
+        if (statType.startsWith('percentage')) {
+            // Format percentages with 1 decimal place
             formattedValue = statValue.toLocaleString('nl-NL', { 
-                minimumFractionDigits: 1,
+                minimumFractionDigits: 0,
                 maximumFractionDigits: 1 
             });
         } else {
@@ -217,16 +217,12 @@ export function updateFeatureNameBox(feature = null) {
     if (feature) {
         const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
         if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-            content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
+            content = `<div class="active-name">${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
         }
         
-        // Check for wijknaam (district) when wijken view is active
-        if (feature.properties?.wijknaam) {
-            content += `<div class="hovered-name">${getNameWithStat(feature.properties.wijknaam, feature.properties)}</div>`;
-        }
-        // Check for buurtnaam (neighborhood) when buurten view is active
-        else if (feature.properties?.buurtnaam) {
-            content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
+        const areaName = feature.properties?.wijknaam || feature.properties?.buurtnaam;
+        if (areaName) {
+            content += `<div class="hovered-name">${getNameWithStat(areaName, feature.properties)}</div>`;
         }
     }
 

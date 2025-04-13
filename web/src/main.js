@@ -1,14 +1,30 @@
 // Import configuration
+// Core configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
-import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
-import { Modal } from './modules/modalService.js';
+
+// Core services
 import { fetchData } from './modules/dataService.js';
+import { Modal } from './modules/modalService.js';
+import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
+
+// UI components and handlers
 import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle, loadAllPostcode6Data } 
-    from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
-import { loadElectionData } from './modules/electionService.js';
 import { setupSearch, findMunicipalityByName, createSearchData } from './modules/searchService.js';
+
+// Map layers and data
+import { 
+    addMunicipalityLayers, 
+    addReportingUnits, 
+    cleanupReportingUnits, 
+    updateToggleStates, 
+    cleanupPostcode6Layer, 
+    initializePostcode6Toggle, 
+    loadAllPostcode6Data 
+} from './modules/layerService.js';
+
+// Additional features
+import { loadElectionData } from './modules/electionService.js';
 
 let showElectionData = false;
 let settingsModal;
@@ -54,12 +70,11 @@ async function initializeMapAndData() {
         // Load municipality data first
         const response = await fetch('data/gemeenten.json');
         municipalityData = await response.json();
+        console.log(municipalityData);
 
         // Store both population and household data
         municipalityData.features.forEach(feature => {
             municipalityPopulations[feature.properties.gemeentecode] = {
-                aantalInwoners: feature.properties.aantalInwoners,
-                aantalHuishoudens: feature.properties.aantalHuishoudens,
                 ...feature.properties // Include all properties for comprehensive data access
             };
         });
@@ -106,7 +121,7 @@ async function initializeMapAndData() {
             }
         }
 
-        // If no municipality is chosen through the url or localStorage, 
+        // If no municipality is chosen through the url or found in localStorage, 
         // show the default municipality
         if (!municipality) {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
@@ -155,7 +170,7 @@ async function viewMunicipality(municipality) {
 
     setTimeout(() => {
         searchInput.value = '';
-    }, 585);
+    }, 444);
 
     // Update the feature name box with the selected municipality
     updateFeatureNameBox();
@@ -762,31 +777,6 @@ window.addEventListener('reportingUnitsLoaded', (event) => {
     addReportingUnits(map, geoJsonData, showElectionData);
 });
 
-/**
- * Loads a municipality by name, handling both initial load and URL parameter changes.
- * @param {string} municipalityName - The name of the municipality to load.
- */
-async function loadMunicipalityByName(municipalityName) {
-    if (!municipalityData) {
-        // If municipalityData isn't loaded yet, wait for it.
-        await initializeMapAndData();
-    }
-
-    const municipality = municipalityData.features.find(feature =>
-        feature.properties.gemeentenaam.toLowerCase() === municipalityName.toLowerCase()
-    );
-
-    if (municipality) {
-        await viewMunicipality({
-            naam: municipality.properties.gemeentenaam,
-            code: municipality.properties.gemeentecode
-        });
-    } else {
-        console.warn(`Municipality not found: ${municipalityName}`);
-        // Optionally, you could show an error message to the user here.
-        viewNational(); // Fallback to national view
-    }
-}
 
 // Update the event listener for popstate to use findMunicipalityByName
 window.addEventListener('popstate', async (event) => {
