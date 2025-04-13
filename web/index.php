@@ -25,11 +25,11 @@
     </head>
     <body>
         <div class="container">
+            <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="feature-info-box">
                 <div class="feature-name-content"></div>
                 <button class="settings-button" aria-label="Settings">⋮</button>
             </div>
-            <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="sidebar">
                 <header><h1><sup title="Open Data">OD</sup>Maps</h1></header>
                 <div class="search-container">
