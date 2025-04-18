@@ -70,7 +70,7 @@ async function initializeMapAndData() {
         // Load municipality data first
         const response = await fetch('data/gemeenten.json');
         municipalityData = await response.json();
-        console.log(municipalityData);
+
 
         // Store both population and household data
         municipalityData.features.forEach(feature => {

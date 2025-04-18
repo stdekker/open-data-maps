@@ -1,5 +1,7 @@
 import { updateMapColors } from './layerService.js';
 import { STATISTICS_CONFIG } from '../config.js';
+import { initializeFeatureSelect, updateSelectedFeaturesList } from './UIFeatureSelectList.js';
+import { getFeatureName, formatStatValue } from './UIShared.js';
 
 let hoveredFeatureId = null;
 let featureNameBox = document.querySelector('.feature-info-box');
@@ -38,6 +40,39 @@ export function populateStatisticsSelect(statsSelect, data) {
 }
 
 /**
+ * Gets the formatted statistic text for a given property and statistic type
+ * @param {Object} properties - The properties containing the statistic value
+ * @param {String} statType - The type of statistic to format
+ * @returns {String} Formatted statistic text
+ */
+function getStatisticText(properties, statType) {
+    const statValue = properties[statType];
+    if (statValue === undefined || statValue === null) return '';
+    
+    const label = STATISTICS_CONFIG.labels[statType]?.unit || statType;
+    let formattedValue;
+
+    if (typeof statValue === 'number') {
+        if (statType.startsWith('percentage')) {
+            // Format percentages with 1 decimal place
+            formattedValue = statValue.toLocaleString('nl-NL', { 
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 1 
+            });
+        } else {
+            // Format other numbers as integers
+            formattedValue = statValue.toLocaleString('nl-NL', { 
+                maximumFractionDigits: 0 
+            });
+        }
+    } else {
+        formattedValue = statValue;
+    }
+    
+    return `<span class="statistic-text">(${formattedValue} ${label})</span>`;
+}
+
+/**
  * Sets up the feature name box that displays municipality/neighborhood names and statistics.
  * Handles hover states and updates the display when moving between features.
  * @param {Object} map - The Mapbox map instance
@@ -50,6 +85,9 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     const statsSelect = document.getElementById('statsSelect');
     const electionToggle = document.getElementById('electionToggle');
     const settingsButton = featureNameBox.querySelector('.settings-button');
+
+    // Initialize the feature selection module
+    initializeFeatureSelect(map, featureNameBox);
 
     // Setup settings button click handler
     settingsButton.addEventListener('click', (e) => {
@@ -68,6 +106,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
                 statsSelect.value = modalStatsSelect.value;
                 localStorage.setItem('selectedStat', modalStatsSelect.value);
                 updateFeatureNameBox();
+                updateSelectedFeaturesList(); // Update selected features list when statistic changes
                 
                 // Update the map colors for the new statistic
                 updateMapColors(map, modalStatsSelect.value);
@@ -87,6 +126,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     statsSelect.addEventListener('change', () => {
         localStorage.setItem('selectedStat', statsSelect.value);
         updateFeatureNameBox();
+        updateSelectedFeaturesList(); // Update selected features list when statistic changes
         
         // Update the map colors for the new statistic
         updateMapColors(map, statsSelect.value);
@@ -108,6 +148,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         updateFeatureNameBox();
     }
 
+    // Set up mouseenter/leave handlers for municipalities
     map.on('mousemove', 'municipalities-fill', (e) => {
         if (e.features.length > 0) {
             if (hoveredFeatureId !== null) {
@@ -143,39 +184,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
 }
 
 /**
- * Gets the formatted statistic text for a given property and statistic type
- * @param {Object} properties - The properties containing the statistic value
- * @param {String} statType - The type of statistic to format
- * @returns {String} Formatted statistic text
- */
-function getStatisticText(properties, statType) {
-    const statValue = properties[statType];
-    if (statValue === undefined || statValue === null) return '';
-    
-    const label = STATISTICS_CONFIG.labels[statType]?.unit || statType;
-    let formattedValue;
-
-    if (typeof statValue === 'number') {
-        if (statType.startsWith('percentage')) {
-            // Format percentages with 1 decimal place
-            formattedValue = statValue.toLocaleString('nl-NL', { 
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 1 
-            });
-        } else {
-            // Format other numbers as integers
-            formattedValue = statValue.toLocaleString('nl-NL', { 
-                maximumFractionDigits: 0 
-            });
-        }
-    } else {
-        formattedValue = statValue;
-    }
-    
-    return `<span class="statistic-text">(${formattedValue} ${label})</span>`;
-}
-
-/**
  * Updates the feature name box content with municipality and neighborhood information
  * @param {Object} feature - Optional feature object containing properties to display
  * @export
@@ -203,7 +211,10 @@ export function updateFeatureNameBox(feature = null) {
         if (statValue === undefined || statValue === null) {
             return name;
         }
-        return `${name} ${getStatisticText(properties, selectedStat)}`;
+        // Use shared formatter for value
+        const formatted = formatStatValue(statValue, selectedStat);
+        const label = STATISTICS_CONFIG.labels[selectedStat]?.unit || selectedStat;
+        return `${name} <span class="statistic-text">(${formatted} ${label})</span>`;
     };
 
     let content = '';
@@ -215,14 +226,20 @@ export function updateFeatureNameBox(feature = null) {
     }
 
     if (feature) {
-        const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
-        if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-            content = `<div class="active-name">${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
-        }
-        
-        const areaName = feature.properties?.wijknaam || feature.properties?.buurtnaam;
-        if (areaName) {
-            content += `<div class="hovered-name">${getNameWithStat(areaName, feature.properties)}</div>`;
+        // For municipality features, handle differently
+        if (feature.properties.gemeentenaam && 
+            (!storedMunicipality || feature.properties.gemeentenaam !== storedMunicipality?.naam)) {
+            content = `<div class="active-name">${getNameWithStat(feature.properties.gemeentenaam, feature.properties)}</div>`;
+            
+            // If there's a buurt or wijk name, add it as well
+            const subName = getFeatureName(feature);
+            if (subName && subName !== feature.properties.gemeentenaam) {
+                content += `<div class="hovered-name">${getNameWithStat(subName, feature.properties)}</div>`;
+            }
+        } else {
+            // For postcode, buurt, or wijk features, just show the name
+            const featureName = getFeatureName(feature);
+            content += `<div class="hovered-name">${getNameWithStat(featureName, feature.properties)}</div>`;
         }
     }
 
