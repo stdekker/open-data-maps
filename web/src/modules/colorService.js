@@ -104,31 +104,75 @@ export function getMinMaxFromGeoJson(geoJsonData, statisticKey) {
  * @param {Array} colorRange - Array of color stops to use
  * @returns {Array} Array of [value, color] stops for Mapbox GL
  */
+// --- Helper: Percentile Calculation ---
+function calculatePercentiles(values, percentiles = [0.02, 0.5, 0.98]) {
+    if (!values.length) return [0, 0, 0];
+    const sorted = [...values].sort((a, b) => a - b);
+    return percentiles.map(p => {
+        const idx = Math.min(Math.floor(sorted.length * p), sorted.length - 1);
+        return sorted[idx];
+    });
+}
+
+// --- Helper: Outlier Detection ---
+function hasExtremeOutliers(values, median, threshold = 5) {
+    if (!values.length || median === 0) return false;
+    return values[values.length - 1] / median > threshold;
+}
+
+// --- Helper: Logarithmic Stops Calculation ---
+function calculateLogStops(minVal, maxVal, numStops, compress = false) {
+    const logMin = Math.log(minVal);
+    const logMax = Math.log(maxVal);
+    const logRange = logMax - logMin;
+    const stopsPositions = [];
+    for (let i = 0; i < numStops; i++) {
+        const t = i / (numStops - 1);
+        stopsPositions.push(compress ? Math.sqrt(t) : t);
+    }
+    const stops = [];
+    let lastValue = -Infinity;
+    for (let i = 0; i < numStops; i++) {
+        const logValue = logMin + stopsPositions[i] * logRange;
+        let value = Math.round(Math.exp(logValue));
+        value = Math.max(value, lastValue + 1);
+        lastValue = value;
+        stops.push(value);
+    }
+    return stops;
+}
+
+/**
+ * Creates stops for a more balanced color scale distribution for population data.
+ * Uses Winsorization to handle outliers by clipping values at 5th and 95th percentiles.
+ * For extreme outliers (like a single municipality with 900,000 population), a stronger
+ * compression algorithm is applied to ensure the color scale is visually meaningful.
+ *
+ * @param {Object} geoJsonData - The GeoJSON data
+ * @param {String} statisticKey - The property key (e.g., "aantalInwoners")
+ * @param {Array} colorRange - Array of color stops to use
+ * @returns {Array} Array of [value, color] stops for Mapbox GL
+ */
 export function createBalancedColorStops(geoJsonData, statisticKey, colorRange = COLOR_RANGE) {
     // Validation checks
     if (!geoJsonData || !geoJsonData.features || !Array.isArray(geoJsonData.features) || !statisticKey) {
         console.error('Invalid data or statisticKey in createBalancedColorStops');
         return [[0, colorRange[0]]]; // Default single stop
     }
-    
-    // Use the full color palette length
     const numStops = colorRange.length;
     const values = geoJsonData.features
         .map(f => {
             const val = f.properties[statisticKey];
-            return (typeof val === 'number' && !isNaN(val) && val !== null && !INVALID_VALUES.includes(val) && val !== 0) 
-                ? val 
+            return (typeof val === 'number' && !isNaN(val) && val !== null && !INVALID_VALUES.includes(val) && val !== 0)
+                ? val
                 : null;
         })
         .filter(val => val !== null)
         .sort((a, b) => a - b);
-    
     if (!values || values.length === 0) {
         console.warn('No valid values found for statisticKey:', statisticKey);
-        return [[0, colorRange[0]]]; // Default single stop
+        return [[0, colorRange[0]]];
     }
-
-    // If all values are the same, return a simple gradient
     if (values[0] === values[values.length - 1]) {
         return [
             [values[0], colorRange[0]],
@@ -136,74 +180,18 @@ export function createBalancedColorStops(geoJsonData, statisticKey, colorRange =
             [values[0] + 1, colorRange[colorRange.length - 1]]
         ];
     }
-
     // Calculate percentiles for Winsorization, excluding zeros
     const nonZeroValues = values.filter(v => v > 0);
-    
-    // Handle the case where there are no positive values
     if (!nonZeroValues.length) {
         console.warn('No positive values found for statisticKey:', statisticKey);
-        return [[0, colorRange[0]]]; // Default single stop
+        return [[0, colorRange[0]]];
     }
-    
-    // Ensure that we don't go out of bounds when calculating percentiles
-    const p5Index = Math.min(Math.floor(nonZeroValues.length * 0.02), nonZeroValues.length - 1);
-    const p50Index = Math.min(Math.floor(nonZeroValues.length * 0.5), nonZeroValues.length - 1);
-    const p95Index = Math.min(Math.floor(nonZeroValues.length * 0.98), nonZeroValues.length - 1);
-    
-    const p5 = nonZeroValues[p5Index];
-    const p50 = nonZeroValues[p50Index]; // Median of non-zero values
-    const p95 = nonZeroValues[p95Index];
-
-    // Check for extreme outliers - if the highest value is much larger than median
-    const hasExtremeOutliers = values[values.length - 1] / p50 > 5; // 5x median is considered extreme
-    
-    // Create color scale with the full palette 
-    const colorScale = colorRange;
-    
-    // Create stops array with Winsorized values
-    const stops = [];
-    
-    // Always use logarithmic scale
-    const minVal = Math.max(1, p5); // Use 5th percentile, ensure we don't take log of 0
+    const [p5, p50, p95] = calculatePercentiles(nonZeroValues, [0.02, 0.5, 0.98]);
+    const outliers = hasExtremeOutliers(values, p50, 5);
+    const minVal = Math.max(1, p5);
     const maxVal = p95;
-    
-    // Calculate log range
-    const logMin = Math.log(minVal);
-    const logMax = Math.log(maxVal);
-    const logRange = logMax - logMin;
-
-    // For extreme outliers, we'll add more stops at the lower end of the range
-    const stopsPositions = [];
-    if (hasExtremeOutliers) {
-        // Create a more compressed scale that focuses on the middle range
-        // Square root compression for positioning stops (gives more weight to lower values)
-        for (let i = 0; i < numStops; i++) {
-            const t = i / (numStops - 1);
-            // Apply square root compression to give more weight to lower values
-            const compressedT = Math.sqrt(t);
-            stopsPositions.push(compressedT);
-        }
-    } else {
-        // Regular linear distribution of stops
-        for (let i = 0; i < numStops; i++) {
-            stopsPositions.push(i / (numStops - 1));
-        }
-    }
-    
-    // Create stops at logarithmically spaced intervals
-    let lastValue = -Infinity;
-    for (let i = 0; i < numStops; i++) {
-        const logValue = logMin + stopsPositions[i] * logRange;
-        let value = Math.round(Math.exp(logValue));
-        
-        // Ensure the value is greater than the last one
-        value = Math.max(value, lastValue + 1);
-        lastValue = value;
-        
-        stops.push([value, colorScale[i]]);
-    }
-    
+    const logStops = calculateLogStops(minVal, maxVal, numStops, outliers);
+    const stops = logStops.map((val, i) => [val, colorRange[i]]);
     // Add stops for the extreme values
     if (stops[0][0] > values[0]) {
         stops.unshift([values[0], stops[0][1]]);
@@ -211,9 +199,9 @@ export function createBalancedColorStops(geoJsonData, statisticKey, colorRange =
     if (stops[stops.length - 1][0] < values[values.length - 1]) {
         stops.push([values[values.length - 1], stops[stops.length - 1][1]]);
     }
-    
     return stops;
 }
+
 
 /**
  * Creates a set of styling options for the layer config based on the selected style variant and custom overrides

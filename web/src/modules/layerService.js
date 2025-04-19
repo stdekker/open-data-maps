@@ -43,6 +43,10 @@ export function findFirstSymbolLayer(map) {
  * @param {Array} sourceIds - Array of source IDs to remove
  */
 export function cleanupLayers(map, layerIds, sourceIds) {
+    // Prevent errors if style is not loaded
+    if (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded()) {
+        return;
+    }
     // Track which sources are in use by which layers
     const sourcesInUse = new Map();
     
@@ -134,48 +138,54 @@ export function addMapLayers(map, config) {
     } = styleConfig;
 
     // Add base fill layer
-    map.addLayer({
-        id: `${idBase}-fill`, // Consistent naming convention
-        type: 'fill',
-        source: source,
-        paint: {
-            'fill-color': fillColor,
-            'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                hoverFillOpacity,
-                baseFillOpacity
-            ]
-        }
-    }, insertBeforeLayer);
+    if (!map.getLayer(`${idBase}-fill`)) {
+        map.addLayer({
+            id: `${idBase}-fill`, // Consistent naming convention
+            type: 'fill',
+            source: source,
+            paint: {
+                'fill-color': fillColor,
+                'fill-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    hoverFillOpacity,
+                    baseFillOpacity
+                ]
+            }
+        }, insertBeforeLayer);
+    }
 
     // Add border layer
-    map.addLayer({
-        id: `${idBase}-borders`,
-        type: 'line',
-        source: source,
-        paint: {
-            'line-color': borderColor,
-            'line-width': borderWidth,
-            'line-opacity': borderOpacity
-        }
-    }, insertBeforeLayer);
+    if (!map.getLayer(`${idBase}-borders`)) {
+        map.addLayer({
+            id: `${idBase}-borders`,
+            type: 'line',
+            source: source,
+            paint: {
+                'line-color': borderColor,
+                'line-width': borderWidth,
+                'line-opacity': borderOpacity
+            }
+        }, insertBeforeLayer);
+    }
 
     // Add hover outline layer on top
-    map.addLayer({
-        id: `${idBase}-hover`,
-        type: 'line',
-        source: source,
-        paint: {
-            'line-color': hoverBorderColor,
-            'line-width': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                hoverBorderWidth,   // Use configured hover width
-                0    // Hide line when not hovered
-            ],
-            'line-opacity': 1 // Keep hover outline fully opaque
-        },
-        filter: ['!=', ['get', 'id'], ''] // Ensure filter is valid
-    }, insertBeforeLayer);
+    if (!map.getLayer(`${idBase}-hover`)) {
+        map.addLayer({
+            id: `${idBase}-hover`,
+            type: 'line',
+            source: source,
+            paint: {
+                'line-color': hoverBorderColor,
+                'line-width': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    hoverBorderWidth,   // Use configured hover width
+                    0    // Hide line when not hovered
+                ],
+                'line-opacity': 1 // Keep hover outline fully opaque
+            },
+            filter: ['!=', ['get', 'id'], ''] // Ensure filter is valid
+        }, insertBeforeLayer);
+    }
 } 

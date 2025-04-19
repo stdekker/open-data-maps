@@ -25,11 +25,11 @@
     </head>
     <body>
         <div class="container">
+            <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="feature-info-box">
                 <div class="feature-name-content"></div>
                 <button class="settings-button" aria-label="Settings">⋮</button>
             </div>
-            <div id="map" tabindex="0" aria-label="Map"></div>
             <div class="sidebar">
                 <header><h1><sup title="Open Data">OD</sup>Maps</h1></header>
                 <div class="search-container">
@@ -51,7 +51,11 @@
                 <div id="postcode-progress" class="progress-message"></div>
                     <div class="layer-toggle-item" id="municipalityToggle" data-layer="municipality" role="button" tabindex="0" aria-pressed="false">
                         <span class="toggle-dot"></span>
-                        <span class="toggle-text">Buurten</span>
+                        <span class="toggle-text">
+                            <span id="buurtToggle" class="region-type active" data-type="buurten">Buurten</span>
+                            <span class="region-separator">/</span>
+                            <span id="wijkToggle" class="region-type" data-type="wijken">Wijken</span>
+                        </span>
                     </div>
                     <div class="layer-toggle-item" id="postcode6Toggle" data-layer="postcode" role="button" tabindex="0" aria-pressed="false">
                         <span class="toggle-dot"></span>

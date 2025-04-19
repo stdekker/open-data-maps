@@ -210,6 +210,12 @@ export async function loadAllPostcode6Data(map) {
         // Add postcode layers using the generic function
         addMapLayers(map, postcodeLayerConfig);
 
+        // If postcodes are empty, wait a short time for potential async loading (from wijken view)
+        if (municipalityPostcodes.size === 0) {
+            updateProgressMessage('Wachten op postcode data...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
         // Load data for each postcode in the municipality
         const validPostcodes = Array.from(municipalityPostcodes)
             .filter(code => code && code.length === 4 && /^\d{4}$/.test(code));
@@ -508,15 +514,49 @@ export function updateToggleStates(viewType) {
  */
 export function setMunicipalityPostcodes(geoJsonData) {
     municipalityPostcodes.clear();
+    
+    // Check if we have valid postcode data in the current geoJsonData
+    let hasValidPostcodes = false;
+    
     geoJsonData.features.forEach(feature => {
         if (feature.properties.meestVoorkomendePostcode) {
             const postcode4 = feature.properties.meestVoorkomendePostcode.substring(0, 4);
             // Only add valid 4-digit postcodes
             if (postcode4 && postcode4.length === 4 && /^\d{4}$/.test(postcode4)) {
                 municipalityPostcodes.add(postcode4);
+                hasValidPostcodes = true;
             }
         }
     });
+    
+    // If no valid postcodes found and we're likely in wijken view, 
+    // get them from the buurten data
+    if (!hasValidPostcodes && window.currentView === 'municipal') {
+        const lastMunicipality = localStorage.getItem('lastMunicipality');
+        if (lastMunicipality) {
+            const municipality = JSON.parse(lastMunicipality);
+            
+            // Fetch buurten data specifically to get postcodes, regardless of current view type
+            fetch(`api/municipality.php?code=${municipality.code}&type=buurten`)
+                .then(response => response.json())
+                .then(buurtenData => {
+                    if (buurtenData && buurtenData.features) {
+                        buurtenData.features.forEach(feature => {
+                            if (feature.properties.meestVoorkomendePostcode) {
+                                const postcode4 = feature.properties.meestVoorkomendePostcode.substring(0, 4);
+                                // Only add valid 4-digit postcodes
+                                if (postcode4 && postcode4.length === 4 && /^\d{4}$/.test(postcode4)) {
+                                    municipalityPostcodes.add(postcode4);
+                                }
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching buurten data for postcodes:', error);
+                });
+        }
+    }
 }
 
 /**
