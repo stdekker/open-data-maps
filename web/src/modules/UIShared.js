@@ -9,14 +9,27 @@ import { STATISTICS_CONFIG } from '../config.js';
  * @param {Object} feature - The feature object
  * @returns {String} The appropriate feature name
  */
+import { INVALID_VALUES } from './colorService.js';
+
 export function getFeatureName(feature) {
     if (!feature || !feature.properties) return '';
-    // For debugging - log all available property keys
 
-    // Specific debug for postcode features
-    // if (feature.properties.postcode6) {
+    // Postcode layer: handle postcode6 or postcode4
+    if (feature.source === 'postcode6' || feature.properties.postcode6 || feature.properties.postcode4) {
+        const postcode = feature.properties.postcode6 || feature.properties.postcode4;
+        // Handle invalid values: -99.997, -99995, -99997, etc.
+        if (
+            postcode === undefined ||
+            postcode === null ||
+            postcode === '' ||
+            postcode === -99.997 ||
+            (Array.isArray(INVALID_VALUES) && INVALID_VALUES.includes(postcode))
+        ) {
+            return 'Ongeldige postcode';
+        }
+        return postcode;
+    }
 
-    // }
     const regionType = window.currentRegionType || localStorage.getItem('regionType') || 'buurten';
     if (regionType === 'wijken' && feature.properties.wijknaam) {
         return feature.properties.wijknaam;
