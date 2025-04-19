@@ -86,9 +86,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     const electionToggle = document.getElementById('electionToggle');
     const settingsButton = featureNameBox.querySelector('.settings-button');
 
-    // Initialize the feature selection module
-    initializeFeatureSelect(map, featureNameBox);
-
     // Setup settings button click handler
     settingsButton.addEventListener('click', (e) => {
         e.preventDefault();

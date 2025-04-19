@@ -11,6 +11,7 @@ import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { setupSearch, findMunicipalityByName, createSearchData } from './modules/searchService.js';
+import { initializeFeatureSelect } from './modules/UIFeatureSelectList.js';
 
 // Map layers and data
 import { 
@@ -63,6 +64,16 @@ const map = new mapboxgl.Map({
 // Global variables
 window.map = map;
 window.currentView = 'national';
+
+// Initialize the feature selection module after map is loaded
+map.on('load', () => {
+    // Get the feature info box element
+    const featureInfoBox = document.querySelector('.feature-info-box');
+    if (featureInfoBox) {
+        // Initialize the feature selection module (moved from UIFeatureInfoBox.js)
+        initializeFeatureSelect(map, featureInfoBox);
+    }
+});
 
 // Load municipality data first, then proceed with map initialization
 async function initializeMapAndData() {
