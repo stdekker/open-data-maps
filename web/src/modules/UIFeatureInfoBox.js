@@ -1,79 +1,12 @@
 import { updateMapColors } from './layerService.js';
+import { STATISTICS_CONFIG } from '../config.js';
+import { initializeFeatureSelect, updateSelectedFeaturesList } from './UIFeatureSelectList.js';
+import { getFeatureName, formatStatValue } from './UIShared.js';
 
 let hoveredFeatureId = null;
 let featureNameBox = document.querySelector('.feature-info-box');
 let featureNameContent = featureNameBox.querySelector('.feature-name-content');
 let municipalityPopulationsData = {};
-
-// Unified statistics configuration
-const STATISTICS_CONFIG = {
-    groups: {
-        'Basis': [
-            'aantalInwoners',
-            'aantalHuishoudens',
-            'omgevingsadressendichtheid',
-            'stedelijkheidAdressenPerKm2',
-            'bevolkingsdichtheidInwonersPerKm2',
-            'mannen',
-            'vrouwen'
-        ],
-        'Leeftijdsgroepen': [
-            'percentagePersonen0Tot15Jaar',
-            'percentagePersonen15Tot25Jaar',
-            'percentagePersonen25Tot45Jaar',
-            'percentagePersonen45Tot65Jaar',
-            'percentagePersonen65JaarEnOuder'
-        ],
-        'Burgerlijke staat': [
-            'percentageOngehuwd',
-            'percentageGehuwd',
-            'percentageGescheid',
-            'percentageVerweduwd'
-        ],
-        'Huishoudens': [
-            'percentageEenpersoonshuishoudens',
-            'percentageHuishoudensZonderKinderen',
-            'percentageHuishoudensMetKinderen',
-            'gemiddeldeHuishoudsgrootte'
-        ],
-        'Herkomst': [
-            'percentageMetHerkomstlandNederland',
-            'percentageMetHerkomstlandUitEuropaExclNl',
-            'percentageMetHerkomstlandBuitenEuropa'
-        ],
-        'Oppervlakte': [
-            'oppervlakteTotaalInHa',
-            'oppervlakteLandInHa'
-        ]
-    },
-    labels: {
-        'aantalInwoners': { display: 'Inwoners', unit: 'inwoners' },
-        'aantalHuishoudens': { display: 'Huishoudens', unit: 'huishoudens' },
-        'omgevingsadressendichtheid': { display: 'Omgevingsadressendichtheid', unit: 'adressen/km²' },
-        'stedelijkheidAdressenPerKm2': { display: 'Stedelijkheid (adressen/km²)', unit: 'adressen/km²' },
-        'bevolkingsdichtheidInwonersPerKm2': { display: 'Bevolkingsdichtheid (inw/km²)', unit: 'inw/km²' },
-        'mannen': { display: 'Mannen', unit: 'mannen' },
-        'vrouwen': { display: 'Vrouwen', unit: 'vrouwen' },
-        'percentagePersonen0Tot15Jaar': { display: '0-15 jaar (%)', unit: '% 0-15 jaar' },
-        'percentagePersonen15Tot25Jaar': { display: '15-25 jaar (%)', unit: '% 15-25 jaar' },
-        'percentagePersonen25Tot45Jaar': { display: '25-45 jaar (%)', unit: '% 25-45 jaar' },
-        'percentagePersonen45Tot65Jaar': { display: '45-65 jaar (%)', unit: '% 45-65 jaar' },
-        'percentagePersonen65JaarEnOuder': { display: '65+ jaar (%)', unit: '% 65+ jaar' },
-        'percentageOngehuwd': { display: 'Ongehuwd (%)', unit: '% ongehuwd' },
-        'percentageGehuwd': { display: 'Gehuwd (%)', unit: '% gehuwd' },
-        'percentageGescheid': { display: 'Gescheiden (%)', unit: '% gescheiden' },
-        'percentageVerweduwd': { display: 'Verweduwd (%)', unit: '% verweduwd' },
-        'percentageEenpersoonshuishoudens': { display: 'Eenpersoonshuishoudens (%)', unit: '% eenpersoons' },
-        'percentageHuishoudensZonderKinderen': { display: 'Huishoudens zonder kinderen (%)', unit: '% zonder kinderen' },
-        'percentageHuishoudensMetKinderen': { display: 'Huishoudens met kinderen (%)', unit: '% met kinderen' },
-        'gemiddeldeHuishoudsgrootte': { display: 'Gemiddelde huishoudgrootte', unit: 'personen/huishouden' },
-        'percentageMetHerkomstlandNederland': { display: 'Nederlands (%)', unit: '% NL' },
-        'percentageMetHerkomstlandUitEuropaExclNl': { display: 'Europees (excl. NL) (%)', unit: '% EU (excl. NL)' },
-        'percentageMetHerkomstlandBuitenEuropa': { display: 'Buiten Europa (%)', unit: '% buiten EU' },
-        'oppervlakteTotaalInHa': { display: 'Totaal (ha)', unit: 'ha totaal' },
-        'oppervlakteLandInHa': { display: 'Land (ha)', unit: 'ha land' }
-    }
-};
 
 /**
  * Populates the statistics select dropdown with grouped options
@@ -107,6 +40,39 @@ export function populateStatisticsSelect(statsSelect, data) {
 }
 
 /**
+ * Gets the formatted statistic text for a given property and statistic type
+ * @param {Object} properties - The properties containing the statistic value
+ * @param {String} statType - The type of statistic to format
+ * @returns {String} Formatted statistic text
+ */
+function getStatisticText(properties, statType) {
+    const statValue = properties[statType];
+    if (statValue === undefined || statValue === null) return '';
+    
+    const label = STATISTICS_CONFIG.labels[statType]?.unit || statType;
+    let formattedValue;
+
+    if (typeof statValue === 'number') {
+        if (statType.startsWith('percentage')) {
+            // Format percentages with 1 decimal place
+            formattedValue = statValue.toLocaleString('nl-NL', { 
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 1 
+            });
+        } else {
+            // Format other numbers as integers
+            formattedValue = statValue.toLocaleString('nl-NL', { 
+                maximumFractionDigits: 0 
+            });
+        }
+    } else {
+        formattedValue = statValue;
+    }
+    
+    return `<span class="statistic-text">(${formattedValue} ${label})</span>`;
+}
+
+/**
  * Sets up the feature name box that displays municipality/neighborhood names and statistics.
  * Handles hover states and updates the display when moving between features.
  * @param {Object} map - The Mapbox map instance
@@ -137,6 +103,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
                 statsSelect.value = modalStatsSelect.value;
                 localStorage.setItem('selectedStat', modalStatsSelect.value);
                 updateFeatureNameBox();
+                updateSelectedFeaturesList(); // Update selected features list when statistic changes
                 
                 // Update the map colors for the new statistic
                 updateMapColors(map, modalStatsSelect.value);
@@ -156,6 +123,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
     statsSelect.addEventListener('change', () => {
         localStorage.setItem('selectedStat', statsSelect.value);
         updateFeatureNameBox();
+        updateSelectedFeaturesList(); // Update selected features list when statistic changes
         
         // Update the map colors for the new statistic
         updateMapColors(map, statsSelect.value);
@@ -177,6 +145,7 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
         updateFeatureNameBox();
     }
 
+    // Set up mouseenter/leave handlers for municipalities
     map.on('mousemove', 'municipalities-fill', (e) => {
         if (e.features.length > 0) {
             if (hoveredFeatureId !== null) {
@@ -212,39 +181,6 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
 }
 
 /**
- * Gets the formatted statistic text for a given property and statistic type
- * @param {Object} properties - The properties containing the statistic value
- * @param {String} statType - The type of statistic to format
- * @returns {String} Formatted statistic text
- */
-function getStatisticText(properties, statType) {
-    const statValue = properties[statType];
-    if (statValue === undefined || statValue === null) return '';
-    
-    const label = STATISTICS_CONFIG.labels[statType]?.unit || statType;
-    let formattedValue;
-
-    if (typeof statValue === 'number') {
-        if (statType.startsWith('percentage') || statType === 'gemiddeldeHuishoudsgrootte') {
-            // Format percentages and average household size with 1 decimal place
-            formattedValue = statValue.toLocaleString('nl-NL', { 
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 1 
-            });
-        } else {
-            // Format other numbers as integers
-            formattedValue = statValue.toLocaleString('nl-NL', { 
-                maximumFractionDigits: 0 
-            });
-        }
-    } else {
-        formattedValue = statValue;
-    }
-    
-    return `<span class="statistic-text">(${formattedValue} ${label})</span>`;
-}
-
-/**
  * Updates the feature name box content with municipality and neighborhood information
  * @param {Object} feature - Optional feature object containing properties to display
  * @export
@@ -272,7 +208,10 @@ export function updateFeatureNameBox(feature = null) {
         if (statValue === undefined || statValue === null) {
             return name;
         }
-        return `${name} ${getStatisticText(properties, selectedStat)}`;
+        // Use shared formatter for value
+        const formatted = formatStatValue(statValue, selectedStat);
+        const label = STATISTICS_CONFIG.labels[selectedStat]?.unit || selectedStat;
+        return `${name} <span class="statistic-text">(${formatted} ${label})</span>`;
     };
 
     let content = '';
@@ -284,12 +223,20 @@ export function updateFeatureNameBox(feature = null) {
     }
 
     if (feature) {
-        const currentGemeentenaam = feature.properties.gemeentenaam || storedMunicipality?.naam;
-        if (currentGemeentenaam && (!storedMunicipality || currentGemeentenaam !== storedMunicipality.naam)) {
-            content = `<div>${getNameWithStat(currentGemeentenaam, feature.properties)}</div>`;
-        }
-        if (feature.properties?.buurtnaam) {
-            content += `<div class="hovered-name">${getNameWithStat(feature.properties.buurtnaam, feature.properties)}</div>`;
+        // For municipality features, handle differently
+        if (feature.properties.gemeentenaam && 
+            (!storedMunicipality || feature.properties.gemeentenaam !== storedMunicipality?.naam)) {
+            content = `<div class="active-name">${getNameWithStat(feature.properties.gemeentenaam, feature.properties)}</div>`;
+            
+            // If there's a buurt or wijk name, add it as well
+            const subName = getFeatureName(feature);
+            if (subName && subName !== feature.properties.gemeentenaam) {
+                content += `<div class="hovered-name">${getNameWithStat(subName, feature.properties)}</div>`;
+            }
+        } else {
+            // For postcode, buurt, or wijk features, just show the name
+            const featureName = getFeatureName(feature);
+            content += `<div class="hovered-name">${getNameWithStat(featureName, feature.properties)}</div>`;
         }
     }
 

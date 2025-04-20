@@ -465,6 +465,35 @@ body, html {
     user-select: none;
 }
 
+/* Region type toggle styles */
+.region-type {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.region-type.active {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: 700;
+}
+
+/* Make active region type gray when municipality toggle is off */
+.layer-toggle-item[aria-pressed="false"] .region-type.active {
+    background-color: #aaa;
+    color: white;
+}
+
+.region-type:not(.active):hover {
+    background-color: #e0e0e0;
+}
+
+.region-separator {
+    margin: 0 3px;
+    color: #666;
+}
+
 .election-header {
     display: flex;
     align-items: center;
@@ -723,11 +752,6 @@ body, html {
     font-size: .8em;
 }
 
-/* Remove the stats-popup styles since we're not using it anymore */
-.stats-popup {
-    display: none;
-}
-
 /* Add new disabled styles */
 .layer-toggle-item.disabled {
     cursor: not-allowed;
@@ -829,4 +853,85 @@ body, html {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+/* Selected Features Container styles */
+.selected-features-container {
+    position: fixed;
+    top: 100px; /* Position below the feature-info-box, leave margin for hover info */
+    left: 20px;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 999;
+    max-width: 300px;
+    max-height: 60vh;
+    overflow-y: auto;
+    font-size: 0.9em;
+}
+
+.selected-features-container h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.selected-features-container ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.selected-features-container li {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.selected-features-container .remove-feature {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    padding: 0 5px;
+    margin-left: 5px;
+}
+
+.selected-features-container .remove-feature:hover {
+    color: #bd2130;
+}
+
+.selected-features-total {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #ddd;
+    font-weight: bold;
+}
+
+.clear-selected-features {
+    margin-top: 10px;
+    width: 100%;
+    padding: 5px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.clear-selected-features:hover {
+    background-color: #e9ecef;
+}
+
+@media screen and (max-width: 768px) {
+    .selected-features-container {
+        max-width: 80%;
+    }
 }

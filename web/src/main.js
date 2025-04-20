@@ -1,12 +1,30 @@
 // Import configuration
+// Core configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
-import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
-import { Modal } from './modules/modalService.js';
+
+// Core services
 import { fetchData } from './modules/dataService.js';
+import { Modal } from './modules/modalService.js';
+import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
+
+// UI components and handlers
 import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { addMunicipalityLayers, addReportingUnits, cleanupReportingUnits, updateToggleStates, cleanupPostcode6Layer, initializePostcode6Toggle, loadAllPostcode6Data } 
-    from './modules/layerService.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
+import { setupSearch, findMunicipalityByName, createSearchData } from './modules/searchService.js';
+import { initializeFeatureSelect } from './modules/UIFeatureSelectList.js';
+
+// Map layers and data
+import { 
+    addMunicipalityLayers, 
+    addReportingUnits, 
+    cleanupReportingUnits, 
+    updateToggleStates, 
+    cleanupPostcode6Layer, 
+    initializePostcode6Toggle, 
+    loadAllPostcode6Data 
+} from './modules/layerService.js';
+
+// Additional features
 import { loadElectionData } from './modules/electionService.js';
 
 let showElectionData = false;
@@ -14,6 +32,7 @@ let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
 let municipalityData = null;
+let currentRegionType = 'buurten'; // Default region type
 
 // Helper function to update toggle UI state
 function updateToggleUI(toggleElement, isActive, isDisabled = false) {
@@ -46,6 +65,16 @@ const map = new mapboxgl.Map({
 window.map = map;
 window.currentView = 'national';
 
+// Initialize the feature selection module after map is loaded
+map.on('load', () => {
+    // Get the feature info box element
+    const featureInfoBox = document.querySelector('.feature-info-box');
+    if (featureInfoBox) {
+        // Initialize the feature selection module (moved from UIFeatureInfoBox.js)
+        initializeFeatureSelect(map, featureInfoBox);
+    }
+});
+
 // Load municipality data first, then proceed with map initialization
 async function initializeMapAndData() {
     try {
@@ -53,11 +82,10 @@ async function initializeMapAndData() {
         const response = await fetch('data/gemeenten.json');
         municipalityData = await response.json();
 
+
         // Store both population and household data
         municipalityData.features.forEach(feature => {
             municipalityPopulations[feature.properties.gemeentecode] = {
-                aantalInwoners: feature.properties.aantalInwoners,
-                aantalHuishoudens: feature.properties.aantalHuishoudens,
                 ...feature.properties // Include all properties for comprehensive data access
             };
         });
@@ -70,15 +98,12 @@ async function initializeMapAndData() {
         const params = getUrlParams();
 
         // Create simplified data structure for search
-        const data = {
-            gemeenten: municipalityData.features.map(feature => ({
-                naam: feature.properties.gemeentenaam,
-                code: feature.properties.gemeentecode
-            })).sort((a, b) => a.naam.localeCompare(b.naam))
-        };
+        const searchData = createSearchData(municipalityData);
 
-        // Initialize search functionality
-        setupSearch(data);
+        // Initialize search functionality with callback
+        setupSearch(searchData, async (municipality) => {
+            await viewMunicipality(municipality);
+        });
         
         // Initialize election toggle based on URL parameter or localStorage
         const electionToggle = document.getElementById('electionToggle');
@@ -100,22 +125,21 @@ async function initializeMapAndData() {
         let municipality = null;
 
         // If URL parameter is not an existing or valid municipality, clear it
-        if (params.gemeente && !(municipality = data.gemeenten.find(m => 
-            m.naam.toLowerCase() === params.gemeente.toLowerCase()
-        ))) {
-            updateUrlParams(null);
+        if (params.gemeente) {
+            municipality = findMunicipalityByName(municipalityData, params.gemeente);
+            if (!municipality) {
+                updateUrlParams(null);
+            }
         }
 
-        // If no municipality is chosen through the url or localStorage, 
+        // If no municipality is chosen through the url or found in localStorage, 
         // show the default municipality
         if (!municipality) {
             const lastMunicipality = localStorage.getItem('lastMunicipality');
             if (lastMunicipality) {
                 municipality = JSON.parse(lastMunicipality);
             } else {
-                municipality = data.gemeenten.find(m => 
-                    m.naam === DEFAULT_MUNICIPALITY
-                );
+                municipality = findMunicipalityByName(municipalityData, DEFAULT_MUNICIPALITY);
             }
         }
 
@@ -132,67 +156,6 @@ async function initializeMapAndData() {
 
 // Map and data need to be loaded before proceeding
 await map.on('load', initializeMapAndData);
-
-/**
- * Sets up the search functionality for municipalities.
- * Handles autocomplete suggestions and municipality selection.
- * @param {Object} data - Municipality data for searching
- */
-function setupSearch(data) {
-    const searchInput = document.getElementById('searchInput');
-    const autocompleteList = document.getElementById('autocompleteList');
-    
-    searchInput.addEventListener('input', function() {
-        const value = this.value.trim().toLowerCase();
-        autocompleteList.innerHTML = '';
-        const searchError = document.querySelector('.search-error');
-        if (value.length < 2) {
-            searchError.classList.remove('visible');
-            return;
-        }
-
-        const matches = data.gemeenten.filter(municipality => 
-            municipality.naam.toLowerCase().includes(value)
-        );
-
-        if (matches.length === 0) {
-            searchError.classList.add('visible');
-        } else {
-            searchError.classList.remove('visible');
-        }
-
-        matches.forEach(municipality => {
-            const div = document.createElement('div');
-            div.textContent = municipality.naam;
-            div.addEventListener('click', () => {
-                viewMunicipality(municipality, searchInput, autocompleteList);
-            });
-            autocompleteList.appendChild(div);
-        });
-    });
-
-    searchInput.addEventListener('keyup', function(e) {
-        if (e.key === 'Enter') {
-            const value = this.value.trim().toLowerCase();
-            const matches = data.gemeenten.filter(municipality => 
-                municipality.naam.toLowerCase().includes(value)
-            );
-            
-            // First try to find an exact match
-            const exactMatch = data.gemeenten.find(municipality =>
-                municipality.naam.toLowerCase() === value
-            );
-
-            if (exactMatch) {
-                // If there's an exact match, use that
-                viewMunicipality(exactMatch, searchInput, document.getElementById('autocompleteList'));
-            } else if (matches.length === 1) {
-                // If there's only one partial match, use that
-                viewMunicipality(matches[0], searchInput, document.getElementById('autocompleteList'));
-            }
-        }
-    });
-}
 
 /**
  * Handles the display of the municipality View
@@ -218,13 +181,13 @@ async function viewMunicipality(municipality) {
 
     setTimeout(() => {
         searchInput.value = '';
-    }, 585);
+    }, 444);
 
     // Update the feature name box with the selected municipality
     updateFeatureNameBox();
 
     // Wait for data loading to complete
-    await loadGeoJson(municipality.code);
+    await loadGeoJson(municipality.code, currentRegionType);
 }
 
 // Modify the viewNational function
@@ -288,13 +251,14 @@ async function viewNational() {
  * Loads and displays GeoJSON data for a municipality or region.
  * Sets up map layers and fits the view to the loaded data.
  * @param {String} code - The municipality/region code to load
+ * @param {String} regionType - The region type ('buurten' or 'wijken')
  */
-function loadGeoJson(code) {
+function loadGeoJson(code, regionType = 'buurten') {
     return new Promise((resolve, reject) => {
         if (!map.loaded()) {
             map.on('load', () => {
                 Promise.all([
-                    fetchData(`api/municipality.php?code=${code}`),
+                    fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
                     loadElectionData(code)
                 ])
                 .then(([geoJsonData]) => {
@@ -344,7 +308,7 @@ function loadGeoJson(code) {
 
         // If map IS already loaded, do the same fetch/add, and resolve
         Promise.all([
-            fetchData(`api/municipality.php?code=${code}`),
+            fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
             loadElectionData(code)
         ])
         .then(([geoJsonData]) => {
@@ -400,6 +364,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize postcode6 toggle with map instance
     initializePostcode6Toggle(map);
+
+    // Initialize region type toggles
+    initializeRegionTypeToggles();
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
@@ -538,6 +505,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialShowMunicipality = localStorage.getItem('showMunicipalityLayer') !== 'false';
     const municipalityToggleElement = document.getElementById('municipalityToggle');
     updateToggleUI(municipalityToggleElement, initialShowMunicipality);
+    
+    // Show the active region type 
+    updateRegionTypeUI();
+    
     // Initial map layer visibility is set within activateView
 
     const initialShowElection = localStorage.getItem('showElectionData') === 'true';
@@ -549,6 +520,148 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize mobile handler
     initializeMobileHandler();
 });
+
+/**
+ * Initializes the region type toggle functionality
+ */
+function initializeRegionTypeToggles() {
+    // Load from localStorage or use default
+    currentRegionType = localStorage.getItem('regionType') || 'buurten';
+    
+    // Get region type elements
+    const buurtToggle = document.getElementById('buurtToggle');
+    const wijkToggle = document.getElementById('wijkToggle');
+    
+    if (!buurtToggle || !wijkToggle) {
+        console.error('Region type toggle elements not found');
+        return;
+    }
+    
+    // Update UI to match current setting
+    updateRegionTypeUI();
+    
+    // Add click handlers to region type toggles
+    buurtToggle.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the parent toggle from being triggered
+        
+        // Update region type even if it's already 'buurten'
+        currentRegionType = 'buurten';
+        localStorage.setItem('regionType', currentRegionType);
+        updateRegionTypeUI();
+        
+        // Check if municipality toggle is off and turn it on
+        const municipalityToggle = document.getElementById('municipalityToggle');
+        const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
+        
+        if (!isMunicipalityActive && municipalityToggle) {
+            // Update the toggle UI
+            updateToggleUI(municipalityToggle, true);
+            
+            // Update localStorage
+            localStorage.setItem('showMunicipalityLayer', 'true');
+            
+            // Ensure the layer is visible if it exists
+            if (map.getLayer('municipalities-fill')) {
+                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+            }
+            
+            // Force reload of the municipality data to make sure it's displayed
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality && window.currentView === 'municipal') {
+                const municipality = JSON.parse(lastMunicipality);
+                loadGeoJson(municipality.code, currentRegionType);
+            }
+        } else {
+            reloadCurrentMunicipality();
+        }
+    });
+    
+    wijkToggle.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the parent toggle from being triggered
+        
+        // Update region type even if it's already 'wijken'
+        currentRegionType = 'wijken';
+        localStorage.setItem('regionType', currentRegionType);
+        updateRegionTypeUI();
+        
+        // Check if municipality toggle is off and turn it on
+        const municipalityToggle = document.getElementById('municipalityToggle');
+        const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
+        
+        if (!isMunicipalityActive && municipalityToggle) {
+            // Update the toggle UI
+            updateToggleUI(municipalityToggle, true);
+            
+            // Update localStorage
+            localStorage.setItem('showMunicipalityLayer', 'true');
+            
+            // Ensure the layer is visible if it exists
+            if (map.getLayer('municipalities-fill')) {
+                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+            }
+            
+            // Force reload of the municipality data to make sure it's displayed
+            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            if (lastMunicipality && window.currentView === 'municipal') {
+                const municipality = JSON.parse(lastMunicipality);
+                loadGeoJson(municipality.code, currentRegionType);
+            }
+        } else {
+            reloadCurrentMunicipality();
+        }
+    });
+}
+
+/**
+ * Updates the UI to show the active region type
+ */
+function updateRegionTypeUI() {
+    const buurtToggle = document.getElementById('buurtToggle');
+    const wijkToggle = document.getElementById('wijkToggle');
+    
+    if (buurtToggle && wijkToggle) {
+        if (currentRegionType === 'buurten') {
+            buurtToggle.classList.add('active');
+            wijkToggle.classList.remove('active');
+        } else {
+            buurtToggle.classList.remove('active');
+            wijkToggle.classList.add('active');
+        }
+    }
+}
+
+/**
+ * Reloads the current municipality with the selected region type
+ */
+function reloadCurrentMunicipality() {
+    const lastMunicipality = localStorage.getItem('lastMunicipality');
+    if (lastMunicipality && window.currentView === 'municipal') {
+        const municipality = JSON.parse(lastMunicipality);
+        
+        // Check if postcode toggle is active before reloading
+        const postcode6Toggle = document.getElementById('postcode6Toggle');
+        const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
+        
+        // Clean up postcode layer if it exists to avoid stale data
+        if (isPostcodeActive && (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getSource('postcode6'))) {
+            cleanupPostcode6Layer(map);
+        }
+        
+        // Load new municipality data with current region type
+        loadGeoJson(municipality.code, currentRegionType)
+            .then(() => {
+                // If postcode toggle was active, reload postcode data with the new region type
+                if (isPostcodeActive) {
+                    // Small delay to ensure postcodes are properly set after loading municipality data
+                    setTimeout(() => {
+                        loadAllPostcode6Data(map);
+                    }, 500);
+                }
+            });
+    }
+}
 
 /**
  * Activates either the national or municipal view.
@@ -610,7 +723,7 @@ async function activateView(viewType, municipalityCode = null) {
 
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
-    
+            
             return; // Exit early after national view is set up
         } catch (error) {
             console.error('Error switching to national view:', error);
@@ -625,7 +738,7 @@ async function activateView(viewType, municipalityCode = null) {
 
         const code = municipalityCode || (JSON.parse(localStorage.getItem('lastMunicipality'))?.code);
         if (code) {
-            await loadGeoJson(code);
+            await loadGeoJson(code, currentRegionType);
             if (showElectionData) {
                 await loadElectionData(code, localStorage.getItem('lastElection') || 'TK2023');
             }
@@ -675,33 +788,8 @@ window.addEventListener('reportingUnitsLoaded', (event) => {
     addReportingUnits(map, geoJsonData, showElectionData);
 });
 
-/**
- * Loads a municipality by name, handling both initial load and URL parameter changes.
- * @param {string} municipalityName - The name of the municipality to load.
- */
-async function loadMunicipalityByName(municipalityName) {
-    if (!municipalityData) {
-        // If municipalityData isn't loaded yet, wait for it.
-        await initializeMapAndData();
-    }
 
-    const municipality = municipalityData.features.find(feature =>
-        feature.properties.gemeentenaam.toLowerCase() === municipalityName.toLowerCase()
-    );
-
-    if (municipality) {
-        await viewMunicipality({
-            naam: municipality.properties.gemeentenaam,
-            code: municipality.properties.gemeentecode
-        });
-    } else {
-        console.warn(`Municipality not found: ${municipalityName}`);
-        // Optionally, you could show an error message to the user here.
-        viewNational(); // Fallback to national view
-    }
-}
-
-// Add event listener for popstate to handle back/forward navigation
+// Update the event listener for popstate to use findMunicipalityByName
 window.addEventListener('popstate', async (event) => {
     const params = getUrlParams();
 
@@ -720,28 +808,15 @@ window.addEventListener('popstate', async (event) => {
     }
 
     if (params.gemeente) {
-        // Simulate search input
-        const searchInput = document.getElementById('searchInput');
-        searchInput.value = params.gemeente; // Set the value
-
-        // Create and dispatch an 'input' event.  This is the key.
-        const inputEvent = new Event('input', {
-            bubbles: true,  //  Important:  Allow the event to bubble up
-            cancelable: true, //  Important: Allow the event to be cancelled
-        });
-        searchInput.dispatchEvent(inputEvent);
-
-        // Trigger Enter keyup event to simulate search
-        const keyupEvent = new KeyboardEvent('keyup', {
-            key: 'Enter',
-            bubbles: true,
-            cancelable: true,
-        });
-        searchInput.dispatchEvent(keyupEvent);
-
+        const municipality = findMunicipalityByName(municipalityData, params.gemeente);
+        if (municipality) {
+            await viewMunicipality(municipality);
+        } else {
+            await viewNational();
+        }
     } else {
         // If no gemeente parameter, view national
-        viewNational(true);
+        await viewNational(true);
     }
 
     // Load election data if needed

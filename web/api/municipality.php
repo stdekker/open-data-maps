@@ -7,14 +7,17 @@ header('Content-Type: application/json');
 
 // Validate and sanitize input
 $code = $_GET['code'] ?? null;
+$type = $_GET['type'] ?? 'buurten'; // Default to 'buurten' if not specified
 $validatedCode = validateInputRegex($code, '/^[a-zA-Z0-9]+$/', 'Invalid gemeente code');
 $sanitizedCode = sanitizePathComponent($validatedCode);
+$validatedType = validateInputRegex($type, '/^(wijken|buurten)$/', 'Invalid type. Must be either "wijken" or "buurten"');
+$sanitizedType = sanitizePathComponent($validatedType);
 
 // Function to fetch and save gemeente data
-function fetchGemeente($code) {
-    // Updated path to store CBS data in a dedicated directory
+function fetchGemeente($code, $type) {
+    // Updated path to store CBS data in a dedicated directory with type-specific naming
     $dataDir = __DIR__ . '/../data/cbs/2023';
-    $gemeenteFile = $dataDir . '/' . $code . '.json';
+    $gemeenteFile = $dataDir . '/' . $code . '-' . $type . '.json';
 
     // Create directory structure if it doesn't exist
     if (!is_dir($dataDir)) {
@@ -31,7 +34,7 @@ function fetchGemeente($code) {
         'service' => 'WFS',
         'request' => 'GetFeature',
         'version' => '1.1.0',
-        'typeName' => 'wijkenbuurten:buurten',
+        'typeName' => 'wijkenbuurten:' . $type,
         'outputFormat' => 'json',
         'srsName' => 'EPSG:4326',
         'filter' => '<ogc:Filter><ogc:And><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentecode</ogc:PropertyName><ogc:Literal>' . $code . '</ogc:Literal></ogc:PropertyIsEqualTo><ogc:PropertyIsNotEqualTo><ogc:PropertyName>water</ogc:PropertyName><ogc:Literal>JA</ogc:Literal></ogc:PropertyIsNotEqualTo></ogc:And></ogc:Filter>'
@@ -67,13 +70,25 @@ if (!isset($_GET['code'])) {
 }
 
 // For web requests, always serve from cache if available
-$gemeenteFile = __DIR__ . '/../data/cbs/2023/' . $sanitizedCode . '.json';
-fetchGemeente($sanitizedCode);
+$gemeenteFile = __DIR__ . '/../data/cbs/2023/' . $sanitizedCode . '-' . $sanitizedType . '.json';
+$oldFormatFile = __DIR__ . '/../data/cbs/2023/' . $sanitizedCode . '.json';
 
+fetchGemeente($sanitizedCode, $sanitizedType);
+
+// First check if the new format file exists
 if (file_exists($gemeenteFile)) {
     header('Content-Type: application/json');
     echo file_get_contents($gemeenteFile);
-} else {
+} 
+// Then check for old format file (for backward compatibility)
+else if (file_exists($oldFormatFile) && $sanitizedType == 'buurten') {
+    // If looking for buurten and old format exists, rename it to the new format
+    rename($oldFormatFile, $gemeenteFile);
+    header('Content-Type: application/json');
+    echo file_get_contents($gemeenteFile);
+} 
+// If no files exist, return error
+else {
     header('Content-Type: application/json');
     http_response_code(404);
     echo json_encode(['error' => 'Gemeente data not found']);

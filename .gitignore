@@ -3,6 +3,8 @@ web/data/*
 tools/process/*
 *:Zone.Identifier
 process/*
+.vscode/
+todo/*
 
 # But keep overview.json
 !web/data/overview.json
