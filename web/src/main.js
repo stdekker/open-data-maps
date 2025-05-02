@@ -356,7 +356,7 @@ function loadGeoJson(code, regionType = 'buurten') {
 }
 
 // Add click handlers for menu items
-document.addEventListener('DOMContentLoaded', function() {
+function initializeDOMElements() {
     // Initialize modals
     settingsModal = new Modal('settings-modal');
     window.settingsModal = settingsModal;
@@ -370,6 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
+ 
     settingsButton.addEventListener('click', () => {
         settingsModal.open('Settings');
     });
@@ -383,64 +384,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const menuItems = document.querySelectorAll('.menu-items li');
     const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
 
-    if (initialMenuItem) {
-        handleMenuItemActivation.call(initialMenuItem);
-    }
-    // Add keyboard support
-    menuItems.forEach(item => {
-        // Click handler
-        item.addEventListener('click', handleMenuItemActivation);
+    // Update handleMenuItemActivation to handle the case when an event is not available
+    function handleMenuItemActivation(event, menuItem) {
+        // If menuItem is not provided (for backward compatibility)
+        if (!menuItem) {
+            // Handle the case when called without proper parameters
+            console.warn('handleMenuItemActivation called without a menuItem');
+            return;
+        }
         
-        // Keyboard handler
-        item.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleMenuItemActivation.call(item);
-            }
-        });
-    });
-
-    function handleMenuItemActivation() {
-        // Remove active class and aria-selected from all items
+        // Remove active class from all items
         menuItems.forEach(i => {
             i.classList.remove('active');
         });
         
         // Add active class
-        this.classList.add('active');
+        menuItem.classList.add('active');
         
-        if (this.id === 'national-view') {
+        if (menuItem.id === 'national-view') {
             activateView('national');
-        } else if (this.id === 'municipal-view') {
+        } else if (menuItem.id === 'municipal-view') {
             activateView('municipal');
         }
+    }
+
+    // Add click/keydown handlers
+    menuItems.forEach(item => {
+        // Click handler
+        item.addEventListener('click', function(event) {
+            // Always use event.currentTarget which is more reliable across browsers
+            handleMenuItemActivation(event, event.currentTarget);
+        });
+        
+        // Keyboard handler
+        item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                // Always use e.currentTarget which is more reliable across browsers
+                handleMenuItemActivation(e, e.currentTarget);
+            }
+        });
+    });
+    
+    // Handle initial activation separately after defining the function
+    if (initialMenuItem) {
+        // Directly call with the initialMenuItem as parameter
+        handleMenuItemActivation(null, initialMenuItem);
     }
 
     // Add click/keydown handlers for layer toggles
     const layerToggles = document.querySelectorAll('.layer-toggle-item');
     layerToggles.forEach(toggle => {
-        toggle.addEventListener('click', handleToggleInteraction);
+        toggle.addEventListener('click', function(event) {
+            // Always use event.currentTarget which is more reliable across browsers
+            handleToggleInteraction(event, event.currentTarget);
+        });
         toggle.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault(); // Prevent space from scrolling
-                handleToggleInteraction.call(toggle, e); // Call handler with toggle as 'this'
+                // Always use e.currentTarget which is more reliable across browsers
+                handleToggleInteraction(e, e.currentTarget);
             }
         });
     });
 
     // Common handler for toggle interaction (click or keydown)
-    function handleToggleInteraction(event) {
-        // 'this' refers to the toggle element
-        if (this.classList.contains('disabled')) {
+    function handleToggleInteraction(event, toggleElement) {
+        // Use toggleElement instead of 'this'
+        if (toggleElement.classList.contains('disabled')) {
             return; // Do nothing if disabled
         }
 
-        const layerType = this.dataset.layer;
-        const currentlyActive = this.getAttribute('aria-pressed') === 'true';
+        const layerType = toggleElement.dataset.layer;
+        const currentlyActive = toggleElement.getAttribute('aria-pressed') === 'true';
         const shouldBeActive = !currentlyActive;
 
         // Update UI immediately
-        updateToggleUI(this, shouldBeActive);
+        updateToggleUI(toggleElement, shouldBeActive);
 
         // Handle specific layer logic
         switch (layerType) {
@@ -450,7 +470,6 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'postcode':
                 // Postcode toggle is handled by initializePostcode6Toggle in postcodeLayer.js
                 // We just trigger the state change here, the existing handler should pick it up if initialized correctly.
-                // The event listener in initializePostcode6Toggle needs adjustment.
                 if (shouldBeActive) {
                     // Make sure mapInstance is accessible or passed correctly
                     if (window.map) { 
@@ -519,7 +538,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize mobile handler
     initializeMobileHandler();
-});
+}
+
+// Check if DOM is already loaded (needed for Safari compatibility)
+if (document.readyState === 'loading') {
+    // DOM still loading, add event listener
+    document.addEventListener('DOMContentLoaded', initializeDOMElements);
+} else {
+    // DOM already loaded (Safari sometimes triggers this), run initialization immediately
+    initializeDOMElements();
+}
 
 /**
  * Initializes the region type toggle functionality
@@ -549,32 +577,7 @@ function initializeRegionTypeToggles() {
         localStorage.setItem('regionType', currentRegionType);
         updateRegionTypeUI();
         
-        // Check if municipality toggle is off and turn it on
-        const municipalityToggle = document.getElementById('municipalityToggle');
-        const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
-        
-        if (!isMunicipalityActive && municipalityToggle) {
-            // Update the toggle UI
-            updateToggleUI(municipalityToggle, true);
-            
-            // Update localStorage
-            localStorage.setItem('showMunicipalityLayer', 'true');
-            
-            // Ensure the layer is visible if it exists
-            if (map.getLayer('municipalities-fill')) {
-                map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
-                map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
-            }
-            
-            // Force reload of the municipality data to make sure it's displayed
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
-            if (lastMunicipality && window.currentView === 'municipal') {
-                const municipality = JSON.parse(lastMunicipality);
-                loadGeoJson(municipality.code, currentRegionType);
-            }
-        } else {
-            reloadCurrentMunicipality();
-        }
+        handleRegionToggleBehavior(e.currentTarget);
     });
     
     wijkToggle.addEventListener('click', function(e) {
@@ -585,6 +588,11 @@ function initializeRegionTypeToggles() {
         localStorage.setItem('regionType', currentRegionType);
         updateRegionTypeUI();
         
+        handleRegionToggleBehavior(e.currentTarget);
+    });
+    
+    // Function to handle common behavior after region toggle click
+    function handleRegionToggleBehavior(toggleElement) {
         // Check if municipality toggle is off and turn it on
         const municipalityToggle = document.getElementById('municipalityToggle');
         const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
@@ -611,7 +619,7 @@ function initializeRegionTypeToggles() {
         } else {
             reloadCurrentMunicipality();
         }
-    });
+    }
 }
 
 /**

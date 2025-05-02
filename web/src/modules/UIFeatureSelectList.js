@@ -323,8 +323,6 @@ function setupFeatureSelectionHandlers(map) {
     
     layerTypes.forEach(layerType => {
         map.on('click', layerType, (e) => {
-            // Log the layer ID being clicked
-            console.log(`Feature clicked on layer: ${layerType}`, e.features[0].properties);
             
             if (e.originalEvent.ctrlKey && e.features.length > 0) {
                 

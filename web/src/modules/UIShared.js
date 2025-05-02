@@ -67,7 +67,10 @@ export function formatStatValue(value, statType) {
  */
 export function addClickListener(element, handler) {
     if (element) {
-        element.addEventListener('click', handler);
+        // Use a wrapper function with event.currentTarget for Safari compatibility
+        element.addEventListener('click', function(event) {
+            handler.call(event.currentTarget, event);
+        });
     }
 }
 
