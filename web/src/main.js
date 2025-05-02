@@ -25,7 +25,12 @@ import {
 } from './modules/layerService.js';
 
 // Additional features
-import { loadElectionData } from './modules/electionService.js';
+import { 
+    loadElectionData, 
+    loadNationalElectionData, 
+    getAvailableElections,
+    resetNationalMapColors
+} from './modules/electionService.js';
 
 let showElectionData = false;
 let settingsModal;
@@ -362,11 +367,11 @@ function initializeDOMElements() {
     window.settingsModal = settingsModal;
     helpModal = new Modal('help-modal');
 
+     // Initialize region type toggles
+     initializeRegionTypeToggles();
+
     // Initialize postcode6 toggle with map instance
     initializePostcode6Toggle(map);
-
-    // Initialize region type toggles
-    initializeRegionTypeToggles();
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
@@ -504,19 +509,39 @@ function initializeDOMElements() {
     function handleElectionToggle(isActive) {
         showElectionData = isActive;
         localStorage.setItem('showElectionData', showElectionData);
+        const statsView = document.querySelector('.stats-view'); // Ensure statsView is available here
         statsView.style.display = showElectionData ? 'block' : 'none';
 
         // Update URL parameter
         const lastMunicipality = localStorage.getItem('lastMunicipality');
         const municipality = lastMunicipality ? JSON.parse(lastMunicipality) : null;
-        updateUrlParams(municipality?.naam || null, showElectionData);
+        // Only include municipality name in URL if in municipal view
+        updateUrlParams(currentView === 'municipal' ? municipality?.naam : null, showElectionData);
 
-        if (showElectionData && currentView === 'municipal' && municipality) {
-            const currentElection = localStorage.getItem('lastElection') || 'TK2021';
-            loadElectionData(municipality.code, currentElection);
-            // Reporting units are added via the 'reportingUnitsLoaded' event listener
+        // Fetch data or clean up based on view and toggle state
+        const currentElection = localStorage.getItem('lastElection') || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
+
+        if (isActive && currentElection) {
+            if (currentView === 'municipal' && municipality) {
+                loadElectionData(municipality.code, currentElection);
+                // Reporting units are added via the 'reportingUnitsLoaded' event listener
+            } else if (currentView === 'national') {
+                loadNationalElectionData(currentElection);
+            }
         } else {
-            cleanupReportingUnits(map);
+            // Clean up reporting units only if they exist (relevant for municipal view)
+            if (map.getLayer('reporting-units')) {
+                cleanupReportingUnits(map);
+            }
+            // Clear stats view if toggle is turned off
+            if (!isActive && statsView) {
+                 statsView.innerHTML = '';
+                 statsView.style.display = 'none';
+            }
+             // If in national view and toggling OFF, reset map colors
+            if (!isActive && currentView === 'national') {
+                resetNationalMapColors(); 
+            }
         }
     }
 
@@ -678,6 +703,7 @@ function reloadCurrentMunicipality() {
  * @param {String} municipalityCode - Optional municipality code for municipal view
  */
 async function activateView(viewType, municipalityCode = null) {
+
     // Update menu item states
     const viewItem = document.getElementById(`${viewType}-view`);
     document.querySelectorAll('.menu-items li').forEach(item => {
@@ -687,6 +713,9 @@ async function activateView(viewType, municipalityCode = null) {
     
     viewItem.classList.add('active');
     viewItem.setAttribute('aria-selected', 'true');
+
+    // Get previous view before updating
+    const previousView = currentView;
     
     // Update current view
     currentView = viewType;  
@@ -726,11 +755,28 @@ async function activateView(viewType, municipalityCode = null) {
             // --- Update sidebar toggles for national view ---
             const electionToggle = document.getElementById('electionToggle');
             const municipalityToggle = document.getElementById('municipalityToggle');
-            updateToggleUI(electionToggle, false, true); // Inactive, Disabled
+            // Restore election state but keep it enabled
+            showElectionData = localStorage.getItem('showElectionData') === 'true'; 
+            updateToggleUI(electionToggle, showElectionData, false); // Reflect state, Not Disabled
             updateToggleUI(municipalityToggle, true, true); // Active, Disabled (National view always shows municipalities)
+
+            // Load national election data if toggle is active
+             if (showElectionData) {
+                const currentElection = localStorage.getItem('lastElection') || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
+                if (currentElection) {
+                    loadNationalElectionData(currentElection);
+                    statsView.style.display = 'block'; // Show stats view if loading data
+                }
+             }
 
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
+            
+            // Reset national map colors only if election data is NOT being shown
+            // If it is shown, loadNationalElectionData handles potential reset/visualization
+            if (!showElectionData) {
+                resetNationalMapColors();
+            }
             
             return; // Exit early after national view is set up
         } catch (error) {
@@ -738,7 +784,8 @@ async function activateView(viewType, municipalityCode = null) {
         }
     }
     
-    if (viewType === 'municipal') {      
+    if (viewType === 'municipal') {   
+        
         // Restore election state from localStorage
         showElectionData = localStorage.getItem('showElectionData') === 'true'; // ALWAYS from localStorage
         const electionToggle = document.getElementById('electionToggle'); // Get the toggle

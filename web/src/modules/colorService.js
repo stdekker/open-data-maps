@@ -408,4 +408,79 @@ export function showPartyVotePercentageColors(map, partyName, totalVotesKey = 't
 export function resetPartyVotesColors(map) {
     // Reset the circle color back to white
     map.setPaintProperty('reporting-units', 'circle-color', '#FFFFFF');
+}
+
+/**
+ * Creates a Mapbox GL Style expression for coloring based on party vote percentage.
+ * Uses a sequential color scale from light (low %) to dark (high %).
+ *
+ * @param {Object} geoJsonData - The GeoJSON data (used to determine range if needed, though 0-100 is standard).
+ * @param {String} partyPercentageKey - The property key holding the percentage (e.g., 'party_percentage_VVD').
+ * @param {Number} minPercentage - The minimum percentage value for the current party/data.
+ * @param {Number} maxPercentage - The maximum percentage value for the current party/data.
+ * @param {Array} colorRange - Optional color range (defaults to a blue sequential scale).
+ * @returns {Array} Mapbox GL Style expression for 'fill-color'.
+ */
+export function getPartyPercentageColorExpression(geoJsonData, partyPercentageKey, minPercentage = 0, maxPercentage = 100, colorRange = null) {
+    // Define a default sequential color range suitable for percentages (light to dark)
+    const defaultPercentageColors = [
+        '#eff3ff', // Very light blue
+        '#c6dbef', 
+        '#9ecae1',
+        '#6baed6',
+        '#4292c6',
+        '#2171b5',
+        '#084594'  // Dark blue
+    ];
+    
+    const colorsToUse = colorRange || defaultPercentageColors;
+    const numSteps = colorsToUse.length;
+
+    // Handle edge case: min and max are the same
+    if (minPercentage === maxPercentage) {
+        // Assign the middle color to this single value
+        const middleColorIndex = Math.floor(numSteps / 2);
+        return [
+            'case',
+            ['==', ['get', partyPercentageKey], null],
+            NO_DATA_COLOR,
+            ['==', ['to-number', ['get', partyPercentageKey]], minPercentage],
+            colorsToUse[middleColorIndex],
+            NO_DATA_COLOR // Fallback for any unexpected values
+        ];
+    }
+
+    // Define percentage stops based on the provided min/max range
+    const percentageStops = [];
+    const range = maxPercentage - minPercentage;
+    for (let i = 0; i < numSteps; i++) {
+        // Calculate the value at this step within the min/max range
+        const value = minPercentage + (range * (i / (numSteps - 1)));
+        percentageStops.push(value);
+    }
+    
+    // Build the interpolation steps
+    const interpolationSteps = percentageStops.flatMap((stopValue, index) => {
+        // Ensure we don't exceed the color array bounds
+        const colorIndex = Math.min(index, colorsToUse.length - 1);
+        return [stopValue, colorsToUse[colorIndex]];
+    });
+    
+    // Build the final expression
+    const expression = [
+        'case',
+        // Simplified Condition: Directly check for null
+        ['==', ['get', partyPercentageKey], null],
+        NO_DATA_COLOR, // Use no-data color if the percentage property is null
+        // Default Case: Value is not null, proceed with interpolation
+        [
+            'interpolate',
+            ['linear'],
+            // Add coalesce and to-number for robustness against non-numeric values (though should be number or null)
+            ['coalesce', ['to-number', ['get', partyPercentageKey]], 0],
+            ...interpolationSteps
+        ]
+    ];
+
+    return expression;
 } 

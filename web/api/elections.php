@@ -242,6 +242,17 @@ function getTotalVotes($election) {
         return strcmp($a['name'], $b['name']); 
     });
     
+    // Verification step
+    $sumOfPartyVotes = 0;
+    foreach ($partyTotalsByName as $votes) {
+        $sumOfPartyVotes += $votes;
+    }
+    if ($totalStats['totalValidVotes'] !== $sumOfPartyVotes) {
+        error_log("WARNING [{$sanitizedElection} Totals]: Calculated totalValidVotes ({$totalStats['totalValidVotes']}) does not match sum of aggregated party votes ({$sumOfPartyVotes}).");
+        // Decide how to handle: Override totalValidVotes? Keep as is? For now, just log.
+        // Option: $totalStats['totalValidVotes'] = $sumOfPartyVotes; 
+    }
+
     return [
         'election' => $sanitizedElection,
         'municipality' => 'totals',

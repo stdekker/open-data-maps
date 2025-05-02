@@ -1,8 +1,12 @@
 let AVAILABLE_ELECTIONS = [];
 let isInitialized = false;
 let activeParty = null;
+let nationalActiveParty = null;
+let nationalMunicipalityResultsData = null;
+let currentNationalElectionId = null;
 
 import { showPartyVotes, hidePartyVotes } from './layers/electionsLayer.js';
+import { updateLayerColors, getPartyPercentageColorExpression, STYLE_VARIANTS } from './colorService.js';
 
 /**
  * Initializes the election service by fetching available elections and sorting them.
@@ -413,6 +417,381 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         const statsView = document.querySelector('.stats-view');
         _createErrorView(statsView, electionId);
     }
+}
+
+/**
+ * Fetches and caches the detailed election results for all municipalities.
+ * @param {String} electionId - The election ID to fetch data for.
+ * @returns {Promise<Boolean>} True if data was fetched successfully, false otherwise.
+ */
+async function _fetchNationalMunicipalityResults(electionId) {
+    // Avoid refetching if data for the current election is already cached
+    if (nationalMunicipalityResultsData && currentNationalElectionId === electionId) {
+        return true;
+    }
+
+    try {
+        const response = await fetch(`api/elections.php?election=${electionId}&municipality=all`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        nationalMunicipalityResultsData = await response.json();
+        currentNationalElectionId = electionId; // Update cache tracker
+        return true;
+    } catch (error) {
+        console.error(`Error fetching national municipality results for ${electionId}:`, error);
+        nationalMunicipalityResultsData = null; // Clear cache on error
+        currentNationalElectionId = null;
+        return false;
+    }
+}
+
+/**
+ * Processes national results data and updates map colors for a specific party.
+ * @param {String} partyName - The name of the party to visualize.
+ */
+async function _visualizeNationalPartyResults(partyName) {
+    if (!nationalMunicipalityResultsData || !window.municipalityData || !window.map || !window.map.loaded()) {
+        console.warn('Cannot visualize national party results: Missing data, map, or map not loaded.');
+        return;
+    }
+
+    const safePartyPercentageKey = `party_percentage_${partyName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    let featuresUpdated = 0;
+    const validPercentages = [];
+
+    // Create a lookup map for faster access to municipality results
+    const resultsMap = nationalMunicipalityResultsData.reduce((map, muniResult) => {
+        map[muniResult.municipality] = muniResult; 
+        return map;
+    }, {});
+
+    // Create a deep copy of features and augment with party percentages
+    // Ensure we preserve the feature ID needed for Mapbox state/updates
+    const augmentedFeatures = window.municipalityData.features.map(feature => {
+        // Deep copy feature to avoid modifying the original window.municipalityData
+        const newFeature = JSON.parse(JSON.stringify(feature)); 
+        const muniCode = newFeature.properties.gemeentecode;
+        const muniResult = resultsMap[muniCode];
+        let percentage = null; // Default to null
+
+        if (muniResult && muniResult.results) {
+            const partyData = muniResult.results.find(p => p.name === partyName);
+            const totalValidVotes = muniResult.statistics?.totalValidVotes;
+            
+            if (partyData && totalValidVotes && totalValidVotes > 0) {
+                percentage = (partyData.votes / totalValidVotes) * 100;
+            } else if (partyData && partyData.votes === 0) {
+                percentage = 0; // Explicitly 0 if party got 0 votes
+            }
+            // If partyData is missing or totalValidVotes is 0/null, percentage remains null
+        } 
+        
+        newFeature.properties[safePartyPercentageKey] = percentage;
+        if (percentage !== null) {
+            validPercentages.push(percentage);
+            featuresUpdated++;
+        }
+        return newFeature;
+    });
+
+    // Calculate min/max percentage for relative scaling
+    let minPercentage = 0;
+    let maxPercentage = 0;
+    if (validPercentages.length > 0) {
+        minPercentage = Math.min(...validPercentages);
+        maxPercentage = Math.max(...validPercentages);
+    }
+    // Handle case where all percentages are the same or only one value exists
+    if (minPercentage === maxPercentage && validPercentages.length > 0) {
+        maxPercentage = minPercentage + 0.1; // Create a tiny range for interpolation
+    }
+    if (validPercentages.length === 0) {
+         console.warn(`No valid percentages found for ${partyName}. Map may appear grey.`);
+         minPercentage = 0;
+         maxPercentage = 1; // Avoid division by zero in color calc, though map will be grey
+    }
+
+    // Generate the color expression using the new property and calculated range
+    const colorExpression = getPartyPercentageColorExpression(null, safePartyPercentageKey, minPercentage, maxPercentage);
+    
+    // Create a new GeoJSON object with the augmented features
+    const augmentedGeoJson = {
+        type: 'FeatureCollection',
+        features: augmentedFeatures
+    };
+
+    // Get the source and update its data
+    const source = window.map.getSource('municipalities');
+    if (source) {
+        source.setData(augmentedGeoJson);
+        
+        if (window.map.getLayer('municipalities-fill')) {
+            window.map.setPaintProperty('municipalities-fill', 'fill-color', colorExpression);
+        } else {
+            console.warn('municipalities-fill layer not found, cannot apply colors.');
+        }
+
+    } else {
+        console.error('Municipalities source not found. Cannot update data or apply colors.');
+    }
+
+    nationalActiveParty = partyName; // Set the active party for national view
+}
+
+/**
+ * Resets the national map colors back to the default statistic display.
+ */
+export function resetNationalMapColors() {
+    if (!window.map || !window.map.loaded() || !window.municipalityData) {
+        console.warn('Cannot reset national map colors: Map or data not available.');
+        return;
+    }
+    
+     // Restore original data to the source
+    const source = window.map.getSource('municipalities');
+    if (source) {
+        source.setData(window.municipalityData); // Restore original GeoJSON
+    } else {
+        console.error('Municipalities source not found. Cannot restore data.');
+        // Proceed to attempt color reset anyway
+    }
+
+    // Determine the default statistic key by checking the settings dropdown, like in UIFeatureSelectList
+    const statsSelect = document.getElementById('statsSelect');
+    const defaultStatKey = statsSelect ? statsSelect.value : 'aantalInwoners'; // Use same fallback
+
+    // Re-apply the default coloring using the existing updateLayerColors function
+    // updateLayerColors should ideally be called after setData has finished processing
+    // Add a slight delay or use map events if necessary
+    setTimeout(() => {
+        updateLayerColors(window.map, defaultStatKey, 'municipalities', 'municipalities', STYLE_VARIANTS.DYNAMIC_RANGE);
+    }, 50); // Delay matching the visualization delay
+
+    nationalActiveParty = null; // Clear the active national party state
+
+    // Remove active class from stats view elements if they exist
+    const statsView = document.querySelector('.stats-view.national-results'); // Be more specific if possible
+    if (statsView) {
+        statsView.querySelectorAll('.party-result.active').forEach(el => el.classList.remove('active'));
+    }
+}
+
+/**
+ * Loads and displays national election data totals.
+ * Updates the stats view with national election results.
+ * @param {String} electionId - The election ID to load totals for
+ */
+export async function loadNationalElectionData(electionId = null) {
+    try {
+        // Wait for initialization if not already done
+        if (!isInitialized) {
+            await initializeElectionService();
+        }
+
+        // If no election ID is provided, use the newest available election
+        if (!electionId && AVAILABLE_ELECTIONS.length > 0) {
+            electionId = AVAILABLE_ELECTIONS[0];
+        } else if (!electionId && AVAILABLE_ELECTIONS.length === 0) {
+            throw new Error('No elections available');
+        }
+
+        // Reset map colors and clear cache if election changes
+        if (currentNationalElectionId !== electionId) {
+            resetNationalMapColors(); // Reset colors first
+            nationalMunicipalityResultsData = null; // Clear cache for old election
+            currentNationalElectionId = null;
+        }
+
+        const response = await fetch(`api/elections.php?election=${electionId}&municipality=totals`);
+        
+        // Check if response is ok before trying to parse JSON
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const nationalData = await response.json();
+        
+        // Update the stats view with national results
+        _updateNationalStatsView(electionId, nationalData);
+        
+    } catch (error) {
+        console.error('Error loading national election data:', error);
+        const statsView = document.querySelector('.stats-view');
+        _createErrorView(statsView, electionId || 'National Totals');
+    }
+}
+
+/**
+ * Updates the stats view with national election results.
+ * @param {String} electionId - The election ID
+ * @param {Object} nationalData - Data containing national election statistics and results
+ */
+function _updateNationalStatsView(electionId, nationalData) {
+    const { statistics, results } = nationalData;
+    const { cast, totalValidVotes } = statistics;
+    const sortedPartyVotes = [...results].sort((a, b) => b.votes - a.votes);
+    const statsView = document.querySelector('.stats-view');
+    
+    let html = `
+        <div class="election-header">
+            <button class="nav-button prev" ${AVAILABLE_ELECTIONS.indexOf(electionId) === AVAILABLE_ELECTIONS.length - 1 ? 'disabled' : ''}>
+                &#8249;
+            </button>
+            <h2>${electionId} (Landelijk)</h2>
+            <button class="nav-button next" ${AVAILABLE_ELECTIONS.indexOf(electionId) === 0 ? 'disabled' : ''}>
+                &#8250;
+            </button>
+        </div>
+        <div class="total-votes national-totals">
+            Opgeroepen: ${cast.toLocaleString('nl-NL')}<br>
+            Geldig: ${totalValidVotes.toLocaleString('nl-NL')}
+        </div>
+        <div class="election-results national-results">
+    `;
+    
+    let otherParties = [];
+    
+    sortedPartyVotes.forEach(party => {
+        const votes = party.votes;
+        const percentage = totalValidVotes > 0 ? ((votes / totalValidVotes) * 100).toFixed(1) : '0.0';
+        const partyName = party.name;
+        // Add data-party attribute
+        if (percentage >= 1) { 
+            html += `
+                <div class="party-result" data-party="${partyName}">
+                    <span class="party-name">${partyName}</span>
+                    <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                </div>
+            `;
+        } else {
+            otherParties.push(party);
+        }
+    });
+
+    if (otherParties.length > 0) {
+        // Calculate total votes for other parties
+        const otherVotes = otherParties.reduce((sum, party) => sum + party.votes, 0);
+        const otherPercentage = totalValidVotes > 0 ? ((otherVotes / totalValidVotes) * 100).toFixed(1) : '0.0';
+        
+        html += `
+            <div class="party-result others">
+                <span class="party-name">${otherParties.length} overigen</span>
+                <span class="party-votes">${otherVotes.toLocaleString('nl-NL')} (${otherPercentage}%)</span>
+            </div>
+            <div class="other-parties" style="display: none;">
+        `;
+        
+        otherParties.forEach(party => {
+            const votes = party.votes;
+            const percentage = totalValidVotes > 0 ? ((votes / totalValidVotes) * 100).toFixed(1) : '0.0';
+            // Add data-party attribute here too
+            html += `
+                <div class="party-result" data-party="${party.name}">
+                    <span class="party-name">${party.name}</span>
+                    <span class="party-votes">${votes.toLocaleString('nl-NL')} (${percentage}%)</span>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    statsView.innerHTML = html;
+    
+    // Add event listeners for national view
+    _attachNationalStatsViewEventListeners(statsView, electionId);
+}
+
+/**
+ * Attaches event listeners to the national stats view elements.
+ * @param {HTMLElement} statsView - The stats view element
+ * @param {String} electionId - The current election ID
+ */
+function _attachNationalStatsViewEventListeners(statsView, electionId) {
+    // Add event listener to toggle visibility of other parties
+    const othersElement = statsView.querySelector('.party-result.others');
+    const otherPartiesElement = statsView.querySelector('.other-parties');
+    if (othersElement && otherPartiesElement) {
+        othersElement.addEventListener('click', () => {
+            const isExpanded = otherPartiesElement.style.display !== 'none';
+            otherPartiesElement.style.display = isExpanded ? 'none' : 'block';
+            othersElement.classList.toggle('expanded', !isExpanded);
+        });
+    }
+    
+    // Add event listeners for navigation buttons
+    const prevButton = statsView.querySelector('.nav-button.prev');
+    const nextButton = statsView.querySelector('.nav-button.next');
+
+    prevButton.addEventListener('click', () => {
+        const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
+        if (currentIndex < AVAILABLE_ELECTIONS.length - 1) {
+            const newElectionId = AVAILABLE_ELECTIONS[currentIndex + 1];
+            localStorage.setItem('lastElection', newElectionId);
+            loadNationalElectionData(newElectionId); // Load national data for new election
+        }
+    });
+
+    nextButton.addEventListener('click', () => {
+        const currentIndex = AVAILABLE_ELECTIONS.indexOf(electionId);
+        if (currentIndex > 0) {
+            const newElectionId = AVAILABLE_ELECTIONS[currentIndex - 1];
+            localStorage.setItem('lastElection', newElectionId);
+            loadNationalElectionData(newElectionId); // Load national data for new election
+        }
+    });
+
+    // --- Add party click handlers --- 
+    const partyElements = statsView.querySelectorAll('.party-result:not(.others)');
+    const otherPartyElements = statsView.querySelectorAll('.other-parties .party-result');
+    const allPartyElements = [...partyElements, ...otherPartyElements];
+
+    allPartyElements.forEach(element => {
+        element.addEventListener('click', async () => {
+            const partyName = element.dataset.party;
+            if (!partyName) return; 
+
+            // Remove active class from all elements first
+            allPartyElements.forEach(el => el.classList.remove('active'));
+
+            if (nationalActiveParty === partyName) {
+                // Clicking the active party: reset visualization
+                resetNationalMapColors();
+                // nationalActiveParty is set to null within resetNationalMapColors
+            } else {
+                // Clicking a new party: fetch data if needed and visualize
+                const success = await _fetchNationalMunicipalityResults(electionId);
+                if (success) {
+                    _visualizeNationalPartyResults(partyName);
+                    element.classList.add('active'); // Highlight clicked party
+                } else {
+                    // Handle fetch error - maybe show a message to the user?
+                    console.error('Failed to fetch data needed for visualization.');
+                    resetNationalMapColors(); // Reset to default state on error
+                }
+            }
+        });
+    });
+    
+    // If a party was previously active for this election, re-apply highlighting
+    // This requires tracking active party per election or a more complex state
+    // For simplicity now, clicking a party is needed to activate visualization.
+    // However, we should ensure the map color resets if we navigate elections.
+     if (nationalActiveParty) {
+         // If navigating back to an election where a party was active, 
+         // we might want to re-apply the visualization. 
+         // But for now, election change resets the map color via loadNationalElectionData.
+         // We just need to ensure the correct party element *might* get highlighted if the view is rebuilt.
+         const previouslyActiveElement = statsView.querySelector(`.party-result[data-party="${nationalActiveParty}"]`);
+         if (previouslyActiveElement) {
+             // Decide if highlight should persist. Current logic: No.
+             // previouslyActiveElement.classList.add('active'); 
+         }
+         // Important: Ensure map color reflects the state (or lack thereof)
+         // resetNationalMapColors(); // Called in loadNationalElectionData
+     }
 }
 
 export function setActiveParty(partyName) {
