@@ -54,16 +54,25 @@ function processVoteStatistics($totalVotes) {
     return $stats;
 }
 
-function processPartyVotes($selections) {
+function processPartyVotes($selections, $affiliations) {
     $voteSummary = [];
     $sumValidVotes = 0;
     
+    // Create a lookup map for affiliations for faster access
+    $affiliationMap = [];
+    foreach ($affiliations as $affiliation) {
+        $affiliationMap[$affiliation['Id']] = $affiliation['Name'];
+    }
+
     foreach ($selections as $selection) {
         $votes = intval($selection['ValidVotes']);
         $sumValidVotes += $votes;
+        $partyId = $selection['AffiliationId']; // Use AffiliationId
+        $partyName = $affiliationMap[$partyId] ?? 'Unknown'; // Lookup name, provide default
+
         $voteSummary[] = [
-            'party' => $selection['AffiliationIdentifier']['Id'],
-            'name' => $selection['AffiliationIdentifier']['Name'],
+            'party' => $partyId,
+            'name' => $partyName, 
             'votes' => $votes
         ];
     }
@@ -108,11 +117,11 @@ function getMunicipalityVotes($election, $municipalityCode) {
         throw new Exception("Failed to parse election data");
     }
     
-    $contest = $data['Count']['Election']['Contests']['Contest'];
+    $contest = $data['Contests']['Contest'];
     $totalVotes = $contest['TotalVotes'];
     
     $stats = processVoteStatistics($totalVotes);
-    $partyResults = processPartyVotes($totalVotes['Selection'] ?? []);
+    $partyResults = processPartyVotes($totalVotes['Selection'] ?? [], $contest['Affiliations'] ?? []);
     $stats['totalValidVotes'] = $partyResults['total'];
     
     return [
@@ -141,17 +150,27 @@ function getTotalVotes($election) {
         'uncountedVotes' => []
     ];
     
-    $partyTotals = [];
-    
+    // Use party name as the primary key for aggregation
+    $partyTotalsByName = []; 
+    // Store party details (like ID) encountered, keyed by name
+    $partyDetails = [];
+
     foreach ($files as $file) {
         $data = json_decode(file_get_contents($file), true);
         if (!$data) continue;
         
-        $contest = $data['Count']['Election']['Contests']['Contest'];
-        $totalVotes = $contest['TotalVotes'];
+        $contest = $data['Contests']['Contest'];
+        $totalVotesData = $contest['TotalVotes']; // Renamed for clarity
+        $affiliations = $contest['Affiliations'] ?? [];
+
+        // Create a lookup map for *this municipality's* affiliations
+        $currentAffiliationMap = [];
+        foreach ($affiliations as $affiliation) {
+            $currentAffiliationMap[$affiliation['Id']] = $affiliation['Name'];
+        }
         
-        // Add up main statistics
-        $stats = processVoteStatistics($totalVotes);
+        // Add up main statistics (excluding totalValidVotes, calculated below)
+        $stats = processVoteStatistics($totalVotesData);
         $totalStats['cast'] += $stats['cast'];
         $totalStats['totalCounted'] += $stats['totalCounted'];
         $totalStats['rejectedVotes']['ongeldig'] += $stats['rejectedVotes']['ongeldig'];
@@ -165,27 +184,69 @@ function getTotalVotes($election) {
             $totalStats['uncountedVotes'][$reason] += $count;
         }
         
-        // Add up party votes
-        if (isset($totalVotes['Selection'])) {
-            $partyResults = processPartyVotes($totalVotes['Selection']);
-            $totalStats['totalValidVotes'] += $partyResults['total'];
-            
-            foreach ($partyResults['summary'] as $result) {
-                $partyId = $result['party'];
-                if (!isset($partyTotals[$partyId])) {
-                    $partyTotals[$partyId] = $result;
-                    $partyTotals[$partyId]['votes'] = 0;
+        // Aggregate party votes using the party NAME as the key
+        if (isset($totalVotesData['Selection'])) {
+            $currentMunicipalityValidVotes = 0; // Track valid votes for this municipality
+
+            foreach ($totalVotesData['Selection'] as $selection) {
+                $affiliationId = $selection['AffiliationId'];
+                $votes = isset($selection['ValidVotes']) ? intval($selection['ValidVotes']) : 0;
+                $currentMunicipalityValidVotes += $votes;
+
+                // Ensure ID is usable for lookup
+                if (!is_string($affiliationId) && !is_int($affiliationId)) { 
+                    // Optional: Log this malformed ID
+                    // error_log("Malformed AffiliationId in file $file: " . print_r($affiliationId, true));
+                    continue; 
+                } 
+                
+                $partyName = $currentAffiliationMap[$affiliationId] ?? 'Unknown (' . $affiliationId . ')';
+
+                // Ensure $partyName is scalar (string/int) before using as an array key
+                if (!is_string($partyName) && !is_int($partyName)) {
+                    // Log or handle the error where partyName is not scalar
+                    error_log("Non-scalar party name derived for AffiliationId: $affiliationId in file: $file. Skipping entry.");
+                    continue; // Skip this entry
                 }
-                $partyTotals[$partyId]['votes'] += $result['votes'];
+
+                // Initialize or add votes, keyed by party name
+                if (!isset($partyTotalsByName[$partyName])) {
+                    $partyTotalsByName[$partyName] = 0;
+                }
+                $partyTotalsByName[$partyName] += $votes;
+
+                // Store party details (Id, Name) the first time we see a party name
+                if (!isset($partyDetails[$partyName])) {
+                    $partyDetails[$partyName] = [
+                        'party' => $affiliationId, // Store the ID from the first file encountered
+                        'name' => $partyName
+                    ];
+                }
             }
+            $totalStats['totalValidVotes'] += $currentMunicipalityValidVotes; // Accumulate total valid votes
         }
     }
+
+    // After the loop, format the results
+    $finalResults = [];
+    foreach ($partyTotalsByName as $name => $totalVotes) {
+        // Exclude 'party' ID from the final output for totals
+        $finalResults[] = [
+            'name' => $name,
+            'votes' => $totalVotes
+        ];
+    }
+
+    // Optional: Sort results (e.g., alphabetically by name)
+    usort($finalResults, function($a, $b) {
+        return strcmp($a['name'], $b['name']); 
+    });
     
     return [
         'election' => $sanitizedElection,
         'municipality' => 'totals',
         'statistics' => $totalStats,
-        'results' => array_values($partyTotals)
+        'results' => $finalResults // Use the newly constructed results
     ];
 }
 
