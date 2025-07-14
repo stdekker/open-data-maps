@@ -1,6 +1,7 @@
-import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression, addMapLayers } from '../layerService.js';
-import { Modal } from '../modalService.js';
-import { INVALID_VALUES, STYLE_VARIANTS, updateLayerColors } from '../colorService.js';
+import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression, addMapLayers } from '../services/layerService.js';
+import { Modal } from '../services/modalService.js';
+import { INVALID_VALUES, STYLE_VARIANTS, updateLayerColors } from '../services/colorService.js';
+import * as State from '../state.js';
 
 const DB_NAME = 'postcodeDB';
 const STORE_NAME = 'postcodes';
@@ -531,10 +532,10 @@ export function setMunicipalityPostcodes(geoJsonData) {
     
     // If no valid postcodes found and we're likely in wijken view, 
     // get them from the buurten data
-    if (!hasValidPostcodes && window.currentView === 'municipal') {
-        const lastMunicipality = localStorage.getItem('lastMunicipality');
+    if (!hasValidPostcodes && State.getCurrentView() === 'municipal') {
+        const lastMunicipality = State.getLastMunicipality();
         if (lastMunicipality) {
-            const municipality = JSON.parse(lastMunicipality);
+            const municipality = lastMunicipality;
             
             // Fetch buurten data specifically to get postcodes, regardless of current view type
             fetch(`api/municipality.php?code=${municipality.code}&type=buurten`)
@@ -577,7 +578,7 @@ export function initializePostcode6Toggle(mapInstance) {
     }
 
     // Initial load check (if the page loads with the toggle active)
-    if (postcode6Toggle.getAttribute('aria-pressed') === 'true' && window.currentView === 'municipal') {
+    if (postcode6Toggle.getAttribute('aria-pressed') === 'true' && State.getCurrentView() === 'municipal') {
         loadAllPostcode6Data(mapInstance);
     }
 
@@ -587,7 +588,7 @@ export function initializePostcode6Toggle(mapInstance) {
     /*
     const handleInteraction = async (event) => {
         // If we're in national view, prevent the toggle from being changed
-        if (window.currentView === 'national') {
+        if (State.getCurrentView() === 'national') {
             // This check should ideally happen in the main handler
             event.preventDefault();
             // updateToggleUI(postcode6Toggle, false, true); // Handled by activateView
@@ -711,8 +712,25 @@ function createPostcodeStatsContent(feature) {
 function ensureModalHtmlExists() {
     if (modalHtmlAdded) return;
     
-    // The modal HTML structure already exists in index.php, 
-    // we just need to track that we've initialized
+    // Create the modal HTML if it doesn't exist
+    if (!document.getElementById('postcode-stats-modal')) {
+        const modalHtml = `
+            <div id="postcode-stats-modal" class="modal-overlay">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Postcode Statistics</h3>
+                        <button class="modal-close" aria-label="Close modal">&times;</button>
+                    </div>
+                    <div class="modal-content">
+                        <!-- Content will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
     modalHtmlAdded = true;
 }
 

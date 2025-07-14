@@ -5,7 +5,7 @@ let nationalActiveParty = null;
 let nationalMunicipalityResultsData = null;
 let currentNationalElectionId = null;
 
-import { showPartyVotes, hidePartyVotes } from './layers/electionsLayer.js';
+import { showPartyVotes, hidePartyVotes } from '../layers/electionsLayer.js';
 import { updateLayerColors, getPartyPercentageColorExpression, STYLE_VARIANTS } from './colorService.js';
 
 /**

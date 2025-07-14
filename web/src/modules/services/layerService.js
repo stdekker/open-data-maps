@@ -1,8 +1,8 @@
 import { createStyleConfig, STYLE_VARIANTS } from './colorService.js';
 
 // Re-export functions from layer modules
-export { updateMapColors, addMunicipalityLayers } from './layers/municipalityLayer.js';
-export { addReportingUnits, cleanupReportingUnits } from './layers/electionsLayer.js';
+export { updateMapColors, addMunicipalityLayers } from '../layers/municipalityLayer.js';
+export { addReportingUnits, cleanupReportingUnits } from '../layers/electionsLayer.js';
 export { 
     loadAllPostcode6Data,
     cleanupPostcode6Layer,
@@ -10,7 +10,7 @@ export {
     updateToggleStates,
     setMunicipalityPostcodes,
     initializePostcode6Toggle
-} from './layers/postcodeLayer.js';
+} from '../layers/postcodeLayer.js';
 
 // Export color-related functions from colorService.js
 export {

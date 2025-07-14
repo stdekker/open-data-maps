@@ -1,4 +1,4 @@
-import { updateMapColors } from './layerService.js';
+import { updateMapColors } from './services/layerService.js';
 import { STATISTICS_CONFIG } from '../config.js';
 import { initializeFeatureSelect, updateSelectedFeaturesList } from './UIFeatureSelectList.js';
 import { getFeatureName, formatStatValue } from './UIShared.js';

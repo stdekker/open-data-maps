@@ -9,7 +9,7 @@ import { STATISTICS_CONFIG } from '../config.js';
  * @param {Object} feature - The feature object
  * @returns {String} The appropriate feature name
  */
-import { INVALID_VALUES } from './colorService.js';
+import { INVALID_VALUES } from './services/colorService.js';
 import { getCurrentRegionType } from './state.js';
 
 export function getFeatureName(feature) {

@@ -1,7 +1,7 @@
-import { findFirstSymbolLayer, cleanupLayers, addMapLayers } from '../layerService.js';
-import { updateLayerColors, STYLE_VARIANTS } from '../colorService.js';
+import { findFirstSymbolLayer, cleanupLayers, addMapLayers } from '../services/layerService.js';
+import { updateLayerColors, STYLE_VARIANTS } from '../services/colorService.js';
 import { populateStatisticsSelect } from '../UIFeatureInfoBox.js';
-import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle } from './postcodeLayer.js';
+import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle, loadAllPostcode6Data } from './postcodeLayer.js';
 
 /**
  * Updates the map colors based on the selected statistic
@@ -31,19 +31,22 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
     const postcode6Toggle = document.getElementById('postcode6Toggle');
     const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
 
-    // Only clean up postcode layer if the toggle is inactive
-    if (!isPostcodeActive && (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6'))) {
-        console.log('Cleaning up existing postcode6 layers in addMunicipalityLayers...');
+    // Always clean up existing postcode layers when switching municipalities
+    if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6')) {
+        console.log('Cleaning up existing postcode6 layers when switching municipalities...');
         cleanupPostcode6Layer(map);
-    }
-    
-    // Only reset the toggle if we're cleaning up the layer (toggle is inactive)
-    if (!isPostcodeActive) {
-        resetPostcode6Toggle();
     }
 
     // Set municipality postcodes for postcode layer functionality
     setMunicipalityPostcodes(geoJsonData);
+    
+    // If postcode toggle is active, reload postcodes for the new municipality
+    if (isPostcodeActive) {
+        // Small delay to ensure municipality data is fully loaded
+        setTimeout(() => {
+            loadAllPostcode6Data(map);
+        }, 100);
+    }
 
     // Find the first symbol layer in the map style
     const firstSymbolId = findFirstSymbolLayer(map);

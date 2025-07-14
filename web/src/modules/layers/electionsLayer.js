@@ -1,6 +1,6 @@
-import { cleanupLayers } from '../layerService.js';
-import { setupReportingUnitPopupHandlers } from '../electionService.js';
-import { showPartyVotesColors, resetPartyVotesColors } from '../colorService.js';
+import { cleanupLayers } from '../services/layerService.js';
+import { setupReportingUnitPopupHandlers } from '../services/electionService.js';
+import { showPartyVotesColors, resetPartyVotesColors } from '../services/colorService.js';
 
 // Global size factor for all circles (decrease to make circles smaller)
 const CIRCLE_SIZE_FACTOR = 0.4;

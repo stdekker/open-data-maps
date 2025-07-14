@@ -3,15 +3,15 @@
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 
 // Core services
-import { fetchData } from './modules/dataService.js';
-import { Modal } from './modules/modalService.js';
+import { fetchData } from './modules/services/dataService.js';
+import { Modal } from './modules/services/modalService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import * as State from './modules/state.js';
 
 // UI components and handlers
 import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
-import { setupSearch, findMunicipalityByName, createSearchData } from './modules/searchService.js';
+import { setupSearch, findMunicipalityByName, createSearchData } from './modules/services/searchService.js';
 import { initializeFeatureSelect } from './modules/UIFeatureSelectList.js';
 
 // Map layers and data
@@ -23,7 +23,7 @@ import {
     cleanupPostcode6Layer, 
     initializePostcode6Toggle, 
     loadAllPostcode6Data 
-} from './modules/layerService.js';
+} from './modules/services/layerService.js';
 
 // Additional features
 import { 
@@ -31,7 +31,7 @@ import {
     loadNationalElectionData, 
     getAvailableElections,
     resetNationalMapColors
-} from './modules/electionService.js';
+} from './modules/services/electionService.js';
 
 let settingsModal;
 let helpModal;
