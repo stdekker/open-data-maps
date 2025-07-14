@@ -117,6 +117,25 @@ export function cleanupPostcode6Layer(map) {
         map.off('mouseleave', 'postcode6-fill');
         map.off('click', 'postcode6-fill');
 
+        // Clean up any active postcode popup
+        if (postcodePopup) {
+            postcodePopup.remove();
+            postcodePopup = null;
+        }
+
+        // Close any open postcode stats modal
+        if (postcodeStatsModal && postcodeStatsModal.isOpen()) {
+            postcodeStatsModal.close();
+        }
+
+        // Reset hover state
+        if (hoveredPostcodeId !== null) {
+            try {
+                map.setFeatureState({ source: 'postcode6', id: hoveredPostcodeId }, { hover: false });
+            } catch (e) { /* Ignore - source may not exist */ }
+            hoveredPostcodeId = null;
+        }
+
         cleanupLayers(map, 
             ['postcode6-fill', 'postcode6-borders', 'postcode6-hover'],
             ['postcode6']
