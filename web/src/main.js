@@ -6,6 +6,7 @@ import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPAL
 import { fetchData } from './modules/dataService.js';
 import { Modal } from './modules/modalService.js';
 import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
+import * as State from './modules/state.js';
 
 // UI components and handlers
 import { initializeMobileHandler } from './modules/mobileHandler.js';
@@ -32,12 +33,10 @@ import {
     resetNationalMapColors
 } from './modules/electionService.js';
 
-let showElectionData = false;
 let settingsModal;
 let helpModal;
 let municipalityPopulations = {};
 let municipalityData = null;
-let currentRegionType = 'buurten'; // Default region type
 
 // Helper function to update toggle UI state
 function updateToggleUI(toggleElement, isActive, isDisabled = false) {
@@ -68,7 +67,7 @@ const map = new mapboxgl.Map({
 
 // Global variables
 window.map = map;
-window.currentView = 'national';
+State.setCurrentView('national');
 
 // Initialize the feature selection module after map is loaded
 map.on('load', () => {
@@ -115,16 +114,13 @@ async function initializeMapAndData() {
         
         // URL parameter takes precedence over localStorage
         if (params.elections !== null) {
-            showElectionData = params.elections;
-            localStorage.setItem('showElectionData', showElectionData);
-        } else {
-            showElectionData = localStorage.getItem('showElectionData') === 'true';
+            State.setShowElectionData(params.elections);
         }
         
-        electionToggle.checked = showElectionData;
+        electionToggle.checked = State.getShowElectionData();
 
         const statsView = document.querySelector('.stats-view');
-        statsView.style.display = showElectionData ? 'block' : 'none';
+        statsView.style.display = State.getShowElectionData() ? 'block' : 'none';
 
         // Initialize the map on the municipality from the URL parameter or localStorage
         let municipality = null;
@@ -140,9 +136,9 @@ async function initializeMapAndData() {
         // If no municipality is chosen through the url or found in localStorage, 
         // show the default municipality
         if (!municipality) {
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            const lastMunicipality = State.getLastMunicipality();
             if (lastMunicipality) {
-                municipality = JSON.parse(lastMunicipality);
+                municipality = lastMunicipality;
             } else {
                 municipality = findMunicipalityByName(municipalityData, DEFAULT_MUNICIPALITY);
             }
@@ -178,8 +174,8 @@ async function viewMunicipality(municipality) {
     autocompleteList.innerHTML = '';
     searchError.classList.remove('visible');
     
-    localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
-    updateUrlParams(municipality.naam, showElectionData);
+    State.setLastMunicipality(municipality);
+    updateUrlParams(municipality.naam, State.getShowElectionData());
 
     // Hide keyboard on mobile devices
     searchInput.blur();
@@ -192,7 +188,7 @@ async function viewMunicipality(municipality) {
     updateFeatureNameBox();
 
     // Wait for data loading to complete
-    await loadGeoJson(municipality.code, currentRegionType);
+    await loadGeoJson(municipality.code, State.getCurrentRegionType());
 }
 
 // Modify the viewNational function
@@ -223,7 +219,7 @@ async function viewNational() {
         // Add double-click handler for municipality selection
         map.on('dblclick', 'municipalities-fill', (e) => {
             // Only handle double-click if we're in national view
-            if (currentView !== 'national') {
+            if (State.getCurrentView() !== 'national') {
                 return;
             }
 
@@ -237,7 +233,7 @@ async function viewNational() {
                 };
                 
                 // Store selected municipality
-                localStorage.setItem('lastMunicipality', JSON.stringify(municipality));
+                State.setLastMunicipality(municipality);
                 
                 // Switch to municipal view
                 activateView('municipal', municipality.code);
@@ -502,30 +498,29 @@ function initializeDOMElements() {
             map.setLayoutProperty('municipalities-fill', 'visibility', isActive ? 'visible' : 'none');
             map.setLayoutProperty('municipalities-borders', 'visibility', isActive ? 'visible' : 'none');
         }
-        localStorage.setItem('showMunicipalityLayer', isActive);
+        State.setShowMunicipalityLayer(isActive);
     }
 
     // Specific handler for election toggle
     function handleElectionToggle(isActive) {
-        showElectionData = isActive;
-        localStorage.setItem('showElectionData', showElectionData);
+        State.setShowElectionData(isActive);
         const statsView = document.querySelector('.stats-view'); // Ensure statsView is available here
-        statsView.style.display = showElectionData ? 'block' : 'none';
+        statsView.style.display = State.getShowElectionData() ? 'block' : 'none';
 
         // Update URL parameter
-        const lastMunicipality = localStorage.getItem('lastMunicipality');
-        const municipality = lastMunicipality ? JSON.parse(lastMunicipality) : null;
+        const lastMunicipality = State.getLastMunicipality();
+        const municipality = lastMunicipality ? lastMunicipality : null;
         // Only include municipality name in URL if in municipal view
-        updateUrlParams(currentView === 'municipal' ? municipality?.naam : null, showElectionData);
+        updateUrlParams(State.getCurrentView() === 'municipal' ? municipality?.naam : null, State.getShowElectionData());
 
         // Fetch data or clean up based on view and toggle state
-        const currentElection = localStorage.getItem('lastElection') || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
+        const currentElection = State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
 
         if (isActive && currentElection) {
-            if (currentView === 'municipal' && municipality) {
+            if (State.getCurrentView() === 'municipal' && municipality) {
                 loadElectionData(municipality.code, currentElection);
                 // Reporting units are added via the 'reportingUnitsLoaded' event listener
-            } else if (currentView === 'national') {
+            } else if (State.getCurrentView() === 'national') {
                 loadNationalElectionData(currentElection);
             }
         } else {
@@ -539,14 +534,14 @@ function initializeDOMElements() {
                  statsView.style.display = 'none';
             }
              // If in national view and toggling OFF, reset map colors
-            if (!isActive && currentView === 'national') {
+            if (!isActive && State.getCurrentView() === 'national') {
                 resetNationalMapColors(); 
             }
         }
     }
 
     // Restore initial toggle states
-    const initialShowMunicipality = localStorage.getItem('showMunicipalityLayer') !== 'false';
+    const initialShowMunicipality = State.getShowMunicipalityLayer();
     const municipalityToggleElement = document.getElementById('municipalityToggle');
     updateToggleUI(municipalityToggleElement, initialShowMunicipality);
     
@@ -555,7 +550,7 @@ function initializeDOMElements() {
     
     // Initial map layer visibility is set within activateView
 
-    const initialShowElection = localStorage.getItem('showElectionData') === 'true';
+    const initialShowElection = State.getShowElectionData();
     const electionToggleElement = document.getElementById('electionToggle');
     updateToggleUI(electionToggleElement, initialShowElection);
     const statsView = document.querySelector('.stats-view'); // Ensure statsView is defined
@@ -579,7 +574,7 @@ if (document.readyState === 'loading') {
  */
 function initializeRegionTypeToggles() {
     // Load from localStorage or use default
-    currentRegionType = localStorage.getItem('regionType') || 'buurten';
+    let currentRegionType = State.getCurrentRegionType();
     
     // Get region type elements
     const buurtToggle = document.getElementById('buurtToggle');
@@ -599,7 +594,7 @@ function initializeRegionTypeToggles() {
         
         // Update region type even if it's already 'buurten'
         currentRegionType = 'buurten';
-        localStorage.setItem('regionType', currentRegionType);
+        State.setCurrentRegionType(currentRegionType);
         updateRegionTypeUI();
         
         handleRegionToggleBehavior(e.currentTarget);
@@ -610,7 +605,7 @@ function initializeRegionTypeToggles() {
         
         // Update region type even if it's already 'wijken'
         currentRegionType = 'wijken';
-        localStorage.setItem('regionType', currentRegionType);
+        State.setCurrentRegionType(currentRegionType);
         updateRegionTypeUI();
         
         handleRegionToggleBehavior(e.currentTarget);
@@ -627,7 +622,7 @@ function initializeRegionTypeToggles() {
             updateToggleUI(municipalityToggle, true);
             
             // Update localStorage
-            localStorage.setItem('showMunicipalityLayer', 'true');
+            State.setShowMunicipalityLayer(true);
             
             // Ensure the layer is visible if it exists
             if (map.getLayer('municipalities-fill')) {
@@ -636,10 +631,10 @@ function initializeRegionTypeToggles() {
             }
             
             // Force reload of the municipality data to make sure it's displayed
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
-            if (lastMunicipality && window.currentView === 'municipal') {
-                const municipality = JSON.parse(lastMunicipality);
-                loadGeoJson(municipality.code, currentRegionType);
+            const lastMunicipality = State.getLastMunicipality();
+            if (lastMunicipality && State.getCurrentView() === 'municipal') {
+                const municipality = lastMunicipality;
+                loadGeoJson(municipality.code, State.getCurrentRegionType());
             }
         } else {
             reloadCurrentMunicipality();
@@ -655,7 +650,7 @@ function updateRegionTypeUI() {
     const wijkToggle = document.getElementById('wijkToggle');
     
     if (buurtToggle && wijkToggle) {
-        if (currentRegionType === 'buurten') {
+        if (State.getCurrentRegionType() === 'buurten') {
             buurtToggle.classList.add('active');
             wijkToggle.classList.remove('active');
         } else {
@@ -669,9 +664,9 @@ function updateRegionTypeUI() {
  * Reloads the current municipality with the selected region type
  */
 function reloadCurrentMunicipality() {
-    const lastMunicipality = localStorage.getItem('lastMunicipality');
-    if (lastMunicipality && window.currentView === 'municipal') {
-        const municipality = JSON.parse(lastMunicipality);
+    const lastMunicipality = State.getLastMunicipality();
+    if (lastMunicipality && State.getCurrentView() === 'municipal') {
+        const municipality = lastMunicipality;
         
         // Check if postcode toggle is active before reloading
         const postcode6Toggle = document.getElementById('postcode6Toggle');
@@ -683,7 +678,7 @@ function reloadCurrentMunicipality() {
         }
         
         // Load new municipality data with current region type
-        loadGeoJson(municipality.code, currentRegionType)
+        loadGeoJson(municipality.code, State.getCurrentRegionType())
             .then(() => {
                 // If postcode toggle was active, reload postcode data with the new region type
                 if (isPostcodeActive) {
@@ -715,16 +710,15 @@ async function activateView(viewType, municipalityCode = null) {
     viewItem.setAttribute('aria-selected', 'true');
 
     // Get previous view before updating
-    const previousView = currentView;
+    const previousView = State.getCurrentView();
     
     // Update current view
-    currentView = viewType;  
-    window.currentView = viewType; // Update global view
+    State.setCurrentView(viewType);  
     
     if (viewType === 'national') {
         try {
             // Store current election state in localStorage before switching
-            localStorage.setItem('previousElectionState', showElectionData);
+            localStorage.setItem('previousElectionState', State.getShowElectionData());
             
             // Only clean up postcode6 layer if it exists
             if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-line')) {
@@ -756,13 +750,13 @@ async function activateView(viewType, municipalityCode = null) {
             const electionToggle = document.getElementById('electionToggle');
             const municipalityToggle = document.getElementById('municipalityToggle');
             // Restore election state but keep it enabled
-            showElectionData = localStorage.getItem('showElectionData') === 'true'; 
+            let showElectionData = State.getShowElectionData(); 
             updateToggleUI(electionToggle, showElectionData, false); // Reflect state, Not Disabled
             updateToggleUI(municipalityToggle, true, true); // Active, Disabled (National view always shows municipalities)
 
             // Load national election data if toggle is active
              if (showElectionData) {
-                const currentElection = localStorage.getItem('lastElection') || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
+                const currentElection = State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
                 if (currentElection) {
                     loadNationalElectionData(currentElection);
                     statsView.style.display = 'block'; // Show stats view if loading data
@@ -773,8 +767,8 @@ async function activateView(viewType, municipalityCode = null) {
             updateToggleStates(viewType);
             
             // Reset national map colors only if election data is NOT being shown
-            // If it is shown, loadNationalElectionData handles potential reset/visualization
-            if (!showElectionData) {
+            // Only reset if municipality data is available to prevent errors
+            if (!State.getShowElectionData() && window.municipalityData) {
                 resetNationalMapColors();
             }
             
@@ -787,15 +781,15 @@ async function activateView(viewType, municipalityCode = null) {
     if (viewType === 'municipal') {   
         
         // Restore election state from localStorage
-        showElectionData = localStorage.getItem('showElectionData') === 'true'; // ALWAYS from localStorage
+        let showElectionData = State.getShowElectionData(); // ALWAYS from localStorage
         const electionToggle = document.getElementById('electionToggle'); // Get the toggle
         updateToggleUI(electionToggle, showElectionData, false); // Update UI, Not disabled
 
-        const code = municipalityCode || (JSON.parse(localStorage.getItem('lastMunicipality'))?.code);
+        const code = municipalityCode || (State.getLastMunicipality()?.code);
         if (code) {
-            await loadGeoJson(code, currentRegionType);
+            await loadGeoJson(code, State.getCurrentRegionType());
             if (showElectionData) {
-                await loadElectionData(code, localStorage.getItem('lastElection') || 'TK2023');
+                await loadElectionData(code, State.getLastElection() || 'TK2023');
             }
             // Force the municipality layers to be visible
             if (map.getLayer('municipalities-fill')) {
@@ -803,7 +797,7 @@ async function activateView(viewType, municipalityCode = null) {
                 map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
             }
             // Override any stored state so that buurten toggle is always on
-            localStorage.setItem('showMunicipalityLayer','true');
+            State.setShowMunicipalityLayer(true);
         }
     
         // Show stats view if election toggle is checked
@@ -814,16 +808,16 @@ async function activateView(viewType, municipalityCode = null) {
         //const electionToggle = document.getElementById('electionToggle'); // ALREADY DEFINED ABOVE
         const municipalityToggle = document.getElementById('municipalityToggle');
         updateToggleUI(electionToggle, showElectionData, false); // Already updated above, ensure not disabled
-        const showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false'; // Restore state
-        updateToggleUI(municipalityToggle, showMunicipalityLayer, false); // Set state from storage, Not disabled
+        const showMunicipalityLayer = State.getShowMunicipalityLayer(); // Restore state
+        updateToggleUI(municipalityToggle, showMunicipalityLayer, false);
 
         // Explicitly add or remove reporting units based on showElectionData
         if (showElectionData) {
-            const lastMunicipality = localStorage.getItem('lastMunicipality');
+            const lastMunicipality = State.getLastMunicipality();
             if (lastMunicipality) {
-                const municipality = JSON.parse(lastMunicipality);
+                const municipality = lastMunicipality;
                 // Re-fetch the election data to get the geoJsonData
-                loadElectionData(municipality.code, localStorage.getItem('lastElection') || 'TK2021')
+                loadElectionData(municipality.code, State.getLastElection() || 'TK2021')
                 .then(() => {
                     // The 'reportingUnitsLoaded' event will trigger addReportingUnits
                 });
@@ -840,7 +834,7 @@ async function activateView(viewType, municipalityCode = null) {
 // Update the event listener for reporting units
 window.addEventListener('reportingUnitsLoaded', (event) => {
     const { geoJsonData } = event.detail;
-    addReportingUnits(map, geoJsonData, showElectionData);
+    addReportingUnits(map, geoJsonData, State.getShowElectionData());
 });
 
 
@@ -850,15 +844,14 @@ window.addEventListener('popstate', async (event) => {
 
     // Handle elections parameter
     if (params.elections !== null) {
-        showElectionData = params.elections;
-        localStorage.setItem('showElectionData', showElectionData);
+        State.setShowElectionData(params.elections);
 
         const electionToggle = document.getElementById('electionToggle');
-        updateToggleUI(electionToggle, showElectionData);
+        updateToggleUI(electionToggle, State.getShowElectionData());
 
         const statsView = document.querySelector('.stats-view');
         if (statsView) {
-            statsView.style.display = showElectionData ? 'block' : 'none';
+            statsView.style.display = State.getShowElectionData() ? 'block' : 'none';
         }
     }
 
@@ -875,11 +868,11 @@ window.addEventListener('popstate', async (event) => {
     }
 
     // Load election data if needed
-    if (showElectionData && currentView === 'municipal') {
-        const lastMunicipality = localStorage.getItem('lastMunicipality');
+    if (State.getShowElectionData() && State.getCurrentView() === 'municipal') {
+        const lastMunicipality = State.getLastMunicipality();
         if (lastMunicipality) {
-            const municipality = JSON.parse(lastMunicipality);
-            const currentElection = localStorage.getItem('lastElection') || 'TK2021';
+            const municipality = lastMunicipality;
+            const currentElection = State.getLastElection() || 'TK2021';
             loadElectionData(municipality.code, currentElection);
         }
     }

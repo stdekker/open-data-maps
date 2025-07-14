@@ -543,8 +543,13 @@ async function _visualizeNationalPartyResults(partyName) {
  * Resets the national map colors back to the default statistic display.
  */
 export function resetNationalMapColors() {
-    if (!window.map || !window.map.loaded() || !window.municipalityData) {
-        console.warn('Cannot reset national map colors: Map or data not available.');
+    if (!window.map || !window.map.loaded()) {
+        console.warn('Cannot reset national map colors: Map not available or not loaded.');
+        return;
+    }
+    
+    if (!window.municipalityData) {
+        console.warn('Cannot reset national map colors: Municipality data not available yet.');
         return;
     }
     
@@ -553,8 +558,8 @@ export function resetNationalMapColors() {
     if (source) {
         source.setData(window.municipalityData); // Restore original GeoJSON
     } else {
-        console.error('Municipalities source not found. Cannot restore data.');
-        // Proceed to attempt color reset anyway
+        console.warn('Municipalities source not found. Cannot restore data.');
+        // Don't return here - still try to reset colors if possible
     }
 
     // Determine the default statistic key by checking the settings dropdown, like in UIFeatureSelectList

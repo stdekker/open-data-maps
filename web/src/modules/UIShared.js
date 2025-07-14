@@ -10,6 +10,7 @@ import { STATISTICS_CONFIG } from '../config.js';
  * @returns {String} The appropriate feature name
  */
 import { INVALID_VALUES } from './colorService.js';
+import { getCurrentRegionType } from './state.js';
 
 export function getFeatureName(feature) {
     if (!feature || !feature.properties) return '';
@@ -30,7 +31,7 @@ export function getFeatureName(feature) {
         return postcode;
     }
 
-    const regionType = window.currentRegionType || localStorage.getItem('regionType') || 'buurten';
+    const regionType = getCurrentRegionType();
     if (regionType === 'wijken' && feature.properties.wijknaam) {
         return feature.properties.wijknaam;
     }
