@@ -2,6 +2,7 @@ import { findFirstSymbolLayer, cleanupLayers, addMapLayers } from '../services/l
 import { updateLayerColors, STYLE_VARIANTS } from '../services/colorService.js';
 import { populateStatisticsSelect } from '../UIFeatureInfoBox.js';
 import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle, loadAllPostcode6Data } from './postcodeLayer.js';
+import * as State from '../state.js';
 
 /**
  * Updates the map colors based on the selected statistic
@@ -37,15 +38,18 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
         cleanupPostcode6Layer(map);
     }
 
-    // Set municipality postcodes for postcode layer functionality
-    setMunicipalityPostcodes(geoJsonData);
-    
-    // If postcode toggle is active, reload postcodes for the new municipality
-    if (isPostcodeActive) {
-        // Small delay to ensure municipality data is fully loaded
-        setTimeout(() => {
-            loadAllPostcode6Data(map);
-        }, 100);
+    // Only handle postcode functionality in municipal view, not national view
+    if (State.getCurrentView() === 'municipal') {
+        // Set municipality postcodes for postcode layer functionality
+        setMunicipalityPostcodes(geoJsonData);
+        
+        // If postcode toggle is active, reload postcodes for the new municipality
+        if (isPostcodeActive) {
+            // Small delay to ensure municipality data is fully loaded
+            setTimeout(() => {
+                loadAllPostcode6Data(map);
+            }, 100);
+        }
     }
 
     // Find the first symbol layer in the map style
