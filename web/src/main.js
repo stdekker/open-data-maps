@@ -22,7 +22,11 @@ import {
     updateToggleStates, 
     cleanupPostcode6Layer, 
     initializePostcode6Toggle, 
-    loadAllPostcode6Data 
+    loadAllPostcode6Data,
+    addBagLayer,
+    cleanupBagLayer,
+    toggleBagLayer,
+    loadBagDataForMunicipality
 } from './modules/services/layerService.js';
 
 // Additional features
@@ -486,6 +490,18 @@ function initializeDOMElements() {
                     }
                 }
                 break;
+            case 'bag':
+                toggleBagLayer(map, shouldBeActive);
+                if (shouldBeActive && State.getCurrentView() === 'municipal') {
+                    const municipality = State.getLastMunicipality();
+                    if (municipality && window.municipalityData) {
+                        const municipalityFeature = window.municipalityData.features.find(f => f.properties.gemeentecode === municipality.code);
+                        if (municipalityFeature) {
+                            loadBagDataForMunicipality(map, municipalityFeature);
+                        }
+                    }
+                }
+                break;
             case 'election':
                 handleElectionToggle(shouldBeActive);
                 break;
@@ -555,6 +571,10 @@ function initializeDOMElements() {
     updateToggleUI(electionToggleElement, initialShowElection);
     const statsView = document.querySelector('.stats-view'); // Ensure statsView is defined
     statsView.style.display = initialShowElection ? 'block' : 'none';
+
+    const initialShowBag = State.getShowBagLayer();
+    const bagToggleElement = document.getElementById('bagToggle');
+    updateToggleUI(bagToggleElement, initialShowBag);
 
     // Initialize mobile handler
     initializeMobileHandler();
@@ -766,6 +786,15 @@ async function activateView(viewType, municipalityCode = null) {
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
             
+            // Initialize BAG layer if enabled
+            const bagToggle = document.getElementById('bagToggle');
+            const showBagLayer = State.getShowBagLayer();
+            updateToggleUI(bagToggle, showBagLayer, false);
+            if (showBagLayer) {
+                addBagLayer(map);
+                loadBagDataForMunicipality(map, null); // Clear data for national view
+            }
+            
             // Reset national map colors only if election data is NOT being shown
             // Only reset if municipality data is available to prevent errors
             if (!State.getShowElectionData() && window.municipalityData) {
@@ -810,6 +839,21 @@ async function activateView(viewType, municipalityCode = null) {
         updateToggleUI(electionToggle, showElectionData, false); // Already updated above, ensure not disabled
         const showMunicipalityLayer = State.getShowMunicipalityLayer(); // Restore state
         updateToggleUI(municipalityToggle, showMunicipalityLayer, false);
+
+        // Initialize BAG layer if enabled
+        const bagToggle = document.getElementById('bagToggle');
+        const showBagLayer = State.getShowBagLayer();
+        updateToggleUI(bagToggle, showBagLayer, false);
+        if (showBagLayer) {
+            addBagLayer(map);
+            const municipality = State.getLastMunicipality();
+            if (municipality && window.municipalityData) {
+                const municipalityFeature = window.municipalityData.features.find(f => f.properties.gemeentecode === municipality.code);
+                if (municipalityFeature) {
+                    loadBagDataForMunicipality(map, municipalityFeature);
+                }
+            }
+        }
 
         // Explicitly add or remove reporting units based on showElectionData
         if (showElectionData) {

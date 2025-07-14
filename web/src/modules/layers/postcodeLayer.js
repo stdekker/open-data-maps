@@ -580,6 +580,12 @@ export function setMunicipalityPostcodes(geoJsonData) {
 }
 
 /**
+ * Returns the set of postcodes for the current municipality.
+ * @returns {Set<string>}
+ */
+export const getMunicipalityPostcodes = () => municipalityPostcodes;
+
+/**
  * Initializes the postcode6 toggle functionality
  * @param {Object} mapInstance - The Mapbox map instance
  */

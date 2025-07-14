@@ -15,6 +15,7 @@ const _state = {
     lastMunicipality: null,
     showMunicipalityLayer: true,
     lastElection: null,
+    showBagLayer: false,
 };
 
 /**
@@ -50,6 +51,7 @@ export const getCurrentView = () => _state.currentView;
 export const getLastMunicipality = () => _state.lastMunicipality;
 export const getShowMunicipalityLayer = () => _state.showMunicipalityLayer;
 export const getLastElection = () => _state.lastElection;
+export const getShowBagLayer = () => _state.showBagLayer;
 
 
 // --- Setters ---
@@ -106,4 +108,13 @@ export function setShowMunicipalityLayer(show) {
 export function setLastElection(election) {
     _state.lastElection = election;
     localStorage.setItem('lastElection', election);
+}
+
+/**
+ * Updates the showBagLayer state and stores it in localStorage.
+ * @param {boolean} show - The new value for showBagLayer.
+ */
+export function setShowBagLayer(show) {
+    _state.showBagLayer = show;
+    localStorage.setItem('showBagLayer', show);
 } 

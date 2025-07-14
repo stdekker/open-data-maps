@@ -49,6 +49,7 @@
                 </div>
                 <div class="layer-toggles">
                 <div id="postcode-progress" class="progress-message"></div>
+                <div id="bag-progress" class="progress-message"></div>
                     <div class="layer-toggle-item" id="municipalityToggle" data-layer="municipality" role="button" tabindex="0" aria-pressed="false">
                         <span class="toggle-dot"></span>
                         <span class="toggle-text">
@@ -66,6 +67,10 @@
                         <select id="postcodeStatsSelect">
                             <!-- Options will be populated dynamically -->
                         </select>
+                    </div>
+                    <div class="layer-toggle-item" id="bagToggle" data-layer="bag" role="button" tabindex="0" aria-pressed="false">
+                        <span class="toggle-dot"></span>
+                        <span class="toggle-text">Verblijfsobjecten (BAG)</span>
                     </div>
                     <div class="layer-toggle-item" id="electionToggle" data-layer="election" role="button" tabindex="0" aria-pressed="false">
                         <span class="toggle-dot"></span>
