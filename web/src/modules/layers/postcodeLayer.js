@@ -512,6 +512,7 @@ export function updateToggleStates(viewType) {
     };
 
     const postcode6Toggle = document.getElementById('postcode6Toggle');
+    const bagToggle = document.getElementById('bagToggle');
     
     const isNational = viewType === 'national';
 
@@ -522,10 +523,17 @@ export function updateToggleStates(viewType) {
         postcode6Toggle.setAttribute('aria-pressed', 'false');
     }
 
+    // Update BAG toggle - disable in national view, enable in municipal view
+    updateSingleToggle('bagToggle', isNational);
+    if (isNational && bagToggle) {
+        // Ensure it's visually off in national view
+        bagToggle.setAttribute('aria-pressed', 'false');
+    }
+
     // Note: The main.js activateView function handles enabling/disabling
     // municipalityToggle and electionToggle directly using its own updateToggleUI.
-    // This function now only needs to handle toggles specific to layerService modules,
-    // like the postcode6 toggle.
+    // This function now handles toggles specific to layerService modules,
+    // like the postcode6 and BAG toggles.
 }
 
 /**

@@ -76,10 +76,20 @@ export function addBagLayer(map) {
                     14, 2,
                     18, 6
                 ],
-                'circle-color': '#ff6b6b',
+                'circle-color': [
+                    'case',
+                    ['==', ['get', 'status'], 'Verblijfsobject in gebruik'],
+                    '#ff6b6b', // In use
+                    '#FFD3B9'  // Not in use 
+                ],
                 'circle-opacity': 0.8,
                 'circle-stroke-width': 1,
-                'circle-stroke-color': '#d63384'
+                'circle-stroke-color': [
+                    'case',
+                    ['==', ['get', 'status'], 'Verblijfsobject in gebruik'],
+                    '#d63384', // In use
+                    '#D64D76'  // Not in use
+                ]
             }
         }, firstSymbolId);
 
@@ -111,12 +121,15 @@ export function addBagLayer(map) {
 export async function loadBagDataForMunicipality(map, municipalityFeature) {
     const source = map.getSource('bag-verblijfsobjecten');
     if (!source) {
-        return;
+        addBagLayer(map); // Ensure layer and source exist
     }
 
     if (!municipalityFeature) {
-        source.setData({ type: 'FeatureCollection', features: [] });
+        if (source) {
+            source.setData({ type: 'FeatureCollection', features: [] });
+        }
         lastLoadedMunicipalityCode = null;
+        updateBagProgress('');
         return;
     }
 
@@ -128,9 +141,11 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
     isFetchCancelled = false;
     lastLoadedMunicipalityCode = newMunicipalityCode;
     source.setData({ type: 'FeatureCollection', features: [] });
-    updateBagProgress('Loading BAG data...');
+    updateBagProgress('Gathering BAG data...');
 
     try {
+        const setProgress = (text) => updateBagProgress(text);
+
         const initialResponse = await fetch(`api/bag.php?municipality_code=${newMunicipalityCode}`);
         if (isFetchCancelled) return;
 
@@ -138,16 +153,16 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
 
         if (initialData.type === 'FeatureCollection') {
             // Cached data is returned
-            updateBagProgress('Loading BAG data from server cache...');
+            setProgress('Loading cached BAG data from server...');
             source.setData(initialData);
-            updateBagProgress(`Loaded ${initialData.features.length} buildings.`);
-            setTimeout(() => updateBagProgress(''), 2000);
+            setProgress(`Loaded ${initialData.features.length} buildings.`);
+            setTimeout(() => setProgress(''), 2000);
         } else if (initialData.status === 'fetch_postcodes') {
             // No cache, need to fetch per postcode
             const postcodes = initialData.postcodes;
             if (postcodes.length === 0) {
-                updateBagProgress('No postcodes found for BAG data.');
-                setTimeout(() => updateBagProgress(''), 2000);
+                setProgress('No postcodes found for BAG data.');
+                setTimeout(() => setProgress(''), 2000);
                 return;
             }
 
@@ -156,29 +171,61 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
 
             for (const postcode of postcodes) {
                 if (isFetchCancelled) {
-                    updateBagProgress('Loading cancelled.');
+                    setProgress('Loading cancelled.');
                     return;
                 }
 
                 loadedCount++;
-                updateBagProgress(`Loading BAG data for ${postcode}... (${loadedCount}/${postcodes.length})`);
+                // Set progress text in one place
+                const getProgressText = (extra = '') =>
+                    `This may take a while. Loading BAG data from PDOK API for ${postcode}... (${loadedCount}/${postcodes.length})${extra}`;
+
+                setProgress(getProgressText());
 
                 // Small delay to allow UI to update
                 await new Promise(resolve => setTimeout(resolve, 100));
 
-                const apiUrl = `api/bag.php?postcode4=${postcode}`;
-                const response = await fetch(apiUrl);
-                if (isFetchCancelled) return;
+                // Fetch all pages for this postcode
+                let startIndex = 0;
+                let hasMore = true;
+                let postcodeFeatureCount = 0;
 
-                if (!response.ok) {
-                    console.warn(`Failed to fetch BAG data for postcode ${postcode}.`);
-                    continue;
+                while (hasMore && !isFetchCancelled) {
+                    const apiUrl = `api/bag.php?postcode4=${postcode}&startIndex=${startIndex}&maxFeatures=1000`;
+                    const response = await fetch(apiUrl);
+                    if (isFetchCancelled) return;
+
+                    if (!response.ok) {
+                        console.warn(`Failed to fetch BAG data for postcode ${postcode} at startIndex ${startIndex}.`);
+                        break;
+                    }
+
+                    const data = await response.json();
+                    if (data.features && data.features.length > 0) {
+                        allFeatures.push(...data.features);
+                        postcodeFeatureCount += data.features.length;
+                        
+                        // Update map immediately after each page
+                        source.setData({ type: 'FeatureCollection', features: allFeatures });
+                        setProgress(getProgressText(` - ${allFeatures.length} buildings loaded`));
+                    }
+
+                    // Check if there are more pages
+                    if (data.pagination && data.pagination.hasMore) {
+                        startIndex = data.pagination.nextStartIndex;
+                        hasMore = true;
+                    } else {
+                        hasMore = false;
+                    }
+
+                    // Small delay between pages to prevent overwhelming the server
+                    if (hasMore) {
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
                 }
-                const data = await response.json();
-                if (data.features && data.features.length > 0) {
-                    allFeatures.push(...data.features);
-                    source.setData({ type: 'FeatureCollection', features: allFeatures });
-                    updateBagProgress(`Loading BAG data for ${postcode}... (${loadedCount}/${postcodes.length}) - ${allFeatures.length} buildings loaded`);
+
+                if (postcodeFeatureCount > 0) {
+                    console.log(`Loaded ${postcodeFeatureCount} features for postcode ${postcode}`);
                 }
             }
 
@@ -211,6 +258,13 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
  */
 export function cleanupBagLayer(map) {
     isFetchCancelled = true; // Signal to stop any ongoing fetches
+    
+    // Also explicitly clear the source data
+    const source = map.getSource('bag-verblijfsobjecten');
+    if (source) {
+        source.setData({ type: 'FeatureCollection', features: [] });
+    }
+
     cleanupLayers(map, ['bag-verblijfsobjecten-points'], ['bag-verblijfsobjecten']);
     lastLoadedMunicipalityCode = null; // Reset tracking
     updateBagProgress(''); // Clear any lingering messages

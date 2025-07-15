@@ -104,6 +104,14 @@ if ($postcode4) {
     $validatedPostcode4 = validateInputRegex($postcode4, '/^[1-9][0-9]{3}$/', 'Invalid postcode4.');
     $sanitizedPostcode4 = sanitizePathComponent($validatedPostcode4);
     
+    // Get pagination parameters
+    $startIndex = isset($_GET['startIndex']) ? intval($_GET['startIndex']) : 0;
+    $maxFeatures = isset($_GET['maxFeatures']) ? intval($_GET['maxFeatures']) : 1000;
+    
+    // Validate pagination parameters
+    if ($startIndex < 0) $startIndex = 0;
+    if ($maxFeatures < 1 || $maxFeatures > 1000) $maxFeatures = 1000;
+    
     $client = new Client(['verify' => false, 'timeout' => 180]);
 
     $filterXmlTemplate = <<<XML
@@ -123,48 +131,52 @@ XML;
     $filterXml = sprintf($filterXmlTemplate, $sanitizedPostcode4);
     $wfsUrl = 'https://service.pdok.nl/lv/bag/wfs/v2_0';
 
-    $allFeatures = [];
-    $startIndex = 0;
-    $maxFeatures = 1000;
-    $keepFetching = true;
-
     try {
-        while ($keepFetching) {
-            $params = [
-                'service' => 'WFS', 'version' => '2.0.0', 'request' => 'GetFeature',
-                'typeName' => 'verblijfsobject', 'outputFormat' => 'application/json',
-                'srsName' => 'EPSG:4326', 'FILTER' => $filterXml,
-                'maxFeatures' => $maxFeatures, 'startIndex' => $startIndex
-            ];
+        $params = [
+            'service' => 'WFS', 'version' => '2.0.0', 'request' => 'GetFeature',
+            'typeName' => 'verblijfsobject', 'outputFormat' => 'application/json',
+            'srsName' => 'EPSG:4326', 'FILTER' => $filterXml,
+            'maxFeatures' => $maxFeatures, 'startIndex' => $startIndex
+        ];
 
-            $response = $client->get($wfsUrl, ['query' => $params, 'headers' => ['Accept' => 'application/json']]);
-            $body = (string)$response->getBody();
-            $data = json_decode($body, true);
+        $response = $client->get($wfsUrl, ['query' => $params, 'headers' => ['Accept' => 'application/json']]);
+        $body = (string)$response->getBody();
+        $data = json_decode($body, true);
 
-            if (json_last_error() !== JSON_ERROR_NONE || !isset($data['features'])) {
-                throw new Exception('Invalid JSON response from PDOK.');
-            }
-
-            $featureCount = count($data['features']);
-            if ($featureCount > 0) {
-                $allFeatures = array_merge($allFeatures, $data['features']);
-            }
-
-            if ($featureCount < $maxFeatures) {
-                $keepFetching = false;
-            } else {
-                $startIndex += $maxFeatures;
-            }
+        if (json_last_error() !== JSON_ERROR_NONE || !isset($data['features'])) {
+            throw new Exception('Invalid JSON response from PDOK.');
         }
 
-        foreach ($allFeatures as &$feature) {
+        // Remove rdf_seealso from properties to reduce response size
+        foreach ($data['features'] as &$feature) {
             if (isset($feature['properties']['rdf_seealso'])) {
                 unset($feature['properties']['rdf_seealso']);
+            }
+            // Remove bbox property to reduce file size (redundant for Point geometries)
+            if (isset($feature['bbox'])) {
+                unset($feature['bbox']);
             }
         }
         unset($feature);
 
-        echo json_encode(['type' => 'FeatureCollection', 'features' => $allFeatures]);
+        // Add pagination info to response
+        $featureCount = count($data['features']);
+        $hasMore = $featureCount >= $maxFeatures;
+        $nextStartIndex = $hasMore ? $startIndex + $maxFeatures : null;
+        
+        $response = [
+            'type' => 'FeatureCollection',
+            'features' => $data['features'],
+            'pagination' => [
+                'startIndex' => $startIndex,
+                'maxFeatures' => $maxFeatures,
+                'featureCount' => $featureCount,
+                'hasMore' => $hasMore,
+                'nextStartIndex' => $nextStartIndex
+            ]
+        ];
+
+        echo json_encode($response);
 
     } catch (Exception $e) {
         http_response_code(500);
