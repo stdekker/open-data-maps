@@ -818,7 +818,7 @@ async function activateView(viewType, municipalityCode = null) {
         if (code) {
             await loadGeoJson(code, State.getCurrentRegionType());
             if (showElectionData) {
-                await loadElectionData(code, State.getLastElection() || 'TK2023');
+                await loadElectionData(code, State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null));
             }
             // Force the municipality layers to be visible
             if (map.getLayer('municipalities-fill')) {
@@ -855,7 +855,7 @@ async function activateView(viewType, municipalityCode = null) {
             if (lastMunicipality) {
                 const municipality = lastMunicipality;
                 // Re-fetch the election data to get the geoJsonData
-                loadElectionData(municipality.code, State.getLastElection() || 'TK2021')
+                loadElectionData(municipality.code, State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null))
                 .then(() => {
                     // The 'reportingUnitsLoaded' event will trigger addReportingUnits
                 });
@@ -910,7 +910,7 @@ window.addEventListener('popstate', async (event) => {
         const lastMunicipality = State.getLastMunicipality();
         if (lastMunicipality) {
             const municipality = lastMunicipality;
-            const currentElection = State.getLastElection() || 'TK2021';
+            const currentElection = State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
             loadElectionData(municipality.code, currentElection);
         }
     }
