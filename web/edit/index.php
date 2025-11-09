@@ -179,7 +179,7 @@ $username = $_SESSION['username'] ?? 'User';
             mapStyle: 'mapbox://styles/mapbox/streets-v12'
         };
     </script>
-    <script src="src/edit.js"></script>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>
 
