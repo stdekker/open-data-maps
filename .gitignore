@@ -14,3 +14,9 @@ todo/*
 
 # Ignore production config
 web/config.prod.php
+
+# Ignore editor config (contains credentials)
+config/edit-config.php
+
+# Ignore logs directory
+logs/

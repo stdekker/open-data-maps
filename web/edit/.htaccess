@@ -1,0 +1,34 @@
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Deny direct access to sensitive files
+# Note: config.php is now outside web directory for added security
+<FilesMatch "^(auth\.php|access\.log)$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to backup files
+<FilesMatch "\.backup\.(json|php)$">
+    Require all denied
+</FilesMatch>
+
+# Disable directory listing
+Options -Indexes
+
+# Set cache control for assets
+<FilesMatch "\.(css|js|jpg|jpeg|png|gif|svg)$">
+    Header set Cache-Control "max-age=3600, public"
+</FilesMatch>
+
+# Disable caching for PHP files
+<FilesMatch "\.php$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
+
