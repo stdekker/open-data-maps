@@ -94,10 +94,6 @@ $username = $_SESSION['username'] ?? 'User';
                 </div>
             </div>
             <div id="map"></div>
-            <div class="map-instructions">
-                <strong>Instructions:</strong> Drag markers to update locations, or edit coordinates in the list. 
-                Red markers = missing location data.
-            </div>
         </div>
     </div>
     

@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Stembureau Editor</title>
+    <title>Login - ODM Editor</title>
     <style>
         * {
             margin: 0;
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #666;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -160,8 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="login-container">
-        <h1>Stembureau Editor</h1>
-        <p class="subtitle">Edit polling station locations</p>
+        <h1>ODM Editor</h1>
         
         <?php if ($error): ?>
             <div class="error"><?php echo htmlspecialchars($error); ?></div>
@@ -180,13 +179,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <button type="submit">Login</button>
         </form>
-        
-        <div class="info">
-            <strong>Default credentials:</strong><br>
-            Username: admin<br>
-            Password: changeme<br>
-            <em>Please change these in config.php</em>
-        </div>
     </div>
 </body>
 </html>

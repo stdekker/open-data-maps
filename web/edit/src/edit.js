@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadElections();
     await loadMunicipalities();
     setupEventListeners();
+    restoreLastSession();
 });
 
 // Initialize Mapbox map
@@ -112,12 +113,14 @@ function setupEventListeners() {
         state.currentElection = e.target.value;
         document.getElementById('municipalitySelect').disabled = !state.currentElection;
         updateLoadButton();
+        saveLastSession();
     });
     
     // Municipality selection
     document.getElementById('municipalitySelect').addEventListener('change', (e) => {
         state.currentMunicipality = e.target.value;
         updateLoadButton();
+        saveLastSession();
     });
     
     // Load button
@@ -768,5 +771,69 @@ async function applyMatches() {
     
     closeMatchModal();
     showToast(`Applied ${applied} matched locations`, 'success');
+}
+
+// Save last session to localStorage
+function saveLastSession() {
+    try {
+        const sessionData = {
+            election: state.currentElection || '',
+            municipality: state.currentMunicipality || '',
+            timestamp: Date.now()
+        };
+        localStorage.setItem('stembureau_editor_session', JSON.stringify(sessionData));
+    } catch (error) {
+        console.error('Failed to save session:', error);
+    }
+}
+
+// Restore last session from localStorage
+function restoreLastSession() {
+    try {
+        const sessionDataStr = localStorage.getItem('stembureau_editor_session');
+        if (!sessionDataStr) return;
+        
+        const sessionData = JSON.parse(sessionDataStr);
+        
+        // Check if session is not too old (e.g., 7 days)
+        const daysSinceLastSession = (Date.now() - sessionData.timestamp) / (1000 * 60 * 60 * 24);
+        if (daysSinceLastSession > 7) {
+            // Clear old session data
+            localStorage.removeItem('stembureau_editor_session');
+            return;
+        }
+        
+        // Restore election selection
+        if (sessionData.election && state.elections.includes(sessionData.election)) {
+            document.getElementById('electionSelect').value = sessionData.election;
+            state.currentElection = sessionData.election;
+            document.getElementById('municipalitySelect').disabled = false;
+        }
+        
+        // Restore municipality selection
+        if (sessionData.municipality && state.municipalities.find(m => m.code === sessionData.municipality)) {
+            document.getElementById('municipalitySelect').value = sessionData.municipality;
+            state.currentMunicipality = sessionData.municipality;
+        }
+        
+        // Update UI
+        updateLoadButton();
+        
+        // If both election and municipality are restored, automatically load data
+        if (state.currentElection && state.currentMunicipality) {
+            const municipality = state.municipalities.find(m => m.code === state.currentMunicipality);
+            showToast(`Restoring session: ${state.currentElection} - ${municipality?.name || state.currentMunicipality}`, 'info');
+            
+            // Automatically load the data
+            setTimeout(() => {
+                loadStembureaus();
+            }, 500);
+        }
+        
+    } catch (error) {
+        console.error('Failed to restore session:', error);
+        // Clear corrupted data
+        localStorage.removeItem('stembureau_editor_session');
+    }
 }
 
