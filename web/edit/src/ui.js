@@ -337,3 +337,72 @@ export function updateFindMatchesButton(enabled) {
     matchFindBtn.disabled = !enabled;
 }
 
+/**
+ * Display address search results in the modal
+ */
+export function displayAddressSearchResults(results) {
+    const container = document.getElementById('modalSearchResultsList');
+    const resultsDiv = document.getElementById('modalSearchResults');
+    
+    if (!results || results.length === 0) {
+        container.innerHTML = '<p style="color: #999; padding: 10px;">No results found. Try a different search term.</p>';
+        resultsDiv.style.display = 'block';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    results.forEach((result, index) => {
+        const div = document.createElement('div');
+        div.className = 'address-search-result';
+        div.style.cssText = 'padding: 10px; margin: 5px 0; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;';
+        
+        div.innerHTML = `
+            <div style="font-weight: 500;">${escapeHtml(result.displayName)}</div>
+            <div style="font-size: 0.9em; color: #666; margin-top: 4px;">
+                <span style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.85em;">${escapeHtml(result.type)}</span>
+                <span style="margin-left: 8px;">${result.lat.toFixed(6)}, ${result.lon.toFixed(6)}</span>
+            </div>
+        `;
+        
+        // Hover effect
+        div.addEventListener('mouseenter', () => {
+            div.style.backgroundColor = '#f5f5f5';
+        });
+        div.addEventListener('mouseleave', () => {
+            div.style.backgroundColor = '';
+        });
+        
+        // Store coordinates in data attributes
+        div.dataset.lat = result.lat;
+        div.dataset.lon = result.lon;
+        div.dataset.index = index;
+        
+        container.appendChild(div);
+    });
+    
+    resultsDiv.style.display = 'block';
+}
+
+/**
+ * Hide address search results
+ */
+export function hideAddressSearchResults() {
+    document.getElementById('modalSearchResults').style.display = 'none';
+}
+
+/**
+ * Clear address search input and results
+ */
+export function clearAddressSearch() {
+    document.getElementById('modalAddressSearch').value = '';
+    hideAddressSearchResults();
+}
+
+/**
+ * Update search button state
+ */
+export function updateSearchButton(enabled) {
+    document.getElementById('modalSearchBtn').disabled = !enabled;
+}
+

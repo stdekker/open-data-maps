@@ -47,19 +47,33 @@ function setupEventListeners() {
     // Edit modal controls
     document.querySelector('.close-modal').addEventListener('click', () => {
         ui.closeEditModal();
+        ui.clearAddressSearch();
         state.selectedIndex = null;
     });
     document.getElementById('modalCancelBtn').addEventListener('click', () => {
         ui.closeEditModal();
+        ui.clearAddressSearch();
         state.selectedIndex = null;
     });
     document.getElementById('modalSaveBtn').addEventListener('click', handleModalSave);
     document.getElementById('modalRemoveBtn').addEventListener('click', handleRemoveLocation);
+    document.getElementById('modalSearchBtn').addEventListener('click', handleAddressSearch);
+    
+    // Address search - handle Enter key
+    document.getElementById('modalAddressSearch').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleAddressSearch();
+        }
+    });
+    
+    // Address search results - handle clicks
+    document.getElementById('modalSearchResultsList').addEventListener('click', handleAddressResultClick);
     
     // Close modal on outside click
     document.getElementById('editModal').addEventListener('click', (e) => {
         if (e.target.id === 'editModal') {
             ui.closeEditModal();
+            ui.clearAddressSearch();
             state.selectedIndex = null;
         }
     });
@@ -114,8 +128,11 @@ async function handleLoadData() {
     try {
         const data = await api.loadStembureaus(state.currentElection, state.currentMunicipality);
         
+        // Reset active marker when loading new data
+        state.activeIndex = null;
+        
         ui.renderStembureauList(state.stembureaus, state.modifications);
-        mapModule.renderMapMarkers(handleMarkerDrag, editStembureau);
+        mapModule.renderMapMarkers(handleMarkerDrag, handleMarkerActivate);
         mapModule.showMunicipalityBoundary(document.getElementById('showMunicipalityBoundary').checked);
         ui.updateStats(state.stembureaus, state.modifications);
         
@@ -162,8 +179,17 @@ function locateStembureau(index) {
     const stembureau = state.stembureaus[index];
     
     if (stembureau.lat && stembureau.lon) {
+        // Deactivate previous marker if any
+        if (state.activeIndex !== null && state.activeIndex !== index) {
+            mapModule.deactivateMarker(state.activeIndex);
+        }
+        
+        // Set as active
+        state.activeIndex = index;
+        mapModule.setActiveMarker(index);
+        
+        // Fly to location and highlight in list
         mapModule.flyToLocation(stembureau.lat, stembureau.lon);
-        mapModule.highlightMarker(index);
         ui.highlightListItem(index);
     } else {
         ui.showToast('This stembureau has no location set', 'error');
@@ -188,6 +214,7 @@ function handleModalSave() {
     
     updateStembureauLocation(state.selectedIndex, lat, lon);
     ui.closeEditModal();
+    ui.clearAddressSearch();
     state.selectedIndex = null;
 }
 
@@ -200,8 +227,57 @@ function handleRemoveLocation() {
     if (confirm('Are you sure you want to remove this location?')) {
         updateStembureauLocation(state.selectedIndex, null, null);
         ui.closeEditModal();
+        ui.clearAddressSearch();
         state.selectedIndex = null;
     }
+}
+
+/**
+ * Handle address search button
+ */
+async function handleAddressSearch() {
+    const searchInput = document.getElementById('modalAddressSearch');
+    const query = searchInput.value.trim();
+    
+    if (!query) {
+        ui.showToast('Please enter an address or postcode', 'error');
+        return;
+    }
+    
+    try {
+        ui.updateSearchButton(false);
+        const results = await api.searchAddress(query);
+        ui.displayAddressSearchResults(results);
+        
+        if (results.length > 0) {
+            ui.showToast(`Found ${results.length} result(s)`, 'success');
+        }
+    } catch (error) {
+        ui.showToast(error.message || 'Search failed', 'error');
+        ui.displayAddressSearchResults([]);
+    } finally {
+        ui.updateSearchButton(true);
+    }
+}
+
+/**
+ * Handle address result click
+ */
+function handleAddressResultClick(e) {
+    const resultDiv = e.target.closest('.address-search-result');
+    if (!resultDiv) return;
+    
+    const lat = parseFloat(resultDiv.dataset.lat);
+    const lon = parseFloat(resultDiv.dataset.lon);
+    
+    // Populate the coordinate fields
+    document.getElementById('modalLat').value = lat;
+    document.getElementById('modalLon').value = lon;
+    
+    // Hide results
+    ui.hideAddressSearchResults();
+    
+    ui.showToast('Coordinates filled. Click Save to apply.', 'info');
 }
 
 /**
@@ -230,6 +306,23 @@ function updateStembureauLocation(index, lat, lon) {
  */
 function handleMarkerDrag(index, lat, lng) {
     updateStembureauLocation(index, lat, lng);
+}
+
+/**
+ * Handle marker activation (double-click)
+ */
+function handleMarkerActivate(index) {
+    // Deactivate previous marker if any
+    if (state.activeIndex !== null && state.activeIndex !== index) {
+        mapModule.deactivateMarker(state.activeIndex);
+    }
+    
+    // Set new active marker
+    state.activeIndex = index;
+    mapModule.setActiveMarker(index);
+    
+    // Scroll to and highlight in list
+    ui.highlightListItem(index);
 }
 
 /**

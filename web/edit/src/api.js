@@ -156,3 +156,60 @@ export async function matchLocations(currentElection, currentMunicipality, sourc
     }
 }
 
+/**
+ * Search for addresses using PDOK Locatieserver API
+ */
+export async function searchAddress(query) {
+    if (!query || query.trim().length < 2) {
+        throw new Error('Please enter at least 2 characters');
+    }
+    
+    try {
+        // Clean up query
+        const cleanQuery = query.trim();
+        
+        // PDOK Locatieserver API endpoint
+        const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(cleanQuery)}&rows=10`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('Failed to search address');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.response || !data.response.docs) {
+            throw new Error('Invalid response from geocoding service');
+        }
+        
+        const results = data.response.docs.map(doc => {
+            let lat = null;
+            let lon = null;
+            
+            // Parse centroide_ll (POINT format)
+            if (doc.centroide_ll) {
+                const match = doc.centroide_ll.match(/POINT\(([\d.]+)\s+([\d.]+)\)/);
+                if (match) {
+                    lon = parseFloat(match[1]);
+                    lat = parseFloat(match[2]);
+                }
+            }
+            
+            return {
+                displayName: doc.weergavenaam || doc.identificatie,
+                type: doc.type,
+                lat: lat,
+                lon: lon,
+                score: doc.score
+            };
+        }).filter(result => result.lat !== null && result.lon !== null);
+        
+        return results;
+        
+    } catch (error) {
+        console.error('Address search error:', error);
+        throw error;
+    }
+}
+

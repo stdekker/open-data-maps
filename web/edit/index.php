@@ -109,6 +109,21 @@ $username = $_SESSION['username'] ?? 'User';
             </div>
             <div class="modal-body">
                 <p><strong>Stembureau:</strong> <span id="modalStembureaName"></span></p>
+                
+                <div class="form-group">
+                    <label for="modalAddressSearch">Search Address or Postcode:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="modalAddressSearch" placeholder="e.g. 1234AB or street name + city" style="flex: 1;">
+                        <button id="modalSearchBtn" class="secondary-btn">Search</button>
+                    </div>
+                </div>
+                
+                <div id="modalSearchResults" style="display: none; margin-bottom: 15px;">
+                    <div id="modalSearchResultsList"></div>
+                </div>
+                
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;">
+                
                 <div class="form-group">
                     <label for="modalLat">Latitude:</label>
                     <input type="number" id="modalLat" step="0.000001" min="50" max="54" placeholder="e.g. 52.156">

@@ -25,7 +25,7 @@ export function initializeMap() {
 /**
  * Render all map markers for the current stembureaus
  */
-export function renderMapMarkers(onMarkerDrag, onMarkerClick) {
+export function renderMapMarkers(onMarkerDrag, onMarkerActivate) {
     // Clear existing markers
     Object.values(state.markers).forEach(marker => marker.remove());
     state.markers = {};
@@ -52,20 +52,40 @@ export function renderMapMarkers(onMarkerDrag, onMarkerClick) {
         el.style.cursor = 'grab';
         el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
         
+        // Find all stembureaus at the same location
+        const stembureaUsAtSameLocation = state.stembureaus.filter((s, i) => {
+            if (!hasLocation) {
+                // For unlocated markers, only show this one
+                return i === index;
+            }
+            // Check if coordinates match (within small tolerance for floating point comparison)
+            return s.lat !== null && s.lon !== null &&
+                   Math.abs(s.lat - stembureau.lat) < 0.000001 &&
+                   Math.abs(s.lon - stembureau.lon) < 0.000001;
+        });
+        
+        // Create hover tooltip with all names at this location
+        let tooltipHTML;
+        if (stembureaUsAtSameLocation.length > 1) {
+            tooltipHTML = '<div style="font-weight: 500; max-width: 250px;">' +
+                stembureaUsAtSameLocation.map(s => escapeHtml(s.identifier)).join('<br>') +
+                '</div>';
+        } else {
+            tooltipHTML = `<div style="font-weight: 500;">${escapeHtml(stembureau.identifier)}</div>`;
+        }
+        
+        const hoverPopup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            offset: 25
+        }).setHTML(tooltipHTML);
+        
         // Create marker
         const marker = new mapboxgl.Marker({
             element: el,
             draggable: true
         })
             .setLngLat(position)
-            .setPopup(new mapboxgl.Popup().setHTML(`
-                <div class="popup-content">
-                    <h3>${escapeHtml(stembureau.identifier)}</h3>
-                    <p><strong>Status:</strong> ${hasLocation ? 'Located' : 'Not located'}</p>
-                    ${hasLocation ? `<p><strong>Coords:</strong> ${stembureau.lat.toFixed(6)}, ${stembureau.lon.toFixed(6)}</p>` : ''}
-                    <p><strong>Cast:</strong> ${stembureau.cast}</p>
-                </div>
-            `))
             .addTo(state.map);
         
         // Handle drag end
@@ -74,13 +94,27 @@ export function renderMapMarkers(onMarkerDrag, onMarkerClick) {
             onMarkerDrag(index, lngLat.lat, lngLat.lng);
         });
         
-        // Handle click
-        el.addEventListener('click', () => {
-            onMarkerClick(index);
+        // Handle double-click to activate marker
+        el.addEventListener('dblclick', () => {
+            onMarkerActivate(index);
+        });
+        
+        // Handle hover - show name tooltip
+        el.addEventListener('mouseenter', () => {
+            hoverPopup.setLngLat(marker.getLngLat()).addTo(state.map);
+        });
+        
+        el.addEventListener('mouseleave', () => {
+            hoverPopup.remove();
         });
         
         state.markers[index] = marker;
     });
+    
+    // Restore active marker color if set
+    if (state.activeIndex !== null && state.markers[state.activeIndex]) {
+        state.markers[state.activeIndex].getElement().style.backgroundColor = '#22c55e';
+    }
     
     // Fit map to markers
     if (state.stembureaus.some(s => s.lat && s.lon)) {
@@ -106,22 +140,25 @@ export function updateMarker(index) {
     
     if (hasLocation) {
         marker.setLngLat([stembureau.lon, stembureau.lat]);
-        marker.getElement().style.backgroundColor = '#667eea';
+        // Keep green if this is the active marker, otherwise use normal color
+        if (state.activeIndex === index) {
+            marker.getElement().style.backgroundColor = '#22c55e';
+        } else {
+            marker.getElement().style.backgroundColor = '#667eea';
+        }
     } else {
         const center = getMunicipalityCenter();
         marker.setLngLat(center);
-        marker.getElement().style.backgroundColor = '#dc3545';
+        // Keep green if this is the active marker, otherwise use red
+        if (state.activeIndex === index) {
+            marker.getElement().style.backgroundColor = '#22c55e';
+        } else {
+            marker.getElement().style.backgroundColor = '#dc3545';
+        }
     }
     
-    // Update popup
-    marker.setPopup(new mapboxgl.Popup().setHTML(`
-        <div class="popup-content">
-            <h3>${escapeHtml(stembureau.identifier)}</h3>
-            <p><strong>Status:</strong> ${hasLocation ? 'Located' : 'Not located'}</p>
-            ${hasLocation ? `<p><strong>Coords:</strong> ${stembureau.lat.toFixed(6)}, ${stembureau.lon.toFixed(6)}</p>` : ''}
-            <p><strong>Cast:</strong> ${stembureau.cast}</p>
-        </div>
-    `));
+    // Note: Hover tooltip is recreated when markers are re-rendered
+    // Individual marker updates don't need to update the popup
 }
 
 /**
@@ -205,5 +242,27 @@ export function highlightMarker(index) {
             marker.getElement().style.transform = marker.getElement().style.transform.replace(' scale(1.2)', '');
         }, 1000);
     }
+}
+
+/**
+ * Set a marker as active (green color)
+ */
+export function setActiveMarker(index) {
+    const marker = state.markers[index];
+    if (marker) {
+        marker.getElement().style.backgroundColor = '#22c55e'; // Green color
+    }
+}
+
+/**
+ * Deactivate a marker (restore original color)
+ */
+export function deactivateMarker(index) {
+    const marker = state.markers[index];
+    if (!marker) return;
+    
+    const stembureau = state.stembureaus[index];
+    const hasLocation = stembureau.lat !== null && stembureau.lon !== null;
+    marker.getElement().style.backgroundColor = hasLocation ? '#667eea' : '#dc3545';
 }
 

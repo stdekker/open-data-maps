@@ -13,6 +13,7 @@ export const state = {
     map: null,
     markers: {},
     selectedIndex: null,
+    activeIndex: null,
     municipalityBoundary: null,
     modifications: new Set()
 };
