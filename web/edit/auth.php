@@ -88,6 +88,100 @@ function logAccess($action, $success = true) {
     error_log($logEntry, 3, $logFile);
 }
 
+/**
+ * Check if an IP is currently locked out due to too many failed login attempts
+ * @param string $ip The IP address to check
+ * @return array ['locked' => bool, 'remaining_time' => int (seconds)]
+ */
+function isIpLockedOut($ip) {
+    $lockoutFile = __DIR__ . '/../../logs/login-attempts.json';
+    $lockoutDuration = 900; // 15 minutes in seconds
+    $maxAttempts = 5;
+    
+    if (!file_exists($lockoutFile)) {
+        return ['locked' => false, 'remaining_time' => 0];
+    }
+    
+    $data = json_decode(file_get_contents($lockoutFile), true);
+    if (!$data || !isset($data[$ip])) {
+        return ['locked' => false, 'remaining_time' => 0];
+    }
+    
+    $ipData = $data[$ip];
+    $lockoutTime = $ipData['lockout_time'] ?? 0;
+    $attempts = $ipData['attempts'] ?? 0;
+    
+    // Check if lockout has expired
+    if ($lockoutTime > 0 && (time() - $lockoutTime) < $lockoutDuration) {
+        $remainingTime = $lockoutDuration - (time() - $lockoutTime);
+        return ['locked' => true, 'remaining_time' => $remainingTime];
+    }
+    
+    return ['locked' => false, 'remaining_time' => 0];
+}
+
+/**
+ * Record a failed login attempt for an IP
+ * @param string $ip The IP address
+ */
+function recordFailedLoginAttempt($ip) {
+    $lockoutFile = __DIR__ . '/../../logs/login-attempts.json';
+    $maxAttempts = 5;
+    
+    // Ensure logs directory exists
+    $logsDir = __DIR__ . '/../../logs';
+    if (!is_dir($logsDir)) {
+        mkdir($logsDir, 0775, true);
+    }
+    
+    // Load existing data
+    $data = [];
+    if (file_exists($lockoutFile)) {
+        $data = json_decode(file_get_contents($lockoutFile), true) ?: [];
+    }
+    
+    // Initialize or increment attempts
+    if (!isset($data[$ip])) {
+        $data[$ip] = ['attempts' => 1, 'first_attempt' => time(), 'lockout_time' => 0];
+    } else {
+        $data[$ip]['attempts']++;
+    }
+    
+    // Lock out if max attempts reached
+    if ($data[$ip]['attempts'] >= $maxAttempts) {
+        $data[$ip]['lockout_time'] = time();
+        logAccess("IP_LOCKOUT - Too many failed attempts", false);
+    }
+    
+    // Clean up old entries (older than 1 hour)
+    $data = array_filter($data, function($entry) {
+        $lastActivity = max($entry['first_attempt'] ?? 0, $entry['lockout_time'] ?? 0);
+        return (time() - $lastActivity) < 3600;
+    });
+    
+    // Save data
+    file_put_contents($lockoutFile, json_encode($data, JSON_PRETTY_PRINT));
+}
+
+/**
+ * Clear failed login attempts for an IP (called on successful login)
+ * @param string $ip The IP address
+ */
+function clearFailedLoginAttempts($ip) {
+    $lockoutFile = __DIR__ . '/../../logs/login-attempts.json';
+    
+    if (!file_exists($lockoutFile)) {
+        return;
+    }
+    
+    $data = json_decode(file_get_contents($lockoutFile), true) ?: [];
+    
+    if (isset($data[$ip])) {
+        unset($data[$ip]);
+        file_put_contents($lockoutFile, json_encode($data, JSON_PRETTY_PRINT));
+    }
+}
+
 // If this file is included directly, require authentication
 // This prevents direct access to this file
 if (basename(__FILE__) !== basename($_SERVER['SCRIPT_FILENAME'])) {

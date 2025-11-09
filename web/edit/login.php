@@ -16,32 +16,48 @@ $error = '';
 
 // Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     
-    // Verify credentials
-    if ($username === EDIT_USERNAME && password_verify($password, EDIT_PASSWORD_HASH)) {
-        // Regenerate session ID to prevent session fixation
-        session_regenerate_id(true);
-        
-        // Set session variables
-        $_SESSION['authenticated'] = true;
-        $_SESSION['username'] = $username;
-        $_SESSION['last_activity'] = time();
-        $_SESSION['login_time'] = time();
-        
-        // Generate CSRF token
-        generateCsrfToken();
-        
-        // Log successful login
-        logAccess('LOGIN', true);
-        
-        // Redirect to main page
-        header('Location: index.php');
-        exit;
+    // Check if IP is locked out
+    $lockoutStatus = isIpLockedOut($ip);
+    if ($lockoutStatus['locked']) {
+        $minutes = ceil($lockoutStatus['remaining_time'] / 60);
+        $error = "Too many failed login attempts. Please try again in {$minutes} minute(s).";
+        logAccess('LOGIN_BLOCKED - IP locked out', false);
     } else {
-        $error = 'Invalid username or password';
-        logAccess('LOGIN_FAILED', false);
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+        
+        // Verify credentials
+        if ($username === EDIT_USERNAME && password_verify($password, EDIT_PASSWORD_HASH)) {
+            // Regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
+            
+            // Set session variables
+            $_SESSION['authenticated'] = true;
+            $_SESSION['username'] = $username;
+            $_SESSION['last_activity'] = time();
+            $_SESSION['login_time'] = time();
+            
+            // Generate CSRF token
+            generateCsrfToken();
+            
+            // Clear failed login attempts for this IP
+            clearFailedLoginAttempts($ip);
+            
+            // Log successful login
+            logAccess('LOGIN', true);
+            
+            // Redirect to main page
+            header('Location: index.php');
+            exit;
+        } else {
+            // Record failed attempt
+            recordFailedLoginAttempt($ip);
+            
+            $error = 'Invalid username or password';
+            logAccess('LOGIN_FAILED', false);
+        }
     }
 }
 ?>

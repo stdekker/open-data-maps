@@ -1,8 +1,12 @@
 <?php
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/rate-limiter.php';
 
 setSecurityHeaders();
 header('Content-Type: application/json');
+
+// Enforce rate limiting: 60 requests per minute
+enforceRateLimit(60, 60, 'elections');
 
 // Common constants
 const REASON_CODES = [

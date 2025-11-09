@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/rate-limiter.php';
 
 setSecurityHeaders();
+
+// Enforce rate limiting: 60 requests per minute
+enforceRateLimit(60, 60, 'bag');
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../config.prod.php';
