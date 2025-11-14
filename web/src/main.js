@@ -355,8 +355,8 @@ function loadGeoJson(code, regionType = 'buurten') {
     });
 }
 
-// Add click handlers for menu items
-document.addEventListener('DOMContentLoaded', function() {
+// Add click handlers for menu items and sidebar UI
+function initializeSidebarAndUI() {
     // Initialize modals
     settingsModal = new Modal('settings-modal');
     window.settingsModal = settingsModal;
@@ -370,15 +370,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
-    settingsButton.addEventListener('click', () => {
-        settingsModal.open('Settings');
-    });
+    if (settingsButton) {
+        settingsButton.addEventListener('click', () => {
+            settingsModal.open('Settings');
+        });
+    }
 
     // Add help button handler
     const helpButton = document.querySelector('.help-button');
-    helpButton.addEventListener('click', () => {
-        helpModal.openFromUrl('Help', 'content/help.php');
-    });
+    if (helpButton) {
+        helpButton.addEventListener('click', () => {
+            helpModal.openFromUrl('Help', 'content/help.php');
+        });
+    }
 
     const menuItems = document.querySelectorAll('.menu-items li');
     const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
@@ -386,7 +390,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (initialMenuItem) {
         handleMenuItemActivation.call(initialMenuItem);
     }
-    // Add keyboard support
+
+    // Add keyboard and click support for menu items
     menuItems.forEach(item => {
         // Click handler
         item.addEventListener('click', handleMenuItemActivation);
@@ -450,7 +455,6 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'postcode':
                 // Postcode toggle is handled by initializePostcode6Toggle in postcodeLayer.js
                 // We just trigger the state change here, the existing handler should pick it up if initialized correctly.
-                // The event listener in initializePostcode6Toggle needs adjustment.
                 if (shouldBeActive) {
                     // Make sure mapInstance is accessible or passed correctly
                     if (window.map) { 
@@ -515,11 +519,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const electionToggleElement = document.getElementById('electionToggle');
     updateToggleUI(electionToggleElement, initialShowElection);
     const statsView = document.querySelector('.stats-view'); // Ensure statsView is defined
-    statsView.style.display = initialShowElection ? 'block' : 'none';
+    if (statsView) {
+        statsView.style.display = initialShowElection ? 'block' : 'none';
+    }
 
     // Initialize mobile handler
     initializeMobileHandler();
-});
+}
+
+// Ensure sidebar/UI initialization runs even if DOMContentLoaded timing differs between browsers
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeSidebarAndUI);
+} else {
+    initializeSidebarAndUI();
+}
 
 /**
  * Initializes the region type toggle functionality
