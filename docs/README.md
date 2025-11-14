@@ -6,10 +6,7 @@ Welcome to the Open Data Maps (ODM) documentation. This directory contains all d
 
 ### General Documentation
 
-- **[Architecture](architecture.md)** - Application architecture and structure overview
-- **[Security Improvements](security-improvements.md)** - Recent security enhancements (configuration moved outside web directory)
-- **[Security Best Practices](security-best-practices.md)** - Security guidelines and configuration file management
-- **[Documentation Reorganization](documentation-reorganization.md)** - How documentation was restructured
+- **[Architecture](architecture.md)** - Application architecture and structure overviewrestructured
 
 ### Editor Documentation
 
@@ -17,7 +14,6 @@ The editor is a secure administrative tool for editing polling station (stembure
 
 - **[Editor Overview](editor/README.md)** - Complete editor documentation
 - **[Installation Guide](editor/installation.md)** - Detailed installation instructions
-- **[Quick Start Guide](editor/quick-start.md)** - Get started in 5 minutes
 - **[Matching Guide](editor/matching-guide.md)** - How to use the location matching feature
 - **[Editor Summary](editor/editor-summary.md)** - Implementation summary and features
 
@@ -39,9 +35,7 @@ The editor is a secure administrative tool for editing polling station (stembure
 - **Data Processing**: `/tools/` directory
 
 ### For Administrators
-
 - **Editor Installation**: [editor/installation.md](editor/installation.md)
-- **Security Setup**: [security-improvements.md](security-improvements.md)
 - **Password Management**: Run `php tools/generate-edit-password.php`
 
 ## Documentation Structure
@@ -50,7 +44,6 @@ The editor is a secure administrative tool for editing polling station (stembure
 docs/
 ├── README.md                    # This file - documentation index
 ├── architecture.md              # Application architecture
-├── security-improvements.md     # Security enhancements log
 └── editor/                      # Editor-specific documentation
     ├── README.md                # Editor main documentation
     ├── installation.md          # Installation guide

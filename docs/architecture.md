@@ -134,18 +134,18 @@ edit/
 
 ## What the Application Does
 
-ODM visualizes Dutch geographic and demographic data on an interactive map.
+ODM visualizes Dutch geographic, demographic and political data on an interactive map.
 
 ### Main Features
 
 1. **Interactive Map**
-   - Uses Mapbox GL JS for smooth, fast rendering
-   - Shows municipality boundaries across the Netherlands
-   - Colors regions based on selected statistics
+   - Uses [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/) for smooth, fast rendering
+   - Shows municipalities across the Netherlands
+   - Colors regions (municipalities, neigbourhoods or postcodes) based on selected statistics
    - Hover over areas to see info
    - Click areas for detailed popups
 
-2. **Two View Modes**
+2. **View Modes**
    - **National View**: See all municipalities at once with colored statistics
    - **Municipal View**: Zoom into one municipality to see neighborhoods, districts, or election data
 
@@ -162,7 +162,7 @@ ODM visualizes Dutch geographic and demographic data on an interactive map.
    - Household statistics
    - Age distributions
    - Demographics
-   - And more...
+   - And more, based on available (processed) CBS data
 
 5. **Search Functionality**
    - Search for municipalities by name
@@ -188,7 +188,7 @@ ODM visualizes Dutch geographic and demographic data on an interactive map.
 - `web/src/config.js` - Frontend settings (Mapbox token, map center, default zoom)
 
 **For Editor (Admin Tool)**  
-- `config/edit-config.php` - Editor login credentials (outside web root for security)
+- `config/edit-config.php` - Editor login credentials
 
 **For Development**
 - `.ddev/config.yaml` - DDEV local environment settings

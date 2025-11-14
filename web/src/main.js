@@ -360,8 +360,8 @@ function loadGeoJson(code, regionType = 'buurten') {
     });
 }
 
-// Add click handlers for menu items
-function initializeDOMElements() {
+// Add click handlers for menu items and sidebar UI
+function initializeSidebarAndUI() {
     // Initialize modals
     settingsModal = new Modal('settings-modal');
     window.settingsModal = settingsModal;
@@ -375,45 +375,50 @@ function initializeDOMElements() {
 
     // Add settings button handler
     const settingsButton = document.querySelector('.settings-button');
- 
-    settingsButton.addEventListener('click', () => {
-        settingsModal.open('Settings');
-    });
+    if (settingsButton) {
+        settingsButton.addEventListener('click', () => {
+            settingsModal.open('Settings');
+        });
+    }
 
     // Add help button handler
     const helpButton = document.querySelector('.help-button');
-    helpButton.addEventListener('click', () => {
-        helpModal.openFromUrl('Help', 'content/help.php');
-    });
+    if (helpButton) {
+        helpButton.addEventListener('click', () => {
+            helpModal.openFromUrl('Help', 'content/help.php');
+        });
+    }
 
     const menuItems = document.querySelectorAll('.menu-items li');
     const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
 
-    // Update handleMenuItemActivation to handle the case when an event is not available
-    function handleMenuItemActivation(event, menuItem) {
-        // If menuItem is not provided (for backward compatibility)
-        if (!menuItem) {
-            // Handle the case when called without proper parameters
-            console.warn('handleMenuItemActivation called without a menuItem');
-            return;
-        }
+    // Define the menu item activation handler
+    function handleMenuItemActivation(event, element) {
+        const menuItem = element || this;
+        const viewType = menuItem.id.replace('-view', ''); // Extract 'national' or 'municipal' from id
         
-        // Remove active class from all items
-        menuItems.forEach(i => {
-            i.classList.remove('active');
+        // Remove active state from all menu items
+        menuItems.forEach(item => {
+            item.classList.remove('active');
+            item.setAttribute('aria-selected', 'false');
         });
         
-        // Add active class
+        // Add active state to selected item
         menuItem.classList.add('active');
+        menuItem.setAttribute('aria-selected', 'true');
         
-        if (menuItem.id === 'national-view') {
+        // Activate the corresponding view
+        if (viewType === 'national') {
             activateView('national');
-        } else if (menuItem.id === 'municipal-view') {
-            activateView('municipal');
+        } else if (viewType === 'municipal') {
+            const lastMunicipality = State.getLastMunicipality();
+            if (lastMunicipality) {
+                activateView('municipal', lastMunicipality.code);
+            }
         }
     }
 
-    // Add click/keydown handlers
+    // Add keyboard and click support for menu items
     menuItems.forEach(item => {
         // Click handler
         item.addEventListener('click', function(event) {
@@ -570,23 +575,19 @@ function initializeDOMElements() {
     const electionToggleElement = document.getElementById('electionToggle');
     updateToggleUI(electionToggleElement, initialShowElection);
     const statsView = document.querySelector('.stats-view'); // Ensure statsView is defined
-    statsView.style.display = initialShowElection ? 'block' : 'none';
-
-    const initialShowBag = State.getShowBagLayer();
-    const bagToggleElement = document.getElementById('bagToggle');
-    updateToggleUI(bagToggleElement, initialShowBag);
+    if (statsView) {
+        statsView.style.display = initialShowElection ? 'block' : 'none';
+    }
 
     // Initialize mobile handler
     initializeMobileHandler();
 }
 
-// Check if DOM is already loaded (needed for Safari compatibility)
+// Ensure sidebar/UI initialization runs even if DOMContentLoaded timing differs between browsers
 if (document.readyState === 'loading') {
-    // DOM still loading, add event listener
-    document.addEventListener('DOMContentLoaded', initializeDOMElements);
+    document.addEventListener('DOMContentLoaded', initializeSidebarAndUI);
 } else {
-    // DOM already loaded (Safari sometimes triggers this), run initialization immediately
-    initializeDOMElements();
+    initializeSidebarAndUI();
 }
 
 /**
