@@ -1,4 +1,4 @@
-import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression, addMapLayers } from '../services/layerService.js';
+import { cleanupLayers, findFirstSymbolLayer, getDynamicFillColorExpression, addMapLayers, LAYER_ORDER } from '../services/layerService.js';
 import { Modal } from '../services/modalService.js';
 import { INVALID_VALUES, STYLE_VARIANTS, updateLayerColors } from '../services/colorService.js';
 import * as State from '../state.js';
@@ -215,8 +215,6 @@ export async function loadAllPostcode6Data(map) {
             generateId: true
         });
 
-        const firstSymbolLayer = findFirstSymbolLayer(map);
-
         // Define minimal configuration for the generic addMapLayers function
         const postcodeLayerConfig = {
             idBase: 'postcode6',
@@ -224,7 +222,7 @@ export async function loadAllPostcode6Data(map) {
             data: { features: [] }, // Empty features array initially
             statisticKey: currentStatistic,
             styleVariant: STYLE_VARIANTS.DYNAMIC_RANGE,
-            insertBeforeLayer: firstSymbolLayer
+            layerType: LAYER_ORDER.POSTCODE
         };
 
         // Add postcode layers using the generic function

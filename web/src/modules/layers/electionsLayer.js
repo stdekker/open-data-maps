@@ -1,4 +1,4 @@
-import { cleanupLayers } from '../services/layerService.js';
+import { cleanupLayers, getBeforeLayerId, LAYER_ORDER } from '../services/layerService.js';
 import { setupReportingUnitPopupHandlers } from '../services/electionService.js';
 import { showPartyVotesColors, resetPartyVotesColors } from '../services/colorService.js';
 
@@ -71,6 +71,9 @@ function addReportingUnitsLayers(map) {
         return;
     }
 
+    // Determine the correct position for election layers (should be on top of all custom layers)
+    const beforeLayerId = getBeforeLayerId(map, LAYER_ORDER.ELECTIONS);
+
     // Add the expected turnout layer (black transparent circle)
     map.addLayer({
         'id': 'reporting-units-expected',
@@ -104,9 +107,9 @@ function addReportingUnitsLayers(map) {
                 'duration': 300
             }
         }
-    });
+    }, beforeLayerId);
 
-    // Add the actual turnout layer (white circle)
+    // Add the actual turnout layer (white circle) - should be above the expected layer
     map.addLayer({
         'id': 'reporting-units',
         'type': 'circle',
@@ -133,7 +136,7 @@ function addReportingUnitsLayers(map) {
             },
             'circle-stroke-color': '#000000'
         }
-    });
+    }, beforeLayerId);
 
     // Setup popup handlers
     setupReportingUnitPopupHandlers(map);

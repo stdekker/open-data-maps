@@ -1,4 +1,4 @@
-import { findFirstSymbolLayer, cleanupLayers, addMapLayers } from '../services/layerService.js';
+import { findFirstSymbolLayer, cleanupLayers, addMapLayers, LAYER_ORDER } from '../services/layerService.js';
 import { updateLayerColors, STYLE_VARIANTS } from '../services/colorService.js';
 import { populateStatisticsSelect } from '../UIFeatureInfoBox.js';
 import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle, loadAllPostcode6Data } from './postcodeLayer.js';
@@ -80,7 +80,7 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
         data: geoJsonData,
         statisticKey: statisticKey,
         styleVariant: styleVariant,
-        insertBeforeLayer: firstSymbolId
+        layerType: LAYER_ORDER.MUNICIPALITIES
     };
 
     // Add layers using the generic function

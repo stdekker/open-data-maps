@@ -26,7 +26,8 @@ import {
     addBagLayer,
     cleanupBagLayer,
     toggleBagLayer,
-    loadBagDataForMunicipality
+    loadBagDataForMunicipality,
+    debugLayerOrder
 } from './modules/services/layerService.js';
 
 // Additional features
@@ -72,6 +73,9 @@ const map = new mapboxgl.Map({
 // Global variables
 window.map = map;
 State.setCurrentView('national');
+
+// Expose debug utility for layer order testing (accessible via browser console)
+window.debugLayerOrder = () => debugLayerOrder(map);
 
 // Initialize the feature selection module after map is loaded
 map.on('load', () => {

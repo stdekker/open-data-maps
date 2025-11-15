@@ -23,6 +23,17 @@ export {
 } from './colorService.js';
 
 /**
+ * Layer order constants (bottom to top)
+ * Defines the stacking order of custom map layers
+ */
+export const LAYER_ORDER = {
+    MUNICIPALITIES: 1,  // Bottom layer (buurten/wijken)
+    POSTCODE: 2,        // Above municipalities
+    BAG: 3,             // Above postcode
+    ELECTIONS: 4        // Top layer (reporting units)
+};
+
+/**
  * Helper function to find the first symbol layer in the map style
  * @param {Object} map - The Mapbox map instance
  * @returns {String|null} The ID of the first symbol layer, or null if none found
@@ -35,6 +46,132 @@ export function findFirstSymbolLayer(map) {
         }
     }
     return null;
+}
+
+/**
+ * Debug utility: Logs the current layer order of custom layers to the console.
+ * Useful for verifying the layer stacking order during development.
+ * 
+ * Expected order (bottom to top):
+ * 1. Municipalities (buurten/wijken)
+ * 2. Postcode
+ * 3. BAG
+ * 4. Elections (reporting units)
+ * 
+ * @param {Object} map - The Mapbox map instance
+ */
+export function debugLayerOrder(map) {
+    const layers = map.getStyle().layers;
+    const customLayerPrefixes = ['municipalities', 'postcode6', 'bag', 'reporting-units'];
+    
+    console.log('=== Current Layer Order (bottom to top) ===');
+    layers.forEach((layer, index) => {
+        const isCustomLayer = customLayerPrefixes.some(prefix => layer.id.startsWith(prefix));
+        if (isCustomLayer) {
+            console.log(`${index}: ${layer.id} (${layer.type})`);
+        }
+    });
+    console.log('===========================================');
+    
+    // Provide a summary
+    const municipalityIndices = layers.filter(l => l.id.startsWith('municipalities')).map(l => layers.indexOf(l));
+    const postcodeIndices = layers.filter(l => l.id.startsWith('postcode6')).map(l => layers.indexOf(l));
+    const bagIndices = layers.filter(l => l.id.startsWith('bag')).map(l => layers.indexOf(l));
+    const electionIndices = layers.filter(l => l.id.startsWith('reporting-units')).map(l => layers.indexOf(l));
+    
+    console.log('\n=== Layer Index Ranges ===');
+    if (municipalityIndices.length > 0) {
+        console.log(`Municipalities: ${Math.min(...municipalityIndices)} - ${Math.max(...municipalityIndices)}`);
+    }
+    if (postcodeIndices.length > 0) {
+        console.log(`Postcode: ${Math.min(...postcodeIndices)} - ${Math.max(...postcodeIndices)}`);
+    }
+    if (bagIndices.length > 0) {
+        console.log(`BAG: ${Math.min(...bagIndices)} - ${Math.max(...bagIndices)}`);
+    }
+    if (electionIndices.length > 0) {
+        console.log(`Elections: ${Math.min(...electionIndices)} - ${Math.max(...electionIndices)}`);
+    }
+    console.log('==========================\n');
+    
+    // Check if order is correct
+    const maxMunicipality = municipalityIndices.length > 0 ? Math.max(...municipalityIndices) : -1;
+    const minPostcode = postcodeIndices.length > 0 ? Math.min(...postcodeIndices) : Infinity;
+    const maxPostcode = postcodeIndices.length > 0 ? Math.max(...postcodeIndices) : -1;
+    const minBag = bagIndices.length > 0 ? Math.min(...bagIndices) : Infinity;
+    const maxBag = bagIndices.length > 0 ? Math.max(...bagIndices) : -1;
+    const minElection = electionIndices.length > 0 ? Math.min(...electionIndices) : Infinity;
+    
+    const isCorrectOrder = 
+        maxMunicipality < minPostcode &&
+        maxPostcode < minBag &&
+        maxBag < minElection;
+    
+    if (isCorrectOrder) {
+        console.log('✓ Layer order is CORRECT! (Municipalities → Postcode → BAG → Elections)');
+    } else {
+        console.warn('✗ Layer order may be INCORRECT!');
+        console.warn('Expected: Municipalities (bottom) → Postcode → BAG → Elections (top)');
+    }
+}
+
+/**
+ * Determines the correct layer to insert before based on layer type and current map state.
+ * This ensures consistent layer ordering: Municipalities (bottom) → Postcode → BAG → Elections (top)
+ * 
+ * The strategy is to insert each layer before the first layer that should be visually above it.
+ * In Mapbox, map.addLayer(layer, beforeId) inserts the new layer immediately before the beforeId layer,
+ * which means the new layer will be visually BELOW beforeId.
+ * 
+ * @param {Object} map - The Mapbox map instance
+ * @param {Number} layerType - The type of layer being added (use LAYER_ORDER constants)
+ * @returns {String|null} The ID of the layer to insert before, or null to add at top
+ */
+export function getBeforeLayerId(map, layerType) {
+    const firstSymbolId = findFirstSymbolLayer(map);
+    
+    switch (layerType) {
+        case LAYER_ORDER.MUNICIPALITIES:
+            // Municipalities go at the bottom of our custom layers
+            // Insert before postcode (if exists), otherwise before BAG, elections, or symbol layers
+            if (map.getLayer('postcode6-fill')) {
+                return 'postcode6-fill';
+            }
+            if (map.getLayer('bag-verblijfsobjecten-points')) {
+                return 'bag-verblijfsobjecten-points';
+            }
+            if (map.getLayer('reporting-units-expected')) {
+                return 'reporting-units-expected';
+            }
+            return firstSymbolId;
+            
+        case LAYER_ORDER.POSTCODE:
+            // Postcode should be above municipalities, below BAG and elections
+            // Insert before BAG (if exists), otherwise before elections or symbol layers
+            if (map.getLayer('bag-verblijfsobjecten-points')) {
+                return 'bag-verblijfsobjecten-points';
+            }
+            if (map.getLayer('reporting-units-expected')) {
+                return 'reporting-units-expected';
+            }
+            return firstSymbolId;
+            
+        case LAYER_ORDER.BAG:
+            // BAG should be above postcode and municipalities, below elections
+            // Insert before elections (if exists), otherwise before symbol layers
+            if (map.getLayer('reporting-units-expected')) {
+                return 'reporting-units-expected';
+            }
+            return firstSymbolId;
+            
+        case LAYER_ORDER.ELECTIONS:
+            // Elections go on top of all our custom layers (but still below symbol layers)
+            // Insert before symbol layers
+            return firstSymbolId;
+            
+        default:
+            return firstSymbolId;
+    }
 }
 
 /**
@@ -105,7 +242,8 @@ export function cleanupLayers(map, layerIds, sourceIds) {
  * @param {string} config.statisticKey - The statistic key to color by.
  * @param {string} config.styleVariant - The style variant to use.
  * @param {Object} config.styleOptions - Optional style overrides.
- * @param {string|null} config.insertBeforeLayer - ID of the layer to insert before.
+ * @param {number|null} config.layerType - The layer type from LAYER_ORDER constants (preferred method).
+ * @param {string|null} config.insertBeforeLayer - ID of the layer to insert before (deprecated, use layerType instead).
  */
 export function addMapLayers(map, config) {
     const { 
@@ -115,8 +253,13 @@ export function addMapLayers(map, config) {
         statisticKey,
         styleVariant = STYLE_VARIANTS.DYNAMIC_RANGE,
         styleOptions = {},
+        layerType = null,
         insertBeforeLayer = null 
     } = config;
+    
+    // Determine the correct beforeLayer ID
+    // If layerType is provided, use the layer ordering system; otherwise fall back to insertBeforeLayer
+    const beforeLayerId = layerType !== null ? getBeforeLayerId(map, layerType) : insertBeforeLayer;
 
     // Get style configuration from colorService
     const styleConfig = createStyleConfig(
@@ -153,7 +296,7 @@ export function addMapLayers(map, config) {
                     baseFillOpacity
                 ]
             }
-        }, insertBeforeLayer);
+        }, beforeLayerId);
     }
 
     // Add border layer
@@ -167,7 +310,7 @@ export function addMapLayers(map, config) {
                 'line-width': borderWidth,
                 'line-opacity': borderOpacity
             }
-        }, insertBeforeLayer);
+        }, beforeLayerId);
     }
 
     // Add hover outline layer on top
@@ -187,6 +330,6 @@ export function addMapLayers(map, config) {
                 'line-opacity': 1 // Keep hover outline fully opaque
             },
             filter: ['!=', ['get', 'id'], ''] // Ensure filter is valid
-        }, insertBeforeLayer);
+        }, beforeLayerId);
     }
 } 

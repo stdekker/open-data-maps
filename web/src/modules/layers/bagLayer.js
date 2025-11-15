@@ -1,4 +1,4 @@
-import { findFirstSymbolLayer, cleanupLayers } from '../services/layerService.js';
+import { findFirstSymbolLayer, cleanupLayers, getBeforeLayerId, LAYER_ORDER } from '../services/layerService.js';
 import * as State from '../state.js';
 import * as cache from '../services/cacheService.js';
 
@@ -61,7 +61,8 @@ export function addBagLayer(map) {
     lastLoadedMunicipalityCode = currentMunicipalityCode; // Restore it
     cachedBagData = currentCachedData; // Restore cached data
     
-    const firstSymbolId = findFirstSymbolLayer(map);
+    // Determine the correct position for the BAG layer based on layer ordering
+    const beforeLayerId = getBeforeLayerId(map, LAYER_ORDER.BAG);
     
     if (!map.getSource('bag-verblijfsobjecten')) {
         map.addSource('bag-verblijfsobjecten', {
@@ -100,7 +101,7 @@ export function addBagLayer(map) {
                     '#D64D76'  // Not in use
                 ]
             }
-        }, firstSymbolId);
+        }, beforeLayerId);
 
         // Add click listener for showing feature properties
         map.on('click', 'bag-verblijfsobjecten-points', (e) => {
