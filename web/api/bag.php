@@ -151,14 +151,29 @@ XML;
             throw new Exception('Invalid JSON response from PDOK.');
         }
 
-        // Remove rdf_seealso from properties to reduce response size
+        // Remove unnecessary properties to reduce response size significantly (~70% reduction)
+        // Only keep properties that are actually used in the frontend
+        // To add tooltips/popups later, add properties like: 'postcode', 'huisnummer', 'openbare_ruimte', 'bouwjaar'
+        $keepProperties = ['status']; // Only status is currently used for color styling
+        
         foreach ($data['features'] as &$feature) {
-            if (isset($feature['properties']['rdf_seealso'])) {
-                unset($feature['properties']['rdf_seealso']);
+            // Keep only essential properties
+            $filteredProperties = [];
+            foreach ($keepProperties as $prop) {
+                if (isset($feature['properties'][$prop])) {
+                    $filteredProperties[$prop] = $feature['properties'][$prop];
+                }
             }
-            // Remove bbox property to reduce file size (redundant for Point geometries)
+            $feature['properties'] = $filteredProperties;
+            
+            // Remove bbox property (redundant for Point geometries)
             if (isset($feature['bbox'])) {
                 unset($feature['bbox']);
+            }
+            
+            // Remove id to further reduce size (not used in frontend)
+            if (isset($feature['id'])) {
+                unset($feature['id']);
             }
         }
         unset($feature);

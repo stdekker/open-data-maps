@@ -4,6 +4,10 @@ import * as cache from '../services/cacheService.js';
 
 let lastLoadedMunicipalityCode = null;
 let isFetchCancelled = false;
+let cachedBagData = null; // In-memory cache for instant restoration
+
+// Cache duration: 7 days in milliseconds
+const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Updates the progress message for the BAG layer.
@@ -50,10 +54,12 @@ function getGeoJsonBbox(geometry) {
  * @param {Object} map - The Mapbox map instance
  */
 export function addBagLayer(map) {
-    // Clean up existing BAG layer if it exists, but preserve the last loaded code
+    // Clean up existing BAG layer if it exists, but preserve the cache
     const currentMunicipalityCode = lastLoadedMunicipalityCode;
+    const currentCachedData = cachedBagData;
     cleanupBagLayer(map);
     lastLoadedMunicipalityCode = currentMunicipalityCode; // Restore it
+    cachedBagData = currentCachedData; // Restore cached data
     
     const firstSymbolId = findFirstSymbolLayer(map);
     
@@ -69,6 +75,9 @@ export function addBagLayer(map) {
             id: 'bag-verblijfsobjecten-points',
             type: 'circle',
             source: 'bag-verblijfsobjecten',
+            layout: {
+                'visibility': 'visible'
+            },
             paint: {
                 'circle-radius': [
                     'interpolate', ['linear'], ['zoom'],
@@ -129,16 +138,53 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
             source.setData({ type: 'FeatureCollection', features: [] });
         }
         lastLoadedMunicipalityCode = null;
+        cachedBagData = null;
         updateBagProgress('');
         return;
     }
 
     const newMunicipalityCode = municipalityFeature.properties.gemeentecode;
     if (lastLoadedMunicipalityCode === newMunicipalityCode) {
+        // If already loaded and data exists in memory, restore it
+        if (cachedBagData && source) {
+            source.setData(cachedBagData);
+        }
         return;
     }
     
     isFetchCancelled = false;
+    
+    // Check in-memory cache first
+    if (cachedBagData && lastLoadedMunicipalityCode === newMunicipalityCode) {
+        updateBagProgress('Loading from memory...');
+        source.setData(cachedBagData);
+        updateBagProgress(`Loaded ${cachedBagData.features.length} buildings from cache.`);
+        setTimeout(() => updateBagProgress(''), 2000);
+        return;
+    }
+    
+    // Check IndexedDB cache
+    updateBagProgress('Checking cache...');
+    try {
+        const cachedEntry = await cache.get(newMunicipalityCode);
+        if (cachedEntry && cachedEntry.data && cachedEntry.timestamp) {
+            const age = Date.now() - cachedEntry.timestamp;
+            if (age < CACHE_DURATION_MS) {
+                // Cache is valid, use it
+                updateBagProgress('Loading cached BAG data...');
+                cachedBagData = cachedEntry.data;
+                lastLoadedMunicipalityCode = newMunicipalityCode;
+                source.setData(cachedBagData);
+                updateBagProgress(`Loaded ${cachedBagData.features.length} buildings from cache.`);
+                setTimeout(() => updateBagProgress(''), 2000);
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('Error reading from cache:', error);
+        // Continue to fetch from API
+    }
+    
     lastLoadedMunicipalityCode = newMunicipalityCode;
     source.setData({ type: 'FeatureCollection', features: [] });
     updateBagProgress('Gathering BAG data...');
@@ -152,10 +198,22 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
         const initialData = await initialResponse.json();
 
         if (initialData.type === 'FeatureCollection') {
-            // Cached data is returned
+            // Cached data is returned from server
             setProgress('Loading cached BAG data from server...');
-            source.setData(initialData);
-            setProgress(`Loaded ${initialData.features.length} buildings.`);
+            cachedBagData = initialData;
+            source.setData(cachedBagData);
+            
+            // Store in IndexedDB for future use
+            try {
+                await cache.set(newMunicipalityCode, {
+                    data: cachedBagData,
+                    timestamp: Date.now()
+                });
+            } catch (error) {
+                console.warn('Error storing to cache:', error);
+            }
+            
+            setProgress(`Loaded ${cachedBagData.features.length} buildings.`);
             setTimeout(() => setProgress(''), 2000);
         } else if (initialData.status === 'fetch_postcodes') {
             // No cache, need to fetch per postcode
@@ -231,11 +289,24 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
 
             if (isFetchCancelled) return;
             
+            // Store in both memory and IndexedDB
+            const finalGeoJson = { type: 'FeatureCollection', features: allFeatures };
+            cachedBagData = finalGeoJson;
+            
             updateBagProgress(`Loaded ${allFeatures.length} buildings.`);
             setTimeout(() => updateBagProgress(''), 2000);
 
+            // Store in IndexedDB for future use
+            try {
+                await cache.set(newMunicipalityCode, {
+                    data: finalGeoJson,
+                    timestamp: Date.now()
+                });
+            } catch (error) {
+                console.warn('Error storing to cache:', error);
+            }
+
             // Post the final data to server for caching
-            const finalGeoJson = { type: 'FeatureCollection', features: allFeatures };
             await fetch(`api/bag.php?municipality_code=${newMunicipalityCode}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -267,6 +338,7 @@ export function cleanupBagLayer(map) {
 
     cleanupLayers(map, ['bag-verblijfsobjecten-points'], ['bag-verblijfsobjecten']);
     lastLoadedMunicipalityCode = null; // Reset tracking
+    cachedBagData = null; // Clear in-memory cache
     updateBagProgress(''); // Clear any lingering messages
 }
 
@@ -279,9 +351,35 @@ export function toggleBagLayer(map, isVisible) {
     if (isVisible) {
         isFetchCancelled = false; // Allow fetching to start/resume
         addBagLayer(map);
+        
+        // Make layer visible
+        const layer = map.getLayer('bag-verblijfsobjecten-points');
+        if (layer) {
+            map.setLayoutProperty('bag-verblijfsobjecten-points', 'visibility', 'visible');
+        }
+        
+        // Restore cached data if available
+        if (cachedBagData && lastLoadedMunicipalityCode) {
+            const source = map.getSource('bag-verblijfsobjecten');
+            if (source) {
+                source.setData(cachedBagData);
+                updateBagProgress(`Restored ${cachedBagData.features.length} buildings from memory.`);
+                setTimeout(() => updateBagProgress(''), 2000);
+            }
+        }
     } else {
         isFetchCancelled = true; // Signal to stop fetching
-        cleanupBagLayer(map);
+        
+        // Instead of cleaning up, just hide the layer
+        const layer = map.getLayer('bag-verblijfsobjecten-points');
+        if (layer) {
+            map.setLayoutProperty('bag-verblijfsobjecten-points', 'visibility', 'none');
+        }
+        
+        // Clear progress message
+        updateBagProgress('');
+        
+        // Keep cachedBagData and lastLoadedMunicipalityCode intact for quick restoration
     }
     
     // Update state

@@ -27,6 +27,7 @@ function initializeState() {
     _state.currentRegionType = localStorage.getItem('regionType') || 'buurten';
     _state.showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false';
     _state.lastElection = localStorage.getItem('lastElection');
+    _state.showBagLayer = localStorage.getItem('showBagLayer') === 'true';
 
     const lastMunicipalityJson = localStorage.getItem('lastMunicipality');
     if (lastMunicipalityJson) {

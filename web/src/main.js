@@ -171,8 +171,21 @@ async function viewMunicipality(municipality) {
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
     const searchError = document.querySelector('.search-error');
+    
+    // Check if we're switching to a different municipality while BAG layer is active
+    const currentMunicipality = State.getLastMunicipality();
+    const isSwitchingMunicipality = currentMunicipality && currentMunicipality.code !== municipality.code;
+    const isBagLayerActive = State.getShowBagLayer();
+    
+    if (isSwitchingMunicipality && isBagLayerActive) {
+        // Clear BAG layer and turn off toggle
+        cleanupBagLayer(map);
+        State.setShowBagLayer(false);
+        const bagToggle = document.getElementById('bagToggle');
+        updateToggleUI(bagToggle, false, false);
+    }
  
-    activateView('municipal', municipality.code);
+    await activateView('municipal', municipality.code);
     
     // Interface updates
     autocompleteList.innerHTML = '';
@@ -841,14 +854,10 @@ async function activateView(viewType, municipalityCode = null) {
         const showMunicipalityLayer = State.getShowMunicipalityLayer(); // Restore state
         updateToggleUI(municipalityToggle, showMunicipalityLayer, false);
 
-        // Disable BAG layer when switching municipalities to prevent automatic loading
+        // Update BAG toggle UI to reflect current state
         const bagToggle = document.getElementById('bagToggle');
-        
-        if (previousView !== 'municipal' || (municipalityCode && (!State.getLastMunicipality() || municipalityCode !== State.getLastMunicipality().code))) {
-            cleanupBagLayer(map);
-            State.setShowBagLayer(false);
-            updateToggleUI(bagToggle, false, false); 
-        }
+        const showBagLayer = State.getShowBagLayer();
+        updateToggleUI(bagToggle, showBagLayer, false);
 
         // Explicitly add or remove reporting units based on showElectionData
         if (showElectionData) {
