@@ -1,6 +1,8 @@
 # Open Data Maps
 
-ODM is a web-based geographic data visualization tool that gives insights into demographic and electoral data for Dutch municipalities. It combines detailed statistical information with an simple map navigation interface.
+ODM is a web-based geographic data visualization tool that gives insights into demographic and electoral data for Dutch municipalities. It combines detailed statistical information with an simple map navigation interface. 
+
+It was designed to be a web application that is easy to deploy on what I consider a "classic shared hosting" environment. 
 
 ## Documentation
 
@@ -27,10 +29,9 @@ ODM is a web-based geographic data visualization tool that gives insights into d
 
 ## AI Coded 
 
-This project was developed with significant assistance from AI coding tools. While this approach enabled rapid development, it's important to note:
+This project was developed with significant assistance from AI coding tools. While this approach enabled rapid development and extensive rewrites of existing tooling, it's important to note:
 
 - Code quality and reliability may vary
-- Edge cases and error handling might not always be comprehensive
 - Performance may not be optimal
 - Security considerations may need additional review
 
@@ -48,16 +49,13 @@ Please use this code with appropriate caution and testing in production environm
 ## Data
 
 Source gemeenten GeoJSon
-https://nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/70c52fd8-6b2e-42aa-873a-742711903243
+https://www.pdok.nl/introductie/-/article/cbs-wijken-en-buurten
 
-https://service.pdok.nl/cbs/wijkenbuurten/2022/wfs/v1_0?request=GetFeature&service=WFS&version=1.1.0&outputFormat=application%2Fjson%3B%20subtype%3Dgeojson&typeName=wijkenbuurten:gemeenten
+## Data processing
 
-gemeenten.json GeoJSON simplified with:
-
+PDOK GeoJSON simplified with an PHP-cli adaptation of:
 https://mapshaper.org/
-
-Simplify: 1%
-https://github.com/mbloch/mapshaper
+Github: https://github.com/mbloch/mapshaper
 
 ## Development
 
@@ -90,6 +88,6 @@ This app is based on an original project that was created by [Benjamin W. Broers
 
 ### Data attribution
 
-All data used in this project is provided by the Dutch government and is available under the [Open Data License](https://www.pdok.nl/nl/over-pdok/open-data/open-data-licenties/open-data-licentie-gemeenten-wijken-buurten-2022).
+All data used in this project is provided by the Dutch government and is available under the [Open Data License](https://www.pdok.nl/nl/over-pdok/open-data/open-data-licenties/open-data-licentie-gemeenten-wijken-buurten-2023).
 
-And the EML files from the Dutch electoral office (Kiesraad) can be found here: https://data.overheid.nl/community/organization/kiesraad
+The EML files from the Dutch electoral office (Kiesraad) can be found here: https://data.overheid.nl/community/organization/kiesraad
