@@ -3,16 +3,17 @@ import { setupReportingUnitPopupHandlers } from '../services/electionService.js'
 import { showPartyVotesColors, resetPartyVotesColors } from '../services/colorService.js';
 
 // Global size factor for all circles (decrease to make circles smaller)
-const CIRCLE_SIZE_FACTOR = 0.4;
+const CIRCLE_SIZE_FACTOR = 0.5;
 
 // Zoom level at which reporting unit display mode switches
 const REPORTING_UNIT_ZOOM_THRESHOLD = 13;
 
 /**
- * Generates a circle radius calculation expression based on expected turnout.
+ * Generates a base circle radius calculation expression based on expected turnout.
+ * This is the size calculation without zoom scaling.
  * @returns {Array} Mapbox expression for circle radius calculation
  */
-function getExpectedTurnoutRadiusExpression() {
+function getBaseRadiusExpression() {
     return [
         'interpolate',
         ['linear'],
@@ -25,7 +26,30 @@ function getExpectedTurnoutRadiusExpression() {
 }
 
 /**
+ * Generates a circle radius calculation expression for expected turnout with zoom scaling.
+ * This represents the grey outer circle showing expected votes.
+ * Grows larger at high zoom levels for better selectability.
+ * @returns {Array} Mapbox expression for circle radius calculation with zoom factor
+ */
+function getExpectedTurnoutRadiusExpression() {
+    return [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8, 4,    // Small fixed size when zoomed out
+        11, 4,   // Still fixed size
+        REPORTING_UNIT_ZOOM_THRESHOLD, getBaseRadiusExpression(),  // Base size at threshold
+        16, ['*', getBaseRadiusExpression(), 1.5],  // 1.5x larger at zoom 16
+        19, ['*', getBaseRadiusExpression(), 2]     // 2x larger at zoom 19
+    ];
+}
+
+/**
  * Generates a circle radius calculation expression based on actual turnout and zoom level.
+ * This represents the white inner circle showing actual counted votes.
+ * Below the threshold: Shows as uniform dots (same size as grey circle).
+ * Above the threshold: The ratio between this and the expected turnout stays constant.
+ * Grows larger at high zoom levels for better selectability.
  * @returns {Array} Mapbox expression for circle radius calculation with zoom factor
  */
 function getActualTurnoutRadiusExpression() {
@@ -33,11 +57,21 @@ function getActualTurnoutRadiusExpression() {
         'interpolate',
         ['linear'],
         ['zoom'],
-        8, 4,    // Small fixed size when zoomed out
-        11, 4,   // Still fixed size
-        REPORTING_UNIT_ZOOM_THRESHOLD, [    // Start scaling based on turnout percentage
+        8, 4,    // Same fixed size as grey circle (uniform dots)
+        11, 4,   // Same fixed size as grey circle (uniform dots)
+        REPORTING_UNIT_ZOOM_THRESHOLD, [
             '*',
-            getExpectedTurnoutRadiusExpression(),
+            getBaseRadiusExpression(),
+            ['/', ['get', 'totalCounted'], ['get', 'cast']]  // Percentage of expected turnout
+        ],
+        16, [
+            '*',
+            ['*', getBaseRadiusExpression(), 1.5],  // 1.5x larger at zoom 16
+            ['/', ['get', 'totalCounted'], ['get', 'cast']]  // Percentage of expected turnout
+        ],
+        19, [
+            '*',
+            ['*', getBaseRadiusExpression(), 2],    // 2x larger at zoom 19
             ['/', ['get', 'totalCounted'], ['get', 'cast']]  // Percentage of expected turnout
         ]
     ];
