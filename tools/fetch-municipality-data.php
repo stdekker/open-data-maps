@@ -34,7 +34,7 @@ if (file_exists($gemeentenFile)) {
 }
 
 // Fetch and process data
-$baseUrl = 'https://service.pdok.nl/cbs/wijkenbuurten/2024/wfs/v1_0';
+$baseUrl = 'https://service.pdok.nl/cbs/wijkenbuurten/2023/wfs/v1_0';
 $params = [
     'service' => 'WFS',
     'request' => 'GetFeature',
@@ -61,7 +61,7 @@ echo "Raw data fetched. Simplifying...\n";
 // Run mapshaper-php-cli
 $mapshaperScript = __DIR__ . '/mapshaper-php-cli/mapshaper.php';
 $command = sprintf(
-    'php %s -i %s -o %s -p 1%%',
+    'php %s -i %s -o %s -p 0.75%%',
     escapeshellarg($mapshaperScript),
     escapeshellarg($tempFile),
     escapeshellarg($gemeentenFile)
