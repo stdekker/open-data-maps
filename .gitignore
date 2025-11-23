@@ -6,10 +6,6 @@ process/*
 .vscode/
 todo/*
 
-# But keep overview.json
-!web/data/overview.json
-!web/data/gemeenten.json 
-
 /vendor/
 
 # Ignore production config
