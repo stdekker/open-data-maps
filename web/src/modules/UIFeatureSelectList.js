@@ -6,6 +6,7 @@
 
 import { STATISTICS_CONFIG } from '../config.js';
 import { getFeatureName, formatStatValue, addClickListener, addClickListeners } from './UIShared.js';
+import { getContextMenu } from './UIContextMenu.js';
 
 // Array to store selected features
 let selectedFeatures = [];
@@ -15,6 +16,28 @@ let selectedFeaturesElement = null;
 let featureInfoBox = null;
 // Reference to the map object
 let mapInstance = null;
+// Reference to the context menu
+let contextMenu = null;
+
+/**
+ * Checks if a feature is currently selected
+ * @param {Object} feature - The feature to check
+ * @returns {boolean} True if the feature is selected
+ */
+export function isFeatureSelected(feature) {
+    if (!feature || feature.id === undefined) return false;
+    return selectedFeatures.some(f => f.id === feature.id);
+}
+
+/**
+ * Gets the index of a selected feature
+ * @param {Object} feature - The feature to find
+ * @returns {number} The index or -1 if not found
+ */
+function getSelectedFeatureIndex(feature) {
+    if (!feature || feature.id === undefined) return -1;
+    return selectedFeatures.findIndex(f => f.id === feature.id);
+}
 
 /**
  * Initializes the feature selection module
@@ -33,6 +56,9 @@ export function initializeFeatureSelect(map, infoBox) {
     
     // Set up click handlers for feature selection
     setupFeatureSelectionHandlers(map);
+    
+    // Initialize the context menu
+    setupContextMenu(map);
 }
 
 /**
@@ -342,5 +368,78 @@ function setupFeatureSelectionHandlers(map) {
                 }
             }
         });
+    });
+}
+
+/**
+ * Sets up the context menu with selection options
+ * @param {Object} map - The Mapbox map instance
+ */
+function setupContextMenu(map) {
+    // Get or create the context menu instance
+    contextMenu = getContextMenu(map);
+    
+    // Register "Add to selection" menu item
+    contextMenu.registerItem({
+        id: 'add-to-selection',
+        label: 'Toevoegen aan selectie',
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>`,
+        condition: (feature) => !isFeatureSelected(feature),
+        action: (feature) => {
+            addSelectedFeature(feature, map);
+        },
+        order: 10,
+        group: 'selection'
+    });
+    
+    // Register "Remove from selection" menu item
+    contextMenu.registerItem({
+        id: 'remove-from-selection',
+        label: 'Verwijderen uit selectie',
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>`,
+        condition: (feature) => isFeatureSelected(feature),
+        action: (feature) => {
+            const index = getSelectedFeatureIndex(feature);
+            if (index !== -1) {
+                removeSelectedFeature(index);
+            }
+        },
+        order: 11,
+        group: 'selection'
+    });
+    
+    // Set up right-click handlers for map layers
+    const layerTypes = ['municipalities-fill', 'postcode6-fill'];
+    
+    layerTypes.forEach(layerType => {
+        map.on('contextmenu', layerType, (e) => {
+            // Prevent default browser context menu
+            e.preventDefault();
+            
+            if (e.features && e.features.length > 0) {
+                // Store source information in the feature for later use
+                const feature = e.features[0];
+                feature.source = layerType.split('-')[0]; // Extract source name from layer ID
+                
+                // Show context menu at click position
+                contextMenu.show(
+                    e.originalEvent.clientX,
+                    e.originalEvent.clientY,
+                    feature,
+                    e
+                );
+            }
+        });
+    });
+    
+    // Prevent default context menu on the map container
+    map.getContainer().addEventListener('contextmenu', (e) => {
+        // Only prevent default if we're handling it ourselves
+        // The layerType handlers above will show the menu when applicable
     });
 } 

@@ -935,3 +935,80 @@ body, html {
         max-width: 80%;
     }
 }
+
+/* Context Menu styles */
+.map-context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #ffffff;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 180px;
+    max-width: 280px;
+    padding: 4px 0;
+    opacity: 0;
+    visibility: hidden;
+    transform-origin: top left;
+    transition: opacity 0.1s ease, visibility 0.1s;
+    font-size: 0.9em;
+}
+
+.map-context-menu.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+}
+
+.map-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #333;
+    transition: background-color 0.1s ease;
+    user-select: none;
+}
+
+.map-context-menu-item:hover {
+    background-color: #e9ecef;
+}
+
+.map-context-menu-item:active {
+    background-color: #e0e0e0;
+}
+
+.map-context-menu-item:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: -2px;
+    background-color: #e9ecef;
+}
+
+.map-context-menu-item-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+}
+
+.map-context-menu-item-label {
+    flex: 1;
+}
+
+.map-context-menu-divider {
+    height: 1px;
+    background-color: #ddd;
+    margin: 4px 0;
+}
+
+.map-context-menu-header {
+    padding: 6px 12px 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
