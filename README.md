@@ -1,8 +1,12 @@
 # Open Data Maps
 
-ODM is a web-based geographic data visualization tool that gives insights into demographic and electoral data for Dutch municipalities. It combines detailed statistical information with an simple map navigation interface. 
+Open Data Maps (ODM) is a web-based geographic data visualization tool that gives insights into local demographic and electoral data for their work Dutch municipalities. It combines detailed statistical information from various sources with an simple map navigation interface. 
 
-It was designed to be a web application that is easy to deploy on what I consider a "classic shared hosting" environment. 
+It was designed for easy deployment on what I consider a "classic shared hosting" environment.
+
+## Donate
+ODM was built in my spare time, but you can help
+💸 [fund the development](https://bunq.me/stijndekker) of this project
 
 ## Documentation
 
@@ -67,11 +71,11 @@ This project uses DDEV to make local development easier. DDEV is a tool for crea
 
 ```
 /
-├── docs/              # 📖 All documentation
+├── docs/              # Full documentation
 ├── config/            # Configuration files (outside web root)
 ├── tools/             # Data processing and admin scripts
 ├── web/               # Public web directory
-│   ├── edit/          # Admin editor (requires authentication)
+│   ├── edit/          # Polling station location editor (requires authentication to be set up)
 │   ├── api/           # Data API endpoints
 │   ├── src/           # Frontend JavaScript
 │   └── data/          # Data files
@@ -84,7 +88,7 @@ This code is licensed under the GNU General Public License v3.0 - see the [LICEN
 
 ## Attribution  
 
-This app is based on an original project that was created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](www.bvvlt.nl). Although the code for this application is completely rebuilt from scratch, I have borrowed many good ideas and original concepts from their original project. 
+ODM is based on an application that was designed and created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](https://www.bvvlt.nl) in 2012 for the [Socialist Party of the Netherlands](https://www.sp.nl), where I worked at the time. Although the code is completely rebuilt from scratch, I have borrowed quite a lot of ideas from their inspirational work. 
 
 ### Data attribution
 

@@ -1,6 +1,6 @@
 # Open Data Maps Documentation
 
-Welcome to the Open Data Maps (ODM) documentation. This directory contains all documentation for the project.
+This directory contains all documentation for the Open Data Maps (ODM) project.
 
 ## Table of Contents
 
