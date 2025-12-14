@@ -27,7 +27,10 @@ function initializeState() {
     _state.currentRegionType = localStorage.getItem('regionType') || 'buurten';
     _state.showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false';
     _state.lastElection = localStorage.getItem('lastElection');
-    _state.showBagLayer = localStorage.getItem('showBagLayer') === 'true';
+    // BAG layer state is NOT persisted - always starts as false
+    // Clear any leftover value from previous versions
+    localStorage.removeItem('showBagLayer');
+    _state.showBagLayer = false;
 
     const lastMunicipalityJson = localStorage.getItem('lastMunicipality');
     if (lastMunicipalityJson) {
@@ -112,10 +115,11 @@ export function setLastElection(election) {
 }
 
 /**
- * Updates the showBagLayer state and stores it in localStorage.
+ * Updates the showBagLayer state.
+ * Note: This state is NOT persisted to localStorage - BAG layer always starts disabled on reload.
  * @param {boolean} show - The new value for showBagLayer.
  */
 export function setShowBagLayer(show) {
     _state.showBagLayer = show;
-    localStorage.setItem('showBagLayer', show);
+    // Not stored in localStorage - BAG layer requires fresh data load each session
 } 

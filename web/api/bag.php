@@ -83,7 +83,7 @@ if ($municipalityCode) {
     $sanitizedMunicipalityCode = sanitizePathComponent($validatedMunicipalityCode);
 
     if (!isset($CACHE_BAG_DURATION)) {
-        $CACHE_BAG_DURATION = 86400; // Default to 1 day
+        $CACHE_BAG_DURATION = 86400 * 100; // Default to 100 days
     }
 
     $cacheDir = __DIR__ . '/../data/bag/';
@@ -153,8 +153,8 @@ XML;
 
         // Remove unnecessary properties to reduce response size significantly (~70% reduction)
         // Only keep properties that are actually used in the frontend
-        // To add tooltips/popups later, add properties like: 'postcode', 'huisnummer', 'openbare_ruimte', 'bouwjaar'
-        $keepProperties = ['status']; // Only status is currently used for color styling
+        // Keep address properties for walking list feature: 'postcode', 'huisnummer', 'openbare_ruimte'
+        $keepProperties = ['status', 'openbare_ruimte', 'huisnummer', 'postcode']; // Status for color styling, address properties for walking list
         
         foreach ($data['features'] as &$feature) {
             // Keep only essential properties

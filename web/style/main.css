@@ -733,10 +733,6 @@ body, html {
     color: #333;
 }
 
-.stats-selector {
-    /* margin-bottom: 0px; */
-}
-
 .stats-selector label {
     display: block;
     margin-bottom: 8px;
@@ -1011,4 +1007,215 @@ body, html {
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+/* Walking List Modal Styles */
+.walking-list-loading,
+.walking-list-error,
+.walking-list-empty,
+.walking-list-instruction {
+    padding: 20px;
+}
+
+.walking-list-loading p,
+.walking-list-error p,
+.walking-list-empty p,
+.walking-list-instruction p {
+    margin: 10px 0;
+}
+
+.walking-list-instruction {
+    text-align: left;
+}
+
+.walking-list-instruction strong {
+    color: #333;
+    font-size: 1.1em;
+    display: block;
+    margin-bottom: 15px;
+}
+
+.walking-list-steps {
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.walking-list-steps li {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.walking-list-error strong {
+    color: #d63384;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.walking-list-hint {
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+}
+
+.walking-list-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.walking-list-summary {
+    margin: 0;
+    font-size: 0.95em;
+    color: #555;
+}
+
+.walking-list-summary strong {
+    color: #333;
+    font-weight: 600;
+}
+
+.walking-list-content {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.walking-list-streets {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.walking-list-street {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.walking-list-street:last-child {
+    border-bottom: none;
+}
+
+.street-name {
+    font-weight: 500;
+    color: #333;
+    flex: 1;
+    margin-right: 15px;
+}
+
+.street-ranges {
+    color: #666;
+    font-size: 0.95em;
+    text-align: right;
+    white-space: nowrap;
+    margin-right: 10px;
+}
+
+.street-count {
+    color: #888;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.walking-list-startpoint {
+    padding: 20px;
+    text-align: center;
+}
+
+.walking-list-actions {
+    margin-top: 15px;
+}
+
+.walking-list-cancel {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.walking-list-cancel:hover {
+    border-color: #999;
+}
+
+.walking-list-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.walking-list-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: #333;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.walking-list-download-btn:hover {
+    border-color: #999;
+    background-color: #f5f5f5;
+}
+
+.walking-list-download-btn svg {
+    flex-shrink: 0;
+}
+
+@media print {
+    .walking-list-content {
+        max-height: none;
+        overflow: visible;
+    }
+    
+    .walking-list-street {
+        page-break-inside: avoid;
+    }
+    
+    .walking-list-footer {
+        display: none;
+    }
+}
+
+/* BAG Address Popup Styles */
+.bag-address-popup .mapboxgl-popup-content {
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.bag-popup {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.bag-popup-street {
+    font-weight: 600;
+    font-size: 1em;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.bag-popup-details {
+    display: flex;
+    gap: 12px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.bag-popup-number {
+    font-weight: 500;
+    color: #444;
+}
+
+.bag-popup-postcode {
+    color: #888;
 }

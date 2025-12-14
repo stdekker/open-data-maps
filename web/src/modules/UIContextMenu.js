@@ -216,9 +216,11 @@ export class ContextMenu {
                 // Add click handler
                 menuItem.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    // Save currentEvent before hide() clears it
+                    const savedEvent = this.currentEvent;
                     this.hide();
                     try {
-                        item.action(feature, this.currentEvent);
+                        item.action(feature, savedEvent);
                     } catch (err) {
                         console.error(`ContextMenu: Error in action for item ${item.id}:`, err);
                     }

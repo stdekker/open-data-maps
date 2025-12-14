@@ -23,9 +23,9 @@ export function updateMapColors(map, statisticKey) {
  */
 export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations, statisticKey = 'aantalInwoners', styleVariant = STYLE_VARIANTS.DYNAMIC_RANGE) {
     // Clean up existing layers and sources first
-    cleanupLayers(map, 
-        ['municipalities-fill', 'municipalities-borders', 'municipalities-hover'], 
-        ['municipalities']
+    cleanupLayers(map,
+        ['municipalities-fill', 'municipalities-borders', 'municipalities-hover'],
+        []
     );
 
     // Check if the postcode toggle is active
@@ -42,7 +42,7 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
     if (State.getCurrentView() === 'municipal') {
         // Set municipality postcodes for postcode layer functionality
         setMunicipalityPostcodes(geoJsonData);
-        
+
         // If postcode toggle is active, reload postcodes for the new municipality
         if (isPostcodeActive) {
             // Small delay to ensure municipality data is fully loaded

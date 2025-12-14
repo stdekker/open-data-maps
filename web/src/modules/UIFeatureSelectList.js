@@ -7,6 +7,10 @@
 import { STATISTICS_CONFIG } from '../config.js';
 import { getFeatureName, formatStatValue, addClickListener, addClickListeners } from './UIShared.js';
 import { getContextMenu } from './UIContextMenu.js';
+import * as State from './state.js';
+import { showWalkingListModal } from './UIWalkingListModal.js';
+import { Modal } from './services/modalService.js';
+import { getSelectedBagFeatureCoords } from './layers/bagLayer.js';
 
 // Array to store selected features
 let selectedFeatures = [];
@@ -413,6 +417,36 @@ function setupContextMenu(map) {
         group: 'selection'
     });
     
+    // Register "Generate walking list" menu item
+    contextMenu.registerItem({
+        id: 'generate-walking-list',
+        label: 'Looplijst genereren',
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>`,
+        condition: (feature) => {
+            // Show if feature has geometry (always visible, even when BAG layer is off)
+            return feature.geometry && 
+                   (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon');
+        },
+        action: (feature, evt) => {
+            // Check if BAG layer is enabled
+            if (!State.getShowBagLayer()) {
+                // Show instructional modal
+                showBagLayerInstructionModal(map);
+                return;
+            }
+            
+            // Use the currently selected BAG feature's address as start point
+            // If no BAG feature is selected, streets will be sorted alphabetically
+            const startPoint = getSelectedBagFeatureCoords();
+            showWalkingListModal(map, feature, { startPoint });
+        },
+        order: 20,
+        group: 'tools'
+    });
+    
     // Set up right-click handlers for map layers
     const layerTypes = ['municipalities-fill', 'postcode6-fill'];
     
@@ -442,4 +476,28 @@ function setupContextMenu(map) {
         // Only prevent default if we're handling it ourselves
         // The layerType handlers above will show the menu when applicable
     });
+}
+
+/**
+ * Shows an instructional modal when user tries to generate walking list without BAG layer enabled
+ * @param {Object} map - The Mapbox map instance
+ */
+function showBagLayerInstructionModal(map) {
+    // Use the walking list modal for consistency
+    const instructionModal = new Modal('walking-list-modal');
+    
+    const instructionContent = `
+        <div class="walking-list-instruction">
+            <p><strong>BAG laag vereist</strong></p>
+            <p>Om een looplijst te genereren, moet eerst de BAG laag worden ingeschakeld.</p>
+            <ol class="walking-list-steps">
+                <li>Schakel de <strong>"Verblijfsobjecten (BAG)"</strong> laag in via de sidebar</li>
+                <li>Wacht tot de BAG data geladen is (dit kan even duren)</li>
+                <li>Klik opnieuw met rechts op het gebied om de looplijst te genereren</li>
+            </ol>
+            <p class="walking-list-hint">De BAG laag bevat adresgegevens die nodig zijn voor het genereren van de looplijst.</p>
+        </div>
+    `;
+    
+    instructionModal.open('Looplijst genereren', instructionContent);
 } 

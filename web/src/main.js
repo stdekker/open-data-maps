@@ -13,15 +13,16 @@ import { initializeMobileHandler } from './modules/mobileHandler.js';
 import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { setupSearch, findMunicipalityByName, createSearchData } from './modules/services/searchService.js';
 import { initializeFeatureSelect } from './modules/UIFeatureSelectList.js';
+import { initializeWalkingListModal } from './modules/UIWalkingListModal.js';
 
 // Map layers and data
-import { 
-    addMunicipalityLayers, 
-    addReportingUnits, 
-    cleanupReportingUnits, 
-    updateToggleStates, 
-    cleanupPostcode6Layer, 
-    initializePostcode6Toggle, 
+import {
+    addMunicipalityLayers,
+    addReportingUnits,
+    cleanupReportingUnits,
+    updateToggleStates,
+    cleanupPostcode6Layer,
+    initializePostcode6Toggle,
     loadAllPostcode6Data,
     addBagLayer,
     cleanupBagLayer,
@@ -31,9 +32,9 @@ import {
 } from './modules/services/layerService.js';
 
 // Additional features
-import { 
-    loadElectionData, 
-    loadNationalElectionData, 
+import {
+    loadElectionData,
+    loadNationalElectionData,
     getAvailableElections,
     resetNationalMapColors
 } from './modules/services/electionService.js';
@@ -116,15 +117,15 @@ async function initializeMapAndData() {
         setupSearch(searchData, async (municipality) => {
             await viewMunicipality(municipality);
         });
-        
+
         // Initialize election toggle based on URL parameter or localStorage
         const electionToggle = document.getElementById('electionToggle');
-        
+
         // URL parameter takes precedence over localStorage
         if (params.elections !== null) {
             State.setShowElectionData(params.elections);
         }
-        
+
         electionToggle.checked = State.getShowElectionData();
 
         const statsView = document.querySelector('.stats-view');
@@ -175,28 +176,65 @@ async function viewMunicipality(municipality) {
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
     const searchError = document.querySelector('.search-error');
-    
-    // Check if we're switching to a different municipality while BAG layer is active
+
+
+    // Check if we're switching to a different municipality
     const currentMunicipality = State.getLastMunicipality();
     const isSwitchingMunicipality = currentMunicipality && currentMunicipality.code !== municipality.code;
-    const isBagLayerActive = State.getShowBagLayer();
-    
-    if (isSwitchingMunicipality && isBagLayerActive) {
-        // Clear BAG layer and turn off toggle
-        cleanupBagLayer(map);
-        State.setShowBagLayer(false);
-        const bagToggle = document.getElementById('bagToggle');
-        updateToggleUI(bagToggle, false, false);
+
+    if (isSwitchingMunicipality) {
+        try {
+            // Reset BAG layer
+            if (State.getShowBagLayer()) {
+                cleanupBagLayer(map);
+                State.setShowBagLayer(false);
+                const bagToggle = document.getElementById('bagToggle');
+                updateToggleUI(bagToggle, false, false);
+            }
+
+            // Reset Postcode layer
+            const postcode6Toggle = document.getElementById('postcode6Toggle');
+            if (postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true') {
+                cleanupPostcode6Layer(map);
+                updateToggleUI(postcode6Toggle, false, false);
+            }
+
+            // Reset Election layer
+            if (State.getShowElectionData()) {
+                State.setShowElectionData(false);
+                const electionToggle = document.getElementById('electionToggle');
+                updateToggleUI(electionToggle, false, false);
+                const statsView = document.querySelector('.stats-view');
+                if (statsView) statsView.style.display = 'none';
+                if (map.getLayer('reporting-units')) {
+                    cleanupReportingUnits(map);
+                }
+            }
+
+            // Ensure municipality layer is active (default mode)
+            State.setShowMunicipalityLayer(true);
+            const municipalityToggle = document.getElementById('municipalityToggle');
+            updateToggleUI(municipalityToggle, true, false);
+
+        } catch (error) {
+            console.warn('Error resetting layers during switch:', error);
+            // Continue execution to at least try loading the new municipality
+        }
     }
- 
+
+
+    // Update state FIRST so activateView has correct municipality
+    State.setLastMunicipality(municipality);
+    updateUrlParams(municipality.naam, State.getShowElectionData());
+
+    // Small delay to ensure layer cleanup is processed by Mapbox before adding new layers
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     await activateView('municipal', municipality.code);
-    
+
     // Interface updates
     autocompleteList.innerHTML = '';
     searchError.classList.remove('visible');
-    
-    State.setLastMunicipality(municipality);
-    updateUrlParams(municipality.naam, State.getShowElectionData());
 
     // Hide keyboard on mobile devices
     searchInput.blur();
@@ -207,9 +245,6 @@ async function viewMunicipality(municipality) {
 
     // Update the feature name box with the selected municipality
     updateFeatureNameBox();
-
-    // Wait for data loading to complete
-    await loadGeoJson(municipality.code, State.getCurrentRegionType());
 }
 
 // Modify the viewNational function
@@ -245,17 +280,17 @@ async function viewNational() {
             }
 
             e.preventDefault();
-            
+
             if (e.features && e.features.length > 0) {
                 const feature = e.features[0];
                 const municipality = {
                     naam: feature.properties.gemeentenaam,
                     code: feature.properties.gemeentecode
                 };
-                
+
                 // Store selected municipality
                 State.setLastMunicipality(municipality);
-                
+
                 // Switch to municipal view
                 activateView('municipal', municipality.code);
             }
@@ -283,47 +318,53 @@ function loadGeoJson(code, regionType = 'buurten') {
                     fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
                     loadElectionData(code)
                 ])
-                .then(([geoJsonData]) => {
-                    const geoJsonDataWithIds = {
-                        ...geoJsonData,
-                        features: geoJsonData.features.map((feature, index) => ({
-                            ...feature,
-                            id: index
-                        }))
-                    };
-                    addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
-                    setupFeatureNameBox(map, municipalityPopulations);
+                    .then(([geoJsonData]) => {
+                        const geoJsonDataWithIds = {
+                            ...geoJsonData,
+                            features: geoJsonData.features.map((feature, index) => ({
+                                ...feature,
+                                id: index
+                            }))
+                        };
+                        addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
+                        setupFeatureNameBox(map, municipalityPopulations);
 
-                    // Fit bounds to the loaded GeoJSON
-                    try {
-                        const bounds = new mapboxgl.LngLatBounds();
-                        geoJsonDataWithIds.features.forEach(feature => {
-                            if (feature.geometry.type === 'Polygon') {
-                                feature.geometry.coordinates[0].forEach(coord => {
-                                    bounds.extend(coord);
-                                });
-                            } else if (feature.geometry.type === 'MultiPolygon') {
-                                feature.geometry.coordinates.forEach(polygon => {
-                                    polygon[0].forEach(coord => {
+                        // Force visibility
+                        if (map.getLayer('municipalities-fill')) {
+                            map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                            map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+                        }
+
+                        // Fit bounds to the loaded GeoJSON
+                        try {
+                            const bounds = new mapboxgl.LngLatBounds();
+                            geoJsonDataWithIds.features.forEach(feature => {
+                                if (feature.geometry.type === 'Polygon') {
+                                    feature.geometry.coordinates[0].forEach(coord => {
                                         bounds.extend(coord);
                                     });
-                                });
-                            }
-                        });
-                        
-                        if (!bounds.isEmpty()) {
-                            map.fitBounds(bounds, { padding: 64 });
-                        }
-                    } catch (e) {
-                        console.error('Error fitting bounds:', e);
-                    }
+                                } else if (feature.geometry.type === 'MultiPolygon') {
+                                    feature.geometry.coordinates.forEach(polygon => {
+                                        polygon[0].forEach(coord => {
+                                            bounds.extend(coord);
+                                        });
+                                    });
+                                }
+                            });
 
-                    resolve();
-                })
-                .catch(error => {
-                    console.error('Error loading data:', error);
-                    reject(error);
-                });
+                            if (!bounds.isEmpty()) {
+                                map.fitBounds(bounds, { padding: 64 });
+                            }
+                        } catch (e) {
+                            console.error('Error fitting bounds:', e);
+                        }
+
+                        resolve();
+                    })
+                    .catch(error => {
+                        console.error('Error loading data:', error);
+                        reject(error);
+                    });
             });
             return;
         }
@@ -333,47 +374,53 @@ function loadGeoJson(code, regionType = 'buurten') {
             fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
             loadElectionData(code)
         ])
-        .then(([geoJsonData]) => {
-            const geoJsonDataWithIds = {
-                ...geoJsonData,
-                features: geoJsonData.features.map((feature, index) => ({
-                    ...feature,
-                    id: index
-                }))
-            };
-            addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
-            setupFeatureNameBox(map, municipalityPopulations);
+            .then(([geoJsonData]) => {
+                const geoJsonDataWithIds = {
+                    ...geoJsonData,
+                    features: geoJsonData.features.map((feature, index) => ({
+                        ...feature,
+                        id: index
+                    }))
+                };
+                addMunicipalityLayers(map, geoJsonDataWithIds, municipalityPopulations);
+                setupFeatureNameBox(map, municipalityPopulations);
 
-            // Fit bounds to the loaded GeoJSON
-            try {
-                const bounds = new mapboxgl.LngLatBounds();
-                geoJsonDataWithIds.features.forEach(feature => {
-                    if (feature.geometry.type === 'Polygon') {
-                        feature.geometry.coordinates[0].forEach(coord => {
-                            bounds.extend(coord);
-                        });
-                    } else if (feature.geometry.type === 'MultiPolygon') {
-                        feature.geometry.coordinates.forEach(polygon => {
-                            polygon[0].forEach(coord => {
+                // Force visibility
+                if (map.getLayer('municipalities-fill')) {
+                    map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                    map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+                }
+
+                // Fit bounds to the loaded GeoJSON
+                try {
+                    const bounds = new mapboxgl.LngLatBounds();
+                    geoJsonDataWithIds.features.forEach(feature => {
+                        if (feature.geometry.type === 'Polygon') {
+                            feature.geometry.coordinates[0].forEach(coord => {
                                 bounds.extend(coord);
                             });
-                        });
-                    }
-                });
-                
-                if (!bounds.isEmpty()) {
-                    map.fitBounds(bounds, { padding: 64 });
-                }
-            } catch (e) {
-                console.error('Error fitting bounds:', e);
-            }
+                        } else if (feature.geometry.type === 'MultiPolygon') {
+                            feature.geometry.coordinates.forEach(polygon => {
+                                polygon[0].forEach(coord => {
+                                    bounds.extend(coord);
+                                });
+                            });
+                        }
+                    });
 
-            resolve();
-        })
-        .catch(error => {
-            console.error('Error loading data:', error);
-            reject(error);
-        });
+                    if (!bounds.isEmpty()) {
+                        map.fitBounds(bounds, { padding: 64 });
+                    }
+                } catch (e) {
+                    console.error('Error fitting bounds:', e);
+                }
+
+                resolve();
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                reject(error);
+            });
     });
 }
 
@@ -383,9 +430,10 @@ function initializeSidebarAndUI() {
     settingsModal = new Modal('settings-modal');
     window.settingsModal = settingsModal;
     helpModal = new Modal('help-modal');
+    initializeWalkingListModal();
 
-     // Initialize region type toggles
-     initializeRegionTypeToggles();
+    // Initialize region type toggles
+    initializeRegionTypeToggles();
 
     // Initialize postcode6 toggle with map instance
     initializePostcode6Toggle(map);
@@ -413,17 +461,17 @@ function initializeSidebarAndUI() {
     function handleMenuItemActivation(event, element) {
         const menuItem = element || this;
         const viewType = menuItem.id.replace('-view', ''); // Extract 'national' or 'municipal' from id
-        
+
         // Remove active state from all menu items
         menuItems.forEach(item => {
             item.classList.remove('active');
             item.setAttribute('aria-selected', 'false');
         });
-        
+
         // Add active state to selected item
         menuItem.classList.add('active');
         menuItem.setAttribute('aria-selected', 'true');
-        
+
         // Activate the corresponding view
         if (viewType === 'national') {
             activateView('national');
@@ -438,11 +486,11 @@ function initializeSidebarAndUI() {
     // Add keyboard and click support for menu items
     menuItems.forEach(item => {
         // Click handler
-        item.addEventListener('click', function(event) {
+        item.addEventListener('click', function (event) {
             // Always use event.currentTarget which is more reliable across browsers
             handleMenuItemActivation(event, event.currentTarget);
         });
-        
+
         // Keyboard handler
         item.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -452,7 +500,7 @@ function initializeSidebarAndUI() {
             }
         });
     });
-    
+
     // Handle initial activation separately after defining the function
     if (initialMenuItem) {
         // Directly call with the initialMenuItem as parameter
@@ -462,7 +510,7 @@ function initializeSidebarAndUI() {
     // Add click/keydown handlers for layer toggles
     const layerToggles = document.querySelectorAll('.layer-toggle-item');
     layerToggles.forEach(toggle => {
-        toggle.addEventListener('click', function(event) {
+        toggle.addEventListener('click', function (event) {
             // Always use event.currentTarget which is more reliable across browsers
             handleToggleInteraction(event, event.currentTarget);
         });
@@ -499,13 +547,13 @@ function initializeSidebarAndUI() {
                 // We just trigger the state change here, the existing handler should pick it up if initialized correctly.
                 if (shouldBeActive) {
                     // Make sure mapInstance is accessible or passed correctly
-                    if (window.map) { 
-                        loadAllPostcode6Data(window.map); 
+                    if (window.map) {
+                        loadAllPostcode6Data(window.map);
                     } else {
                         console.error("Map instance not available for postcode load.");
                     }
                 } else {
-                    if (window.map) { 
+                    if (window.map) {
                         cleanupPostcode6Layer(window.map);
                     } else {
                         console.error("Map instance not available for postcode cleanup.");
@@ -568,12 +616,12 @@ function initializeSidebarAndUI() {
             }
             // Clear stats view if toggle is turned off
             if (!isActive && statsView) {
-                 statsView.innerHTML = '';
-                 statsView.style.display = 'none';
+                statsView.innerHTML = '';
+                statsView.style.display = 'none';
             }
-             // If in national view and toggling OFF, reset map colors
+            // If in national view and toggling OFF, reset map colors
             if (!isActive && State.getCurrentView() === 'national') {
-                resetNationalMapColors(); 
+                resetNationalMapColors();
             }
         }
     }
@@ -582,10 +630,10 @@ function initializeSidebarAndUI() {
     const initialShowMunicipality = State.getShowMunicipalityLayer();
     const municipalityToggleElement = document.getElementById('municipalityToggle');
     updateToggleUI(municipalityToggleElement, initialShowMunicipality);
-    
+
     // Show the active region type 
     updateRegionTypeUI();
-    
+
     // Initial map layer visibility is set within activateView
 
     const initialShowElection = State.getShowElectionData();
@@ -613,61 +661,61 @@ if (document.readyState === 'loading') {
 function initializeRegionTypeToggles() {
     // Load from localStorage or use default
     let currentRegionType = State.getCurrentRegionType();
-    
+
     // Get region type elements
     const buurtToggle = document.getElementById('buurtToggle');
     const wijkToggle = document.getElementById('wijkToggle');
-    
+
     if (!buurtToggle || !wijkToggle) {
         console.error('Region type toggle elements not found');
         return;
     }
-    
+
     // Update UI to match current setting
     updateRegionTypeUI();
-    
+
     // Add click handlers to region type toggles
-    buurtToggle.addEventListener('click', function(e) {
+    buurtToggle.addEventListener('click', function (e) {
         e.stopPropagation(); // Prevent the parent toggle from being triggered
-        
+
         // Update region type even if it's already 'buurten'
         currentRegionType = 'buurten';
         State.setCurrentRegionType(currentRegionType);
         updateRegionTypeUI();
-        
+
         handleRegionToggleBehavior(e.currentTarget);
     });
-    
-    wijkToggle.addEventListener('click', function(e) {
+
+    wijkToggle.addEventListener('click', function (e) {
         e.stopPropagation(); // Prevent the parent toggle from being triggered
-        
+
         // Update region type even if it's already 'wijken'
         currentRegionType = 'wijken';
         State.setCurrentRegionType(currentRegionType);
         updateRegionTypeUI();
-        
+
         handleRegionToggleBehavior(e.currentTarget);
     });
-    
+
     // Function to handle common behavior after region toggle click
     function handleRegionToggleBehavior(toggleElement) {
         // Check if municipality toggle is off and turn it on
         const municipalityToggle = document.getElementById('municipalityToggle');
         const isMunicipalityActive = municipalityToggle && municipalityToggle.getAttribute('aria-pressed') === 'true';
-        
+
         if (!isMunicipalityActive && municipalityToggle) {
             // Update the toggle UI
             updateToggleUI(municipalityToggle, true);
-            
+
             // Update localStorage
             State.setShowMunicipalityLayer(true);
-            
+
             // Ensure the layer is visible if it exists
             if (map.getLayer('municipalities-fill')) {
                 map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
                 map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
             }
-            
+
             // Force reload of the municipality data to make sure it's displayed
             const lastMunicipality = State.getLastMunicipality();
             if (lastMunicipality && State.getCurrentView() === 'municipal') {
@@ -686,7 +734,7 @@ function initializeRegionTypeToggles() {
 function updateRegionTypeUI() {
     const buurtToggle = document.getElementById('buurtToggle');
     const wijkToggle = document.getElementById('wijkToggle');
-    
+
     if (buurtToggle && wijkToggle) {
         if (State.getCurrentRegionType() === 'buurten') {
             buurtToggle.classList.add('active');
@@ -705,16 +753,16 @@ function reloadCurrentMunicipality() {
     const lastMunicipality = State.getLastMunicipality();
     if (lastMunicipality && State.getCurrentView() === 'municipal') {
         const municipality = lastMunicipality;
-        
+
         // Check if postcode toggle is active before reloading
         const postcode6Toggle = document.getElementById('postcode6Toggle');
         const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
-        
+
         // Clean up postcode layer if it exists to avoid stale data
         if (isPostcodeActive && (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getSource('postcode6'))) {
             cleanupPostcode6Layer(map);
         }
-        
+
         // Load new municipality data with current region type
         loadGeoJson(municipality.code, State.getCurrentRegionType())
             .then(() => {
@@ -743,90 +791,90 @@ async function activateView(viewType, municipalityCode = null) {
         item.classList.remove('active');
         item.setAttribute('aria-selected', 'false');
     });
-    
+
     viewItem.classList.add('active');
     viewItem.setAttribute('aria-selected', 'true');
 
     // Get previous view before updating
     const previousView = State.getCurrentView();
-    
+
     // Update current view
-    State.setCurrentView(viewType);  
-    
+    State.setCurrentView(viewType);
+
     if (viewType === 'national') {
         try {
             // Store current election state in localStorage before switching
             localStorage.setItem('previousElectionState', State.getShowElectionData());
-            
+
             // Only clean up postcode6 layer if it exists
             if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-line')) {
                 cleanupPostcode6Layer(map);
             }
-            
+
             // Clean up reporting units
             cleanupReportingUnits(map);
-            
+
             // Clean up and disable BAG layer for national view
             cleanupBagLayer(map);
             State.setShowBagLayer(false);
-            
+
             // Hide stats view
             const statsView = document.querySelector('.stats-view');
             statsView.innerHTML = '';
             statsView.style.display = 'none';
-            
+
             // Load national view and update map
             await viewNational();
-            
+
             // Ensure map is centered correctly
-            map.flyTo({ 
-                center: MAP_CENTER, 
+            map.flyTo({
+                center: MAP_CENTER,
                 zoom: MAP_ZOOM,
                 duration: 1500 // 1 second animation
             });
-    
+
             // Remove gemeente parameter from URL
             updateUrlParams(null);
-    
+
             // --- Update sidebar toggles for national view ---
             const electionToggle = document.getElementById('electionToggle');
             const municipalityToggle = document.getElementById('municipalityToggle');
             const bagToggle = document.getElementById('bagToggle');
-            
+
             // Restore election state but keep it enabled
-            let showElectionData = State.getShowElectionData(); 
+            let showElectionData = State.getShowElectionData();
             updateToggleUI(electionToggle, showElectionData, false); // Reflect state, Not Disabled
             updateToggleUI(municipalityToggle, true, true);
-            
+
             // Disable BAG toggle in national view
             updateToggleUI(bagToggle, false, true); // Disabled and turned off
 
             // Load national election data if toggle is active
-             if (showElectionData) {
+            if (showElectionData) {
                 const currentElection = State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null);
                 if (currentElection) {
                     loadNationalElectionData(currentElection);
                     statsView.style.display = 'block'; // Show stats view if loading data
                 }
-             }
+            }
 
             // Update other toggles (e.g., postcode6) via layerService
             updateToggleStates(viewType);
-            
+
             // Reset national map colors only if election data is NOT being shown
             // Only reset if municipality data is available to prevent errors
             if (!State.getShowElectionData() && window.municipalityData) {
                 resetNationalMapColors();
             }
-            
+
             return; // Exit early after national view is set up
         } catch (error) {
             console.error('Error switching to national view:', error);
         }
     }
-    
-    if (viewType === 'municipal') {   
-        
+
+    if (viewType === 'municipal') {
+
         // Restore election state from localStorage
         let showElectionData = State.getShowElectionData(); // ALWAYS from localStorage
         const electionToggle = document.getElementById('electionToggle'); // Get the toggle
@@ -846,11 +894,11 @@ async function activateView(viewType, municipalityCode = null) {
             // Override any stored state so that buurten toggle is always on
             State.setShowMunicipalityLayer(true);
         }
-    
+
         // Show stats view if election toggle is checked
         const statsView = document.querySelector('.stats-view');
         statsView.style.display = showElectionData ? 'block' : 'none';
-        
+
         // --- Update sidebar toggles for municipal view ---
         //const electionToggle = document.getElementById('electionToggle'); // ALREADY DEFINED ABOVE
         const municipalityToggle = document.getElementById('municipalityToggle');
@@ -865,20 +913,21 @@ async function activateView(viewType, municipalityCode = null) {
 
         // Explicitly add or remove reporting units based on showElectionData
         if (showElectionData) {
-            const lastMunicipality = State.getLastMunicipality();
-            if (lastMunicipality) {
-                const municipality = lastMunicipality;
+            // Use municipalityCode parameter instead of reading from state
+            // (state is now set before activateView is called)
+            const code = municipalityCode || (State.getLastMunicipality()?.code);
+            if (code) {
                 // Re-fetch the election data to get the geoJsonData
-                loadElectionData(municipality.code, State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null))
-                .then(() => {
-                    // The 'reportingUnitsLoaded' event will trigger addReportingUnits
-                });
+                loadElectionData(code, State.getLastElection() || (getAvailableElections().length > 0 ? getAvailableElections()[0] : null))
+                    .then(() => {
+                        // The 'reportingUnitsLoaded' event will trigger addReportingUnits
+                    });
             }
         } else {
             cleanupReportingUnits(map);
         }
     }
-    
+
     // Update additional toggles (e.g., postcode6) based on the view type
     updateToggleStates(viewType);
 }

@@ -20,6 +20,7 @@
         <link href="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.css" rel="stylesheet">
         <script src="https://api.mapbox.com/mapbox-gl-js/v3.11.0/mapbox-gl.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+        <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
         <link rel="stylesheet" href="style/main.css?v=<?php echo $version; ?>">
     </head>
@@ -108,6 +109,17 @@
                 </div>
                 <div class="modal-content">
                     <!-- Help content will be loaded here -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-overlay" id="walking-list-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Looplijst</h2>
+                    <button class="modal-close" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="modal-content">
+                    <!-- Walking list will be populated here -->
                 </div>
             </div>
         </div>
