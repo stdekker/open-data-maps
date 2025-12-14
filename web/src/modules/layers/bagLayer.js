@@ -22,7 +22,6 @@ function updateBagProgress(message) {
     if (progressElement) {
         progressElement.textContent = message;
         progressElement.style.display = message ? 'block' : 'none';
-        console.log('BAG Progress:', message); // Debug logging
     } else {
         console.warn('BAG progress element not found!');
     }
@@ -452,10 +451,6 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
                     if (hasMore) {
                         await new Promise(resolve => setTimeout(resolve, 50));
                     }
-                }
-
-                if (postcodeFeatureCount > 0) {
-                    console.log(`Loaded ${postcodeFeatureCount} features for postcode ${postcode}`);
                 }
             }
 
