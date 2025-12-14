@@ -88,7 +88,7 @@ This code is licensed under the GNU General Public License v3.0 - see the [LICEN
 
 ## Attribution  
 
-ODM is based on an application that was designed and created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](https://www.bvvlt.nl) in 2012 for the [Socialist Party of the Netherlands](https://www.sp.nl), where I worked at the time. Although the code is completely rebuilt from scratch, I have borrowed quite a lot of ideas from their inspirational work. 
+ODM is based on an application that was designed and created by [Benjamin W. Broersma](https://www.broersma.com) and [Bob van Vliet](https://www.bobvanvliet.nl/) in 2012 for the [Socialist Party of the Netherlands](https://www.sp.nl), where I worked at the time. Although the code is completely rebuilt from scratch, I have borrowed quite a lot of ideas from their inspirational work. 
 
 ### Data attribution
 
