@@ -1,4 +1,5 @@
 // Import configuration
+
 // Core configuration
 import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
 
@@ -9,11 +10,11 @@ import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import * as State from './modules/state.js';
 
 // UI components and handlers
-import { initializeMobileHandler } from './modules/mobileHandler.js';
-import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UIFeatureInfoBox.js';
 import { setupSearch, findMunicipalityByName, createSearchData } from './modules/services/searchService.js';
-import { initializeFeatureSelect } from './modules/UIFeatureSelectList.js';
-import { initializeWalkingListModal } from './modules/UIWalkingListModal.js';
+import { setupFeatureNameBox, updateFeatureNameBox } from './modules/UI/featureInfoBox.js';
+import { initializeFeatureSelect } from './modules/UI/featureSelectList.js';
+import { initializeWalkingListModal } from './modules/UI/walkingList.js';
+import { initializeMobileUI } from './modules/UI/mobile.js';
 
 // Map layers and data
 import {
@@ -83,7 +84,7 @@ map.on('load', () => {
     // Get the feature info box element
     const featureInfoBox = document.querySelector('.feature-info-box');
     if (featureInfoBox) {
-        // Initialize the feature selection module (moved from UIFeatureInfoBox.js)
+        // Initialize the feature selection module
         initializeFeatureSelect(map, featureInfoBox);
     }
 });
@@ -644,8 +645,8 @@ function initializeSidebarAndUI() {
         statsView.style.display = initialShowElection ? 'block' : 'none';
     }
 
-    // Initialize mobile handler
-    initializeMobileHandler();
+    // Initialize mobile UI
+    initializeMobileUI();
 }
 
 // Ensure sidebar/UI initialization runs even if DOMContentLoaded timing differs between browsers

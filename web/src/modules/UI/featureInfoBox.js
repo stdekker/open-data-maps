@@ -1,7 +1,10 @@
-import { updateMapColors } from './services/layerService.js';
-import { STATISTICS_CONFIG } from '../config.js';
-import { initializeFeatureSelect, updateSelectedFeaturesList } from './UIFeatureSelectList.js';
-import { getFeatureName, formatStatValue } from './UIShared.js';
+/**
+ * Feature Info Box UI Module - Manages the UI for displaying feature information. 
+ */
+import { STATISTICS_CONFIG } from '../../config.js';
+import { updateMapColors } from '../services/layerService.js';
+import { updateSelectedFeaturesList } from './featureSelectList.js';
+import { getFeatureName, formatStatValue } from './shared.js';
 
 let hoveredFeatureId = null;
 let featureNameBox = document.querySelector('.feature-info-box');

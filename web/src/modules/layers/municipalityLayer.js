@@ -1,6 +1,6 @@
 import { findFirstSymbolLayer, cleanupLayers, addMapLayers, LAYER_ORDER } from '../services/layerService.js';
 import { updateLayerColors, STYLE_VARIANTS } from '../services/colorService.js';
-import { populateStatisticsSelect } from '../UIFeatureInfoBox.js';
+import { populateStatisticsSelect } from '../UI/featureInfoBox.js';
 import { setMunicipalityPostcodes, cleanupPostcode6Layer, resetPostcode6Toggle, loadAllPostcode6Data } from './postcodeLayer.js';
 import * as State from '../state.js';
 

@@ -571,7 +571,7 @@ export function resetNationalMapColors() {
     // Add a slight delay or use map events if necessary
     setTimeout(() => {
         updateLayerColors(window.map, defaultStatKey, 'municipalities', 'municipalities', STYLE_VARIANTS.DYNAMIC_RANGE);
-    }, 50); // Delay matching the visualization delay
+    }, 60); // Delay matching the visualization delay
 
     nationalActiveParty = null; // Clear the active national party state
 

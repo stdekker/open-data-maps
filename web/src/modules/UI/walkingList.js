@@ -1,10 +1,10 @@
 /**
- * Walking List Modal Module - Displays walking lists of streets with house number ranges
+ * Walking List UI Module - Displays walking lists of streets with house number ranges
  * for selected buurt/wijk features.
  */
 
-import { Modal } from './services/modalService.js';
-import { generateWalkingList } from './services/walkingListService.js';
+import { Modal } from '../services/modalService.js';
+import { generateWalkingList } from '../services/walkingListService.js';
 
 let walkingListModal = null;
 let startPointMarker = null;

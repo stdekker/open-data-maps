@@ -1,16 +1,16 @@
 /**
- * Feature Select List Module - Manages the UI and functionality for selecting map features.
+ * Feature Select List UI Module - Manages the UI for selecting map features.
  * This module allows users to select features on the map and track them in a list,
  * calculate statistics, and highlight selected features.
  */
 
-import { STATISTICS_CONFIG } from '../config.js';
-import { getFeatureName, formatStatValue, addClickListener, addClickListeners } from './UIShared.js';
-import { getContextMenu } from './UIContextMenu.js';
-import * as State from './state.js';
-import { showWalkingListModal } from './UIWalkingListModal.js';
-import { Modal } from './services/modalService.js';
-import { getSelectedBagFeatureCoords } from './layers/bagLayer.js';
+import { STATISTICS_CONFIG } from '../../config.js';
+import { getFeatureName, formatStatValue, addClickListener, addClickListeners } from './shared.js';
+import { getContextMenu } from './contextMenu.js';
+import * as State from '../state.js';
+import { showWalkingListModal } from './walkingList.js';
+import { Modal } from '../services/modalService.js';
+import { getSelectedBagFeatureCoords } from '../layers/bagLayer.js';
 
 // Array to store selected features
 let selectedFeatures = [];

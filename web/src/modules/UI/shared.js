@@ -1,16 +1,14 @@
 /**
- * UIShared.js - Shared UI utility functions for feature info and selection modules
- * Extracted from UIFeatureInfoBox.js and UIFeatureSelectList.js to avoid duplication.
+ * Shared UI utility functions for feature info and selection modules
  */
-import { STATISTICS_CONFIG } from '../config.js';
 
 /**
  * Gets the appropriate feature name based on feature properties and region type
  * @param {Object} feature - The feature object
  * @returns {String} The appropriate feature name
  */
-import { INVALID_VALUES } from './services/colorService.js';
-import { getCurrentRegionType } from './state.js';
+import { INVALID_VALUES } from '../services/colorService.js';
+import { getCurrentRegionType } from '../state.js';
 
 export function getFeatureName(feature) {
     if (!feature || !feature.properties) return '';
