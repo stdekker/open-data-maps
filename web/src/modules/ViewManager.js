@@ -70,57 +70,22 @@ export class ViewManager {
         const autocompleteList = document.getElementById('autocompleteList');
         const searchError = document.querySelector('.search-error');
 
-        // Check if we're switching to a different municipality
-        const currentMunicipality = State.getLastMunicipality();
-        const isSwitchingMunicipality = currentMunicipality && currentMunicipality.code !== municipality.code;
-
-        if (isSwitchingMunicipality) {
-            try {
-                // Reset BAG layer
-                if (State.getShowBagLayer()) {
-                    cleanupBagLayer(this.map);
-                    State.setShowBagLayer(false);
-                    const bagToggle = document.getElementById('bagToggle');
-                    updateToggleUI(bagToggle, false, false);
-                }
-
-                // Reset Postcode layer
-                const postcode6Toggle = document.getElementById('postcode6Toggle');
-                if (postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true') {
-                    cleanupPostcode6Layer(this.map);
-                    updateToggleUI(postcode6Toggle, false, false);
-                }
-
-                // Reset Election layer
-                if (State.getShowElectionData()) {
-                    State.setShowElectionData(false);
-                    const electionToggle = document.getElementById('electionToggle');
-                    updateToggleUI(electionToggle, false, false);
-                    const statsView = document.querySelector('.stats-view');
-                    if (statsView) statsView.style.display = 'none';
-                    if (this.map.getLayer('reporting-units')) {
-                        cleanupReportingUnits(this.map);
-                    }
-                }
-
-                // Ensure municipality layer is active (default mode)
-                State.setShowMunicipalityLayer(true);
-                const municipalityToggle = document.getElementById('municipalityToggle');
-                updateToggleUI(municipalityToggle, true, false);
-
-            } catch (error) {
-                console.warn('Error resetting layers during switch:', error);
-            }
-        }
+        // Pre-emptively reset state variables to ensure activateView doesn't load extra data
+        // We do NOT call resetToDefaultState() here because layer removal might interrupt the "fly to"
+        if (State.getShowBagLayer()) State.setShowBagLayer(false);
+        if (State.getShowElectionData()) State.setShowElectionData(false);
 
         // Update state FIRST so activateView has correct municipality
         State.setLastMunicipality(municipality);
-        updateUrlParams(municipality.naam, State.getShowElectionData());
+        // Explicitly set elections to false in URL since we just reset state
+        updateUrlParams(municipality.naam, false);
 
-        // Small delay to ensure layer cleanup is processed by Mapbox
-        await new Promise(resolve => setTimeout(resolve, 50));
-
+        // Activate view FIRST (fly to, load new municipality)
+        // This ensures the camera movement starts before we potentially destabilize the map with layer removals
         await this.activateView('municipal', municipality.code);
+
+        // NOW reset the leftover layers from the previous state
+        this.resetToDefaultState();
 
         // Interface updates
         autocompleteList.innerHTML = '';
@@ -135,6 +100,42 @@ export class ViewManager {
 
         // Update the feature name box with the selected municipality
         updateFeatureNameBox();
+    }
+
+    /**
+     * Resets the map and UI to the default state (only municipality layer active).
+     * Clears BAG, Postcode, and Election layers unconditionally.
+     */
+    resetToDefaultState() {
+        try {
+            // Unconditionally cleanup BAG layer
+            cleanupBagLayer(this.map);
+            State.setShowBagLayer(false);
+            const bagToggle = document.getElementById('bagToggle');
+            updateToggleUI(bagToggle, false, false);
+
+            // Unconditionally cleanup Postcode layer
+            cleanupPostcode6Layer(this.map);
+            const postcode6Toggle = document.getElementById('postcode6Toggle');
+            updateToggleUI(postcode6Toggle, false, false);
+
+            // Unconditionally cleanup Election layer
+            cleanupReportingUnits(this.map);
+            State.setShowElectionData(false);
+            const electionToggle = document.getElementById('electionToggle');
+            updateToggleUI(electionToggle, false, false);
+
+            const statsView = document.querySelector('.stats-view');
+            if (statsView) statsView.style.display = 'none';
+
+            // Ensure municipality layer is active (default mode)
+            State.setShowMunicipalityLayer(true);
+            const municipalityToggle = document.getElementById('municipalityToggle');
+            updateToggleUI(municipalityToggle, true, false);
+
+        } catch (error) {
+            console.warn('Error resetting to default state:', error);
+        }
     }
 
     /**
@@ -199,10 +200,15 @@ export class ViewManager {
     loadGeoJson(code, regionType = 'buurten') {
         return new Promise((resolve, reject) => {
             const doLoad = () => {
-                Promise.all([
-                    fetchData(`api/municipality.php?code=${code}&type=${regionType}`),
-                    loadElectionData(code)
-                ])
+                const promises = [fetchData(`api/municipality.php?code=${code}&type=${regionType}`)];
+
+                // Only load election data if it's actually enabled
+                // This prevents loading it when we just turned it off in resetToDefaultState
+                if (State.getShowElectionData()) {
+                    promises.push(loadElectionData(code));
+                }
+
+                Promise.all(promises)
                     .then(([geoJsonData]) => {
                         const geoJsonDataWithIds = {
                             ...geoJsonData,
@@ -211,18 +217,24 @@ export class ViewManager {
                                 id: index
                             }))
                         };
-                        addMunicipalityLayers(this.map, geoJsonDataWithIds, this.municipalityPopulations);
-                        setupFeatureNameBox(this.map, this.municipalityPopulations);
 
-                        // Force visibility
-                        if (this.map.getLayer('municipalities-fill')) {
-                            this.map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
-                            this.map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+                        try {
+                            addMunicipalityLayers(this.map, geoJsonDataWithIds, this.municipalityPopulations);
+                            setupFeatureNameBox(this.map, this.municipalityPopulations);
+
+                            // Force visibility
+                            if (this.map.getLayer('municipalities-fill')) {
+                                this.map.setLayoutProperty('municipalities-fill', 'visibility', 'visible');
+                                this.map.setLayoutProperty('municipalities-borders', 'visibility', 'visible');
+                            }
+
+                            // Fit bounds to the loaded GeoJSON
+                            this._fitBoundsToGeoJson(geoJsonDataWithIds);
+                            resolve();
+                        } catch (err) {
+                            console.error('Error processing municipality layers/bounds:', err);
+                            reject(err);
                         }
-
-                        // Fit bounds to the loaded GeoJSON
-                        this._fitBoundsToGeoJson(geoJsonDataWithIds);
-                        resolve();
                     })
                     .catch(error => {
                         console.error('Error loading data:', error);
