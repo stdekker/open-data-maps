@@ -230,4 +230,4 @@ export function cleanupReportingUnits(map) {
     } catch (error) {
         console.warn('Error cleaning up reporting units:', error);
     }
-} 
+}

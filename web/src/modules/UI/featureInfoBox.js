@@ -1,7 +1,8 @@
 /**
- * Feature Info Box UI Module - Manages the UI for displaying feature information. 
+ * Feature Info Box UI Module - Manages the UI for displaying feature information.
  */
 import { STATISTICS_CONFIG } from '../../config.js';
+import * as State from '../state.js';
 import { updateMapColors } from '../services/layerService.js';
 import { updateSelectedFeaturesList } from './featureSelectList.js';
 import { getFeatureName, formatStatValue } from './shared.js';
@@ -113,11 +114,18 @@ export function setupFeatureNameBox(map, municipalityPopulations) {
             });
         }
 
-        // Sync election toggle
+        // Sync election toggle with canonical state (sidebar uses aria-pressed, not .checked)
         if (modalElectionToggle) {
-            modalElectionToggle.checked = electionToggle.checked;
+            const showElections = State.getShowElectionData();
+            modalElectionToggle.setAttribute('aria-pressed', showElections);
+            if (typeof modalElectionToggle.checked !== 'undefined') {
+                modalElectionToggle.checked = showElections;
+            }
             modalElectionToggle.addEventListener('change', () => {
-                electionToggle.checked = modalElectionToggle.checked;
+                const next = typeof modalElectionToggle.checked !== 'undefined' ? modalElectionToggle.checked : modalElectionToggle.getAttribute('aria-pressed') === 'true';
+                State.setShowElectionData(next);
+                electionToggle.setAttribute('aria-pressed', next);
+                if (typeof electionToggle.checked !== 'undefined') electionToggle.checked = next;
             });
         }
     });

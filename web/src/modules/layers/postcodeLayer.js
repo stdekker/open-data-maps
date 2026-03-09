@@ -160,30 +160,24 @@ export async function loadAllPostcode6Data(map) {
         return;
     }
 
+    const requestToken = State.getActiveRequestToken();
     const postcode6Toggle = document.getElementById('postcode6Toggle');
     shouldCancelPostcodeLoading = false;
 
-    // Setup cancel handler (now listens for the toggle becoming inactive)
+    // Cancel handler: also treat state toggle off as cancel (canonical state)
     const cancelHandler = () => {
-        // Check if the toggle is now inactive
-        if (postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'false') {
+        if (postcode6Toggle && !State.getShowPostcodeLayer()) {
             shouldCancelPostcodeLoading = true;
             cleanupPostcode6Layer(map);
-
-            // Remove this specific listener once cancellation is triggered
             postcode6Toggle.removeEventListener('click', cancelHandler);
             postcode6Toggle.removeEventListener('keydown', handleCancelKeydown);
         }
     };
 
-    // Keydown handler specifically for cancellation
     const handleCancelKeydown = (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            // Simulate click to trigger cancelHandler if state becomes false
-            if (postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true') {
-                // If it's currently true, a click/enter would toggle it to false
-                // Manually call cleanup as the state hasn't changed yet in the main handler
+            if (!State.getShowPostcodeLayer()) {
                 shouldCancelPostcodeLoading = true;
                 cleanupPostcode6Layer(map);
                 postcode6Toggle.removeEventListener('click', cancelHandler);
@@ -233,6 +227,11 @@ export async function loadAllPostcode6Data(map) {
             updateProgressMessage('Wachten op postcode data...');
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        if (State.getActiveRequestToken() !== requestToken || shouldCancelPostcodeLoading) {
+            cleanupPostcode6Layer(map);
+            resetPostcode6Toggle();
+            return;
+        }
 
         // Load data for each postcode in the municipality
         const validPostcodes = Array.from(municipalityPostcodes)
@@ -251,8 +250,10 @@ export async function loadAllPostcode6Data(map) {
         let featureId = 0; // Counter for unique feature IDs
 
         for (const postcode4 of validPostcodes) {
-            if (shouldCancelPostcodeLoading) {
+            if (shouldCancelPostcodeLoading || State.getActiveRequestToken() !== requestToken) {
                 console.log('Postcode loading cancelled');
+                cleanupPostcode6Layer(map);
+                resetPostcode6Toggle();
                 return;
             }
 
@@ -321,6 +322,13 @@ export async function loadAllPostcode6Data(map) {
             }
         }
 
+        // Stale request: do not apply results
+        if (State.getActiveRequestToken() !== requestToken || shouldCancelPostcodeLoading) {
+            cleanupPostcode6Layer(map);
+            resetPostcode6Toggle();
+            return;
+        }
+
         // Final update with all features and update color expression
         const finalData = {
             type: 'FeatureCollection',
@@ -335,13 +343,12 @@ export async function loadAllPostcode6Data(map) {
             map.setPaintProperty('postcode6-fill', 'fill-color', updatedFillColorExpression);
         }
 
-        // Check aria-pressed state after loading completes
-        const isToggleActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
+        // Check canonical state after loading completes
+        const isToggleActive = State.getShowPostcodeLayer();
         if (isToggleActive && loadedCount === validPostcodes.length) {
             updateProgressMessage('Postcode gebieden geladen');
             setTimeout(() => {
-                // Check again in case it was toggled off during the timeout
-                if (postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true') {
+                if (State.getShowPostcodeLayer()) {
                     updateProgressMessage('');
                 }
             }, 2000);
@@ -487,6 +494,7 @@ export function resetPostcode6Toggle() {
     if (postcode6Toggle) {
         postcode6Toggle.setAttribute('aria-pressed', 'false');
     }
+    State.setShowPostcodeLayer(false);
 }
 
 /**
@@ -517,7 +525,8 @@ export function updateToggleStates(viewType) {
     // Update postcode toggle
     updateSingleToggle('postcode6Toggle', isNational);
     if (isNational && postcode6Toggle) {
-        // Ensure it's visually off in national view
+        // Ensure state and UI are off in national view
+        State.setShowPostcodeLayer(false);
         postcode6Toggle.setAttribute('aria-pressed', 'false');
     }
 
@@ -608,8 +617,8 @@ export function initializePostcode6Toggle(mapInstance) {
         return;
     }
 
-    // Initial load check (if the page loads with the toggle active)
-    if (postcode6Toggle.getAttribute('aria-pressed') === 'true' && State.getCurrentView() === 'municipal') {
+    // Initial load check (if the page loads with postcode layer intended on - e.g. after restore)
+    if (State.getShowPostcodeLayer() && State.getCurrentView() === 'municipal') {
         loadAllPostcode6Data(mapInstance);
     }
 

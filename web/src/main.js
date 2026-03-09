@@ -1,17 +1,18 @@
 // Import configuration
 
 // Core configuration
-import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY, DEFAULT_MENU_ITEM } from './config.js';
+import { MAPBOX_ACCESS_TOKEN, MAP_STYLE, MAP_CENTER, MAP_ZOOM, DEFAULT_MUNICIPALITY } from './config.js';
 
 // Core services
 import { Modal } from './modules/services/modalService.js';
-import { getUrlParams, updateUrlParams } from './modules/urlParams.js';
 import * as State from './modules/state.js';
+import { loadPersistedState } from './modules/statePersistence.js';
 import { ViewManager } from './modules/ViewManager.js';
-import { ToggleManager, updateToggleUI } from './modules/ToggleManager.js';
+import { ToggleManager } from './modules/ToggleManager.js';
+import { createTransitionController } from './modules/transitionController.js';
 
 // UI components and handlers
-import { setupSearch, findMunicipalityByName, createSearchData } from './modules/services/searchService.js';
+import { setupSearch, createSearchData } from './modules/services/searchService.js';
 import { initializeFeatureSelect } from './modules/UI/featureSelectList.js';
 import { initializeWalkingListModal } from './modules/UI/walkingList.js';
 import { initializeMobileUI } from './modules/UI/mobile.js';
@@ -28,6 +29,7 @@ let municipalityPopulations = {};
 let municipalityData = null;
 let viewManager = null;
 let toggleManager = null;
+let transitionController = null;
 
 // Map initialization
 mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
@@ -43,6 +45,7 @@ const map = new mapboxgl.Map({
 
 // Global variables
 window.map = map;
+State.hydrateState(loadPersistedState());
 State.setCurrentView('national');
 
 // Expose debug utility for layer order testing (accessible via browser console)
@@ -76,77 +79,40 @@ async function initializeMapAndData() {
 
         // Initialize ViewManager
         viewManager = new ViewManager(map, municipalityData, municipalityPopulations);
-        viewManager.setupPopstateHandler();
         viewManager.setupReportingUnitsHandler();
 
-        // Connect ToggleManager to ViewManager now that it's ready
+        // Create transition controller and connect to ViewManager
+        transitionController = createTransitionController(map, viewManager, {
+            municipalityData,
+            defaultMunicipalityName: DEFAULT_MUNICIPALITY
+        });
+        transitionController.setViewManager(viewManager);
+        transitionController.setMunicipalityData(municipalityData);
+        transitionController.setDefaultMunicipalityName(DEFAULT_MUNICIPALITY);
+        transitionController.bindRouter();
+        viewManager.setController(transitionController);
+
+        // Connect ToggleManager to ViewManager and controller
         if (toggleManager) {
             toggleManager.setViewManager(viewManager);
+            toggleManager.setController(transitionController);
         }
-
-        // Process URL parameters
-        const params = getUrlParams();
 
         // Create simplified data structure for search
         const searchData = createSearchData(municipalityData);
 
-        // Initialize search functionality with callback
+        // Initialize search functionality with controller dispatch
         setupSearch(searchData, async (municipality) => {
-            await viewManager.viewMunicipality(municipality);
+            await transitionController.dispatch({
+                type: 'NAVIGATE_MUNICIPAL',
+                municipality,
+                source: 'search',
+                resetOverlays: true
+            });
         });
 
-        // Initialize election toggle based on URL parameter or localStorage
-        const electionToggle = document.getElementById('electionToggle');
-
-        // URL parameter takes precedence over localStorage
-        if (params.elections !== null) {
-            State.setShowElectionData(params.elections);
-        }
-
-        electionToggle.checked = State.getShowElectionData();
-
-        const statsView = document.querySelector('.stats-view');
-        statsView.style.display = State.getShowElectionData() ? 'block' : 'none';
-
-        // Initialize the map on the municipality from the URL parameter or localStorage
-        let municipality = null;
-
-        // If URL parameter is not an existing or valid municipality, clear it
-        if (params.gemeente) {
-            municipality = findMunicipalityByName(municipalityData, params.gemeente);
-            if (!municipality) {
-                updateUrlParams(null);
-            }
-        }
-
-        // If no municipality is chosen through the url or found in localStorage,
-        // show the default municipality
-        if (!municipality) {
-            const lastMunicipality = State.getLastMunicipality();
-            if (lastMunicipality) {
-                municipality = lastMunicipality;
-            } else {
-                municipality = findMunicipalityByName(municipalityData, DEFAULT_MUNICIPALITY);
-            }
-        }
-
-        if (municipality) {
-            await viewManager.viewMunicipality(municipality);
-        } else {
-            await viewManager.viewNational();
-        }
-
-        // Now that viewManager is ready, update menu to show correct initial state
-        const initialMenuItem = document.getElementById(DEFAULT_MENU_ITEM);
-        if (initialMenuItem) {
-            const menuItems = document.querySelectorAll('.menu-items li');
-            menuItems.forEach(item => {
-                item.classList.remove('active');
-                item.setAttribute('aria-selected', 'false');
-            });
-            initialMenuItem.classList.add('active');
-            initialMenuItem.setAttribute('aria-selected', 'true');
-        }
+        await transitionController.dispatch({ type: 'RESTORE_ROUTE' });
+        transitionController.renderUI();
     } catch (error) {
         console.error('Error during initialization:', error);
     }
@@ -163,7 +129,7 @@ function initializeSidebarAndUI() {
     helpModal = new Modal('help-modal');
     initializeWalkingListModal();
 
-    // Initialize ToggleManager (viewManager will be set later when ready)
+    // Initialize ToggleManager (viewManager and controller set later when ready)
     toggleManager = new ToggleManager(map);
     toggleManager.initialize();
 
@@ -200,29 +166,24 @@ function initializeMenuItems() {
     const menuItems = document.querySelectorAll('.menu-items li');
 
     function handleMenuItemActivation(event, element) {
+        event?.preventDefault?.();
         const menuItem = element || this;
         const viewType = menuItem.id.replace('-view', '');
 
-        menuItems.forEach(item => {
-            item.classList.remove('active');
-            item.setAttribute('aria-selected', 'false');
-        });
-
-        menuItem.classList.add('active');
-        menuItem.setAttribute('aria-selected', 'true');
-
-        // Guard against viewManager not being initialized yet
-        if (!viewManager) {
-            console.warn('ViewManager not yet initialized');
+        if (!viewManager || !transitionController) {
             return;
         }
 
         if (viewType === 'national') {
-            viewManager.activateView('national');
+            transitionController.dispatch({ type: 'NAVIGATE_NATIONAL' });
         } else if (viewType === 'municipal') {
             const lastMunicipality = State.getLastMunicipality();
             if (lastMunicipality) {
-                viewManager.activateView('municipal', lastMunicipality.code);
+                transitionController.dispatch({
+                    type: 'NAVIGATE_MUNICIPAL',
+                    municipality: lastMunicipality,
+                    resetOverlays: false
+                });
             }
         }
     }

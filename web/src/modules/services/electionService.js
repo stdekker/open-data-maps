@@ -5,8 +5,9 @@ let nationalActiveParty = null;
 let nationalMunicipalityResultsData = null;
 let currentNationalElectionId = null;
 
-import { showPartyVotes, hidePartyVotes } from '../layers/electionsLayer.js';
+import { showPartyVotes, hidePartyVotes, cleanupReportingUnits } from '../layers/electionsLayer.js';
 import { updateLayerColors, getPartyPercentageColorExpression, STYLE_VARIANTS } from './colorService.js';
+import * as State from '../state.js';
 
 /**
  * Initializes the election service by fetching available elections and sorting them.
@@ -375,13 +376,12 @@ function _createErrorView(statsView, electionId) {
  * @param {String} electionId - The election ID to load (defaults to most recent)
  */
 export async function loadElectionData(municipalityCode, electionId = null) {
+    const requestToken = State.getActiveRequestToken();
     try {
-        // Wait for initialization if not already done
         if (!isInitialized) {
             await initializeElectionService();
         }
 
-        // If no election ID is provided, use the newest available election
         if (!electionId && AVAILABLE_ELECTIONS.length > 0) {
             electionId = AVAILABLE_ELECTIONS[0];
         } else if (!electionId && AVAILABLE_ELECTIONS.length === 0) {
@@ -389,33 +389,32 @@ export async function loadElectionData(municipalityCode, electionId = null) {
         }
 
         const response = await fetch(`data/elections/${electionId}/${municipalityCode}.json`);
-        
-        // Check if response is ok before trying to parse JSON
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const electionData = await response.json();
-        
-        // Process reporting units
+        if (State.getActiveRequestToken() !== requestToken) return;
+
         const reportingUnitStats = _processReportingUnits(electionData);
         const { geoJsonData, totalStations, geolocatedStations } = reportingUnitStats;
-        
-        // Dispatch event with geoJsonData (could be null)
+
         window.dispatchEvent(new CustomEvent('reportingUnitsLoaded', {
-            detail: { geoJsonData, electionId }
+            detail: { geoJsonData, electionId, requestToken }
         }));
-        
-        // Calculate election results
+
+        if (State.getActiveRequestToken() !== requestToken) return;
+
         const resultsData = _calculateElectionResults(electionData);
-        
-        // Update the stats view
         _updateStatsView(electionId, resultsData, reportingUnitStats, municipalityCode, geoJsonData);
-        
+
     } catch (error) {
         console.error('Error loading election data:', error);
-        const statsView = document.querySelector('.stats-view');
-        _createErrorView(statsView, electionId);
+        if (State.getActiveRequestToken() === requestToken) {
+            const statsView = document.querySelector('.stats-view');
+            _createErrorView(statsView, electionId);
+        }
     }
 }
 
@@ -588,42 +587,41 @@ export function resetNationalMapColors() {
  * @param {String} electionId - The election ID to load totals for
  */
 export async function loadNationalElectionData(electionId = null) {
+    const requestToken = State.getActiveRequestToken();
     try {
-        // Wait for initialization if not already done
         if (!isInitialized) {
             await initializeElectionService();
         }
 
-        // If no election ID is provided, use the newest available election
         if (!electionId && AVAILABLE_ELECTIONS.length > 0) {
             electionId = AVAILABLE_ELECTIONS[0];
         } else if (!electionId && AVAILABLE_ELECTIONS.length === 0) {
             throw new Error('No elections available');
         }
 
-        // Reset map colors and clear cache if election changes
         if (currentNationalElectionId !== electionId) {
-            resetNationalMapColors(); // Reset colors first
-            nationalMunicipalityResultsData = null; // Clear cache for old election
+            resetNationalMapColors();
+            nationalMunicipalityResultsData = null;
             currentNationalElectionId = null;
         }
 
         const response = await fetch(`api/elections.php?election=${electionId}&municipality=totals`);
-        
-        // Check if response is ok before trying to parse JSON
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const nationalData = await response.json();
-        
-        // Update the stats view with national results
+        if (State.getActiveRequestToken() !== requestToken) return;
+
         _updateNationalStatsView(electionId, nationalData);
-        
+
     } catch (error) {
         console.error('Error loading national election data:', error);
-        const statsView = document.querySelector('.stats-view');
-        _createErrorView(statsView, electionId || 'National Totals');
+        if (State.getActiveRequestToken() === requestToken) {
+            const statsView = document.querySelector('.stats-view');
+            _createErrorView(statsView, electionId || 'National Totals');
+        }
     }
 }
 
@@ -801,6 +799,47 @@ function _attachNationalStatsViewEventListeners(statsView, electionId) {
 
 export function setActiveParty(partyName) {
     activeParty = partyName;
+}
+
+/**
+ * Clears municipal election runtime/UI state without changing view logic.
+ * This is used for targeted teardown when leaving a municipality via search.
+ * @param {{ clearStats?: boolean }} [options]
+ */
+export function resetMunicipalElectionRuntimeState(options = {}) {
+    const { clearStats = true } = options;
+
+    activeParty = null;
+
+    if (window.reportingUnitsPopup) {
+        window.reportingUnitsPopup.remove();
+        window.reportingUnitsPopup = null;
+    }
+
+    const statsView = document.querySelector('.stats-view');
+    if (!statsView) {
+        return;
+    }
+
+    statsView.querySelectorAll('.party-result.active').forEach((element) => {
+        element.classList.remove('active');
+    });
+
+    if (clearStats) {
+        statsView.innerHTML = '';
+        statsView.style.display = 'none';
+    }
+}
+
+/**
+ * Fully clears municipal election presentation for the current map/UI state.
+ * Kept in electionService so callers can use one focused teardown entrypoint.
+ * @param {Object} map - The Mapbox map instance
+ * @param {{ clearStats?: boolean }} [options]
+ */
+export function clearMunicipalElectionPresentation(map, options = {}) {
+    cleanupReportingUnits(map);
+    resetMunicipalElectionRuntimeState(options);
 }
 
 /**

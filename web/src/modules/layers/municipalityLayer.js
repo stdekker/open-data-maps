@@ -28,9 +28,8 @@ export function addMunicipalityLayers(map, geoJsonData, municipalityPopulations,
         []
     );
 
-    // Check if the postcode toggle is active
-    const postcode6Toggle = document.getElementById('postcode6Toggle');
-    const isPostcodeActive = postcode6Toggle && postcode6Toggle.getAttribute('aria-pressed') === 'true';
+    // Check if the postcode layer is active from state
+    const isPostcodeActive = State.getShowPostcodeLayer();
 
     // Always clean up existing postcode layers when switching municipalities
     if (map.getLayer('postcode6-fill') || map.getLayer('postcode6-borders') || map.getLayer('postcode6-hover') || map.getSource('postcode6')) {

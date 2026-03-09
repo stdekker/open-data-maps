@@ -7,8 +7,7 @@
  * This approach prevents state from being scattered across different modules and global variables.
  */
 
-// Private state object
-const _state = {
+export const DEFAULT_STATE = {
     showElectionData: false,
     currentRegionType: 'buurten',
     currentView: 'national',
@@ -16,35 +15,34 @@ const _state = {
     showMunicipalityLayer: true,
     lastElection: null,
     showBagLayer: false,
+    showPostcodeLayer: false,
+    loading: {
+        municipality: false,
+        postcode: false,
+        bag: false,
+        election: false
+    },
+    /** Incremented on each transition; async loaders check this to ignore stale results */
+    activeRequestToken: 0
 };
 
-/**
- * Initializes the state from localStorage.
- * If a value is not found in localStorage, a default value is used.
- */
-function initializeState() {
-    _state.showElectionData = localStorage.getItem('showElectionData') === 'true';
-    _state.currentRegionType = localStorage.getItem('regionType') || 'buurten';
-    _state.showMunicipalityLayer = localStorage.getItem('showMunicipalityLayer') !== 'false';
-    _state.lastElection = localStorage.getItem('lastElection');
-    // BAG layer state is NOT persisted - always starts as false
-    // Clear any leftover value from previous versions
-    localStorage.removeItem('showBagLayer');
-    _state.showBagLayer = false;
+// Private state object
+const _state = structuredClone(DEFAULT_STATE);
 
-    const lastMunicipalityJson = localStorage.getItem('lastMunicipality');
-    if (lastMunicipalityJson) {
-        try {
-            _state.lastMunicipality = JSON.parse(lastMunicipalityJson);
-        } catch (e) {
-            console.error("Error parsing lastMunicipality from localStorage", e);
-            _state.lastMunicipality = null;
-        }
+/**
+ * Hydrates the in-memory store from explicitly supplied data.
+ * Persistence is handled outside this module.
+ * @param {Partial<typeof DEFAULT_STATE>} initialState
+ */
+export function hydrateState(initialState = {}) {
+    Object.assign(_state, structuredClone(DEFAULT_STATE), initialState);
+    if (initialState.loading) {
+        _state.loading = {
+            ...DEFAULT_STATE.loading,
+            ...initialState.loading
+        };
     }
 }
-
-// Initialize on module load
-initializeState();
 
 // --- Getters ---
 
@@ -56,6 +54,9 @@ export const getLastMunicipality = () => _state.lastMunicipality;
 export const getShowMunicipalityLayer = () => _state.showMunicipalityLayer;
 export const getLastElection = () => _state.lastElection;
 export const getShowBagLayer = () => _state.showBagLayer;
+export const getShowPostcodeLayer = () => _state.showPostcodeLayer;
+export const getLoading = () => ({ ..._state.loading });
+export const getActiveRequestToken = () => _state.activeRequestToken;
 
 
 // --- Setters ---
@@ -121,5 +122,33 @@ export function setLastElection(election) {
  */
 export function setShowBagLayer(show) {
     _state.showBagLayer = show;
-    // Not stored in localStorage - BAG layer requires fresh data load each session
+}
+
+/**
+ * Updates the showPostcodeLayer state (not persisted).
+ * @param {boolean} show - The new value for showPostcodeLayer.
+ */
+export function setShowPostcodeLayer(show) {
+    _state.showPostcodeLayer = show;
+}
+
+/**
+ * Sets a loading flag for an async operation.
+ * @param {'municipality'|'postcode'|'bag'|'election'} key - Which loader is running
+ * @param {boolean} value - Whether it is loading
+ */
+export function setLoading(key, value) {
+    if (_state.loading[key] !== undefined) {
+        _state.loading[key] = value;
+    }
+}
+
+/**
+ * Invalidates the current request token and returns the new one.
+ * Call at the start of a transition; async loaders receive the token and must check it before applying results.
+ * @returns {number} New token
+ */
+export function invalidateRequestToken() {
+    _state.activeRequestToken += 1;
+    return _state.activeRequestToken;
 } 

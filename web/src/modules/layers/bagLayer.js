@@ -299,10 +299,13 @@ export function getSelectedBagFeatureCoords() {
  * @param {Object|null} municipalityFeature - The GeoJSON feature for the municipality. Null to clear data.
  */
 export async function loadBagDataForMunicipality(map, municipalityFeature) {
-    const source = map.getSource('bag-verblijfsobjecten');
+    let source = map.getSource('bag-verblijfsobjecten');
     if (!source) {
-        addBagLayer(map); // Ensure layer and source exist
+        addBagLayer(map);
+        source = map.getSource('bag-verblijfsobjecten');
     }
+
+    const requestToken = State.getActiveRequestToken();
 
     if (!municipalityFeature) {
         if (source) {
@@ -316,13 +319,12 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
 
     const newMunicipalityCode = municipalityFeature.properties.gemeentecode;
     if (lastLoadedMunicipalityCode === newMunicipalityCode) {
-        // If already loaded and data exists in memory, restore it
         if (cachedBagData && source) {
             source.setData(cachedBagData);
         }
         return;
     }
-    
+
     isFetchCancelled = false;
     
     // Check in-memory cache first
@@ -338,6 +340,7 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
     updateBagProgress('Checking cache...');
     try {
         const cachedEntry = await cache.get(newMunicipalityCode);
+        if (State.getActiveRequestToken() !== requestToken || isFetchCancelled) return;
         if (cachedEntry && cachedEntry.data && cachedEntry.timestamp) {
             const age = Date.now() - cachedEntry.timestamp;
             if (age < CACHE_DURATION_MS) {
@@ -364,9 +367,10 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
         const setProgress = (text) => updateBagProgress(text);
 
         const initialResponse = await fetch(`api/bag.php?municipality_code=${newMunicipalityCode}`);
-        if (isFetchCancelled) return;
+        if (isFetchCancelled || State.getActiveRequestToken() !== requestToken) return;
 
         const initialData = await initialResponse.json();
+        if (State.getActiveRequestToken() !== requestToken || isFetchCancelled) return;
 
         if (initialData.type === 'FeatureCollection') {
             // Cached data is returned from server
@@ -399,7 +403,7 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
             let loadedCount = 0;
 
             for (const postcode of postcodes) {
-                if (isFetchCancelled) {
+                if (isFetchCancelled || State.getActiveRequestToken() !== requestToken) {
                     setProgress('Loading cancelled.');
                     return;
                 }
@@ -420,9 +424,10 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
                 let postcodeFeatureCount = 0;
 
                 while (hasMore && !isFetchCancelled) {
+                    if (State.getActiveRequestToken() !== requestToken) return;
                     const apiUrl = `api/bag.php?postcode4=${postcode}&startIndex=${startIndex}&maxFeatures=1000`;
                     const response = await fetch(apiUrl);
-                    if (isFetchCancelled) return;
+                    if (isFetchCancelled || State.getActiveRequestToken() !== requestToken) return;
 
                     if (!response.ok) {
                         console.warn(`Failed to fetch BAG data for postcode ${postcode} at startIndex ${startIndex}.`);
@@ -433,9 +438,9 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
                     if (data.features && data.features.length > 0) {
                         allFeatures.push(...data.features);
                         postcodeFeatureCount += data.features.length;
-                        
-                        // Update map immediately after each page
-                        source.setData({ type: 'FeatureCollection', features: allFeatures });
+                        if (State.getActiveRequestToken() === requestToken) {
+                            source.setData({ type: 'FeatureCollection', features: allFeatures });
+                        }
                         setProgress(getProgressText(` - ${allFeatures.length} buildings loaded`));
                     }
 
@@ -454,12 +459,14 @@ export async function loadBagDataForMunicipality(map, municipalityFeature) {
                 }
             }
 
-            if (isFetchCancelled) return;
-            
+            if (isFetchCancelled || State.getActiveRequestToken() !== requestToken) return;
+
             // Store in both memory and IndexedDB
             const finalGeoJson = { type: 'FeatureCollection', features: allFeatures };
+            if (State.getActiveRequestToken() !== requestToken) return;
             cachedBagData = finalGeoJson;
-            
+            source.setData(cachedBagData);
+
             updateBagProgress(`Loaded ${allFeatures.length} buildings.`);
             setTimeout(() => updateBagProgress(''), 2000);
 
