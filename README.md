@@ -4,10 +4,6 @@ Open Data Maps (ODM) is a web-based geographic data visualization tool that give
 
 It was designed for easy deployment on what I consider a "classic shared hosting" environment.
 
-## Donate
-ODM was built in my spare time, but you can help
-💸 [fund the development](https://bunq.me/stijndekker) of this project
-
 ## Documentation
 
 📖 **[View Full Documentation](docs/README.md)** - Complete documentation index
